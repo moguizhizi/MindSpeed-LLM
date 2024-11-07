@@ -386,7 +386,7 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <td>【NAIE】</td>
   </tr>
     <tr>
-    <td>多轮对话</td>
+    <td><a href="./docs/features/multi-turn_conversation.md">多轮对话</a></td>
     <td>✅</td>
     <td>✅</td>
     <td>【昇腾】</td>
