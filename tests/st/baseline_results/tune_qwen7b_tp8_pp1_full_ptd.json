@@ -1,4 +1,5 @@
 {
+    "throughput margin": 0.1,
     "lm loss":  [
         2.169331,
         2.016647,

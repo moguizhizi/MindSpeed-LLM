@@ -76,7 +76,6 @@ GPT_ARGS="
     --adam-beta1 0.9 \
     --adam-beta2 0.95 \
     --initial-loss-scale 4096 \
-    --no-gradient-accumulation-fusion \
     --no-load-optim \
     --no-load-rng \
     --bf16

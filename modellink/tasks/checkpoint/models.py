@@ -815,6 +815,9 @@ class MegatronModel(ModelBase):
         if self.md and self.args_cmd.num_layer_list:
             self.args.num_layer_list = self.args_cmd.num_layer_list
 
+        # gradient_accumulation_fusion should be false in ckpt convertion
+        self.args.gradient_accumulation_fusion = False
+
     def set_padded_vocab_size(self, padded_vocab_size):
         self.args.padded_vocab_size = padded_vocab_size
 

@@ -38,9 +38,9 @@
         <td>Y</td>
         <td>Y</td>
     </tr>
-<tr>
+    <tr>
         <td>Mcore</td>
-        <td>recompute_in_advance, pp2vpp</td>
+        <td>pp2vpp，recompute_in_advance，matmul_add</td>
         <td><a href="st/shell_scripts/llama3_tp2_pp2_vpp1.sh">llama3_tp2_pp2_vpp1.sh</a></td>
         <td>Y</td>
         <td>Y</td>
@@ -161,7 +161,7 @@
     <tr>
         <td rowspan="3">FullSFT</td>
         <td>Legacy</td>
-        <td>prompt_type, variable_seq_lengths</td>
+        <td>prompt_type, variable_seq_lengths, matmul_add</td>
         <td><a href="st/shell_scripts/tune_qwen7b_tp8_pp1_full_ptd.sh">tune_qwen7b_tp8_pp1_full_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>

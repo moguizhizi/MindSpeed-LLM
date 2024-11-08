@@ -191,7 +191,7 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <td>【计算研究部】</td>
   </tr>
   <tr>
-    <td rowspan="5">融合算子</td>
+    <td rowspan="6">融合算子</td>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/flash-attention.md">Flash attention</a></td>
     <td>✅</td>
     <td>✅</td>
@@ -217,6 +217,12 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/megatron_moe/megatron-moe-gmm.md">GMM</a></td>
+    <td>✅</td>
+    <td>❌</td>
+    <td>【昇腾】</td>
+  </tr>
+  <tr>
+    <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/npu_matmul_add.md">Matmul Add</a></td>
     <td>✅</td>
     <td>❌</td>
     <td>【昇腾】</td>

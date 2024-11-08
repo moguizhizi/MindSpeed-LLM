@@ -512,12 +512,6 @@ def _add_rl_args(parser):
 
 def _add_training_args(parser):
     group = parser.add_argument_group(title='training')
-    # gradient_accumulation_fusion保持常闭
-    group.add_argument('--no-gradient-accumulation-fusion',
-                       action='store_false', default=False,
-                       help='Disable fusing gradient accumulation to weight '
-                            'gradient computation of linear layers',
-                       dest='gradient_accumulation_fusion')
     # transformer-impl保持local
     group.add_argument('--transformer-impl', default='local',
                        choices=['local', 'transformer_engine'],
@@ -816,6 +810,11 @@ def _validate_output_layer_slice_num(args):
             raise AssertionError('Output_layer_slice_num needs to be divisible by padded_vocab_size.')
         elif (args.vocab_size is not None) and (args.vocab_size % args.output_layer_slice_num != 0):
             raise AssertionError('Output_layer_slice_num needs to be divisible by vocab_size.')
+
+        if args.gradient_accumulation_fusion:
+            args.gradient_accumulation_fusion = False
+            print_rank0_by_args(f"gradient_accumulation_fusion would be set to {args.gradient_accumulation_fusion} "
+                                f"since args.output_layer_slice_num > 1")
 
 
 def core_transformer_config_from_args_wrapper(fn):
