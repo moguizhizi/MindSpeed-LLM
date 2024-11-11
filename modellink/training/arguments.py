@@ -673,10 +673,16 @@ def _validate_recompute_args(args):
 
 
 def _validate_high_availability(args):
+    if args.enable_high_availability:
+        try:
+            import mindio_ttp
+        except ModuleNotFoundError as e:
+            raise AssertionError(f"High availability feature requires the mindio_ttp package but is not installed.") from e
     if args.enable_optimizer_state_local_copy and not args.enable_high_availability:
-        raise AssertionError('switch of the high availability feature is unsupported')
+        raise AssertionError('switch of the local copy is unsupported, please enable high availability feature first.')
     if args.enable_hbmfault_repair and not args.enable_high_availability:
-        raise AssertionError('switch of the high availability feature is unsupported')
+        raise AssertionError(
+            'switch of the enable hbmfault repair is unsupported, please enable high availability feature first.')
     if args.enable_high_availability and args.use_dist_ckpt:
         raise AssertionError('switch of the high availability feature is unsupported')
 
