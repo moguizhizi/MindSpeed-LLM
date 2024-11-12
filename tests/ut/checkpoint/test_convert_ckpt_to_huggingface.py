@@ -13,8 +13,8 @@ from tests.test_tools.utils import judge_expression
 
 class CovertCkptToHuggingfaceArgs:
     model_type = "GPT"
-    loader = "megatron"
-    saver = "megatron"
+    load_model_type = "mg"
+    save_model_type = "mg"
     save_dir = "/data/llama-2-7b-hf"
     lora_dir = "/data/llama2-7B-lora-ckpt"
     load_dir = "/data/llama2-7B-tp8-pp1"
@@ -38,9 +38,8 @@ class TestConvertCkptFromHuggingface:
         file_path = os.path.join(base_dir, "convert_ckpt.py")
         arguments = [
             "--model-type", args.model_type,
-            "--loader", args.loader,
-            "--saver", args.saver,
-            "--save-model-type", "save_huggingface_llama",
+            "--load-model-type", args.load_model_type,
+            "--save-model-type", args.save_model_type,
             "--load-dir", args.load_dir,
             "--lora-load", args.lora_dir,
             "--target-tensor-parallel-size", "1",

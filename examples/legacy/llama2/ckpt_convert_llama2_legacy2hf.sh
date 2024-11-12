@@ -4,9 +4,8 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 #   --num-layers-per-virtual-pipeline-stage 5 \  结合需要使用
 python convert_ckpt.py \
     --model-type GPT \
-    --loader megatron \
-    --saver megatron \
-    --save-model-type save_huggingface_llama \
+    --load-model-type mg \
+    --save-model-type hf \
     --load-dir ./model_weights/llama2-legacy/ \
     --target-tensor-parallel-size 1 \
     --target-pipeline-parallel-size 1 \

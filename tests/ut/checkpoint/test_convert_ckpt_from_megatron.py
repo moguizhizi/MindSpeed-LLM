@@ -11,8 +11,8 @@ from tests.test_tools.utils import judge_expression
 
 class CovertCkptFromMegatronArgs:
     model_type = "GPT"
-    loader = "megatron"
-    saver = "megatron"
+    load_model_type = "mg"
+    save_model_type = "mg"
     target_tensor_parallel_size = "1"
     save_dir = "/data/llama2-7B-tp1-pp1"
     load_dir = "/data/llama2-7B-tp8-pp1"
@@ -27,9 +27,8 @@ class TestConvertCkptFromMegatron:
         file_path = os.path.join(base_dir, "convert_ckpt.py")
         arguments = [
             "--model-type", args.model_type,
-            "--loader", args.loader,
-            "--saver", args.saver,
-            "--save-model-type", "megatron",
+            "--load-model-type", args.load_model_type,
+            "--save-model-type", args.save_model_type,
             "--load-dir", args.load_dir,
             "--target-tensor-parallel-size", "1",
             "--target-pipeline-parallel-size", "1",

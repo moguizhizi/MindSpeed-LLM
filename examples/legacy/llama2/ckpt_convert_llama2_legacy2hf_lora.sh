@@ -3,9 +3,8 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 python convert_ckpt.py \
     --model-type GPT \
-    --loader megatron \
-    --saver megatron \
-    --save-model-type save_huggingface_llama \
+    --load-model-type mg \
+    --save-model-type hf \
     --load-dir ./model_weights/llama-2-7b-hf-v0.1-tp8-pp1/ \
     --lora-load ./ckpt/llama-2-7b-lora \
     --lora-r 8 \

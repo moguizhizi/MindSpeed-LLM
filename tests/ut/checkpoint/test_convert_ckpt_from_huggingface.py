@@ -12,8 +12,8 @@ from tests.test_tools.utils import weight_compare
 
 class CovertCkptFromHuggingfaceArgs:
     model_type = "GPT"
-    loader = "llama2_hf"
-    saver = "megatron"
+    load_model_type = "hf"
+    save_model_type = "mg"
     target_tensor_parallel_size = "8"
     load_dir = "/data/llama-2-7b-hf"
     save_dir = "/data/llama2-7B-tp8-pp1"
@@ -22,8 +22,8 @@ class CovertCkptFromHuggingfaceArgs:
 
 class CovertVppCkptFromHuggingfaceArgs:
     model_type = "GPT"
-    loader = "llama2_hf"
-    saver = "megatron"
+    load_model_type = "hf"
+    save_model_type = "mg"
     target_tensor_parallel_size = "2"
     target_pipeline_parallel_size = "4"
     load_dir = "/data/llama-2-7b-hf"
@@ -34,8 +34,8 @@ class CovertVppCkptFromHuggingfaceArgs:
 
 class CovertDynamicCkptFromHuggingfaceArgs:
     model_type = "GPT"
-    loader = "llama2_hf"
-    saver = "megatron"
+    load_model_type = "hf"
+    save_model_type = "mg"
     target_tensor_parallel_size = "2"
     target_pipeline_parallel_size = "4"
     load_dir = "/data/llama-2-7b-hf/"
@@ -222,13 +222,14 @@ class TestConvertCkptFromHuggingface:
         file_path = os.path.join(base_dir, "convert_ckpt.py")
         arguments = [
             "--model-type", args.model_type,
-            "--loader", args.loader,
+            "--load-model-type", args.load_model_type,
+            "--save-model-type", args.save_model_type,
             "--num-layer-list", args.num_layer_list,
-            "--saver", args.saver,
             "--target-tensor-parallel-size", args.target_tensor_parallel_size,
             "--target-pipeline-parallel-size", args.target_pipeline_parallel_size,
             "--load-dir", args.load_dir,
             "--save-dir", args.save_dir,
+            "--model-type-hf", "llama2",
             "--tokenizer-model", args.tokenizer_model
         ]
         exit_code = subprocess.run(["python", file_path] + arguments).returncode
@@ -294,11 +295,12 @@ class TestConvertCkptFromHuggingface:
         file_path = os.path.join(base_dir, "convert_ckpt.py")
         arguments = [
             "--model-type", args.model_type,
-            "--loader", args.loader,
-            "--saver", args.saver,
+            "--load-model-type", args.load_model_type,
+            "--save-model-type", args.save_model_type,
             "--target-tensor-parallel-size", args.target_tensor_parallel_size,
             "--load-dir", args.load_dir,
             "--save-dir", args.save_dir,
+            "--model-type-hf", "llama2",
             "--tokenizer-model", args.tokenizer_model
         ]
         subprocess.run(["python", file_path] + arguments)
@@ -333,13 +335,14 @@ class TestConvertCkptFromHuggingface:
         file_path = os.path.join(base_dir, "convert_ckpt.py")
         arguments = [
             "--model-type", args.model_type,
-            "--loader", args.loader,
-            "--saver", args.saver,
+            "--load-model-type", args.load_model_type,
+            "--save-model-type", args.save_model_type,
             "--target-tensor-parallel-size", args.target_tensor_parallel_size,
             "--target-pipeline-parallel-size", args.target_pipeline_parallel_size,
             "--load-dir", args.load_dir,
             "--save-dir", args.save_dir,
             "--tokenizer-model", args.tokenizer_model,
+            "--model-type-hf", "llama2",
             "--num-layers-per-virtual-pipeline-stage", args.num_layers_per_virtual_pipeline_stage
         ]
         subprocess.run(["python", file_path] + arguments)
