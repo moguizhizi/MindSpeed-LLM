@@ -43,7 +43,6 @@ MOE_ARGS=(
     --moe-pad-expert-input-to-capacity
     --moe-token-drop-policy probs
     --moe-token-dispatcher-type alltoall
-    --use-fused-moe-token-permute-and-unpermute
 )
 
 ACCELERATE_ARGS=(

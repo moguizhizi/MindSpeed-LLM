@@ -39,6 +39,7 @@ MOE_ARGS="
     --moe-aux-loss-coeff 0.02 \
     --moe-permutation-async-comm \
     --moe-token-dispatcher-type alltoall \
+    --use-fused-moe-token-permute-and-unpermute
 "
 
 GPT_ARGS="
@@ -133,4 +134,4 @@ torchrun ${DISTRIBUTED_ARGS[@]} $basepath/posttrain_gpt.py \
   ${OUTPUT_ARGS[@]} \
   ${FINETUNE_ARGS[@]} \
   --log-throughput \
-  --distributed-backend nccl \
+  --distributed-backend nccl

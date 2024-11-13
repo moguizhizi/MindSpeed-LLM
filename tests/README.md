@@ -112,7 +112,7 @@
     </tr>
     <tr>
         <td>Mcore</td>
-        <td>MOE,PP,EP,Drop,DPP,use_fused_moe_token_permute_and_unpermute</td>
+        <td>MOE,PP,EP,Drop,DPP</td>
         <td><a href="st/shell_scripts/mixtral_tp1_pp4_ep2_drop_dpp.sh">mixtral_tp1_pp4_ep2_drop_dpp.sh</a></td>
         <td>Y</td>
         <td>Y</td>
@@ -152,7 +152,7 @@
     </tr>
     <tr>
         <td>Mcore</td>
-        <td>CCLoRA, TP, PP, MOE</td>
+        <td>CCLoRA, TP, PP, MOE, use_fused_moe_token_permute_and_unpermute</td>
         <td><a href="st/shell_scripts/tune_mixtral_tp2_pp2_lora_ptd.sh">tune_mixtral_tp2_pp2_lora_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
