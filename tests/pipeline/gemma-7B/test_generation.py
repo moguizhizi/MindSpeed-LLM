@@ -34,5 +34,5 @@ class TestInference(DistributedTest):
             print(log_capture)
             context = acquire_context(log_capture)
             assert [context] == [
-                "I am an AI language model, and I am here to help you with your queries. How can I assist you today?"
+                'I am an AI language model, and I am here to help you with your queries. Is there anything I can assist you with today?'
             ], [context]

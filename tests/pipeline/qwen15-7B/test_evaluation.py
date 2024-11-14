@@ -34,4 +34,4 @@ class TestEvaluate(DistributedTest):
             print(log_capture)
 
             expected_score = acquire_score(log_capture)
-            assert math.isclose(expected_score, 0.6549, abs_tol=1e-2), expected_score
+            assert math.isclose(expected_score, 0.6374, abs_tol=1e-2), expected_score

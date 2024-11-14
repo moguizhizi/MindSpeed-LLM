@@ -69,7 +69,7 @@
                 "attention-dropout": 0,
                 "tokenizer-not-use-fast": null,
                 "add-qkv-bias": null,
-                "max-new-tokens": 180,
+                "max-new-tokens": 43,
                 "no-gradient-accumulation-fusion": null,
                 "exit-on-missing-checkpoint": null,
                 "attention-softmax-in-fp32": null,

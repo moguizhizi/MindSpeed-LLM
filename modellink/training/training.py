@@ -294,6 +294,9 @@ def pretrain(train_valid_test_dataset_provider,
     args = get_args()
     timers = get_timers()
 
+    if args.enable_high_availability:
+        raise AssertionError("High availability feature do not support core_r0.7.0")
+
     if args.log_progress:
         append_to_progress_log("Starting job")
 

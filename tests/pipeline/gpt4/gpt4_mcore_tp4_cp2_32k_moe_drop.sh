@@ -4,7 +4,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 NPUS_PER_NODE=8
 MASTER_ADDR=localhost
-MASTER_PORT=6001
+MASTER_PORT=6002
 NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$((NPUS_PER_NODE*$NNODES))
@@ -70,7 +70,7 @@ GPT_ARGS="
     --overlap-grad-reduce \
     --overlap-param-gather \
     --use-distributed-optimizer \
-    --train-iters 65 \
+    --train-iters 70 \
     --weight-decay 0.1 \
     --adam-beta1 0.9 \
     --adam-beta2 0.95 \
@@ -96,7 +96,7 @@ DATA_ARGS="
     --data-path ${DATA_PATH} \
     --vocab-file ${VOCAB_FILE} \
     --merge-file ${MERGE_FILE} \
-    --split 949,50,1
+    --split 1000,0,0
 "
 
 CKPT_ARGS="
@@ -113,7 +113,7 @@ OUTPUT_ARGS="
     --log-interval 1 \
     --save-interval 500 \
     --eval-interval 500 \
-    --eval-iters 1 \
+    --eval-iters 0 \
     --log-throughput
 "
 

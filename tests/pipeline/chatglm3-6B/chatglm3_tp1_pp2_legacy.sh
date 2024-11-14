@@ -10,9 +10,9 @@ WORLD_SIZE=$((NPUS_PER_NODE*$NNODES))
 
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
-DATA_PATH=/data/chatglm3-dataset-alpaca/alpaca_text_document
-TOKENIZER_PATH=/data/chatglm3-6b-base-hf/
-CKPT_LOAD_DIR=/data/pipe/chatglm3-6b-base-mg-tp1pp2-legacy-base/
+DATA_PATH="/data/chatglm3-dataset-alpaca/alpaca_text_document"
+TOKENIZER_PATH="/data/chatglm3-6b-base-hf/"
+CKPT_LOAD_DIR="/data/pipe/chatglm3-6b-base-mg-tp1pp2-legacy-base/"
 
 TP=1
 PP=2
@@ -33,10 +33,10 @@ GPT_ARGS="
     --hidden-size 4096 \
     --ffn-hidden-size 13696 \
     --num-attention-heads 32 \
-    --seq-length 8192 \
+    --seq-length 4096 \
     --micro-batch-size 1 \
     --global-batch-size 128 \
-    --max-position-embeddings 8192 \
+    --max-position-embeddings 4096 \
     --padded-vocab-size 65024 \
     --make-vocab-size-divisible-by 1 \
     --group-query-attention \

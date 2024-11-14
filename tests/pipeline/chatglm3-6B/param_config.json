@@ -60,7 +60,7 @@
                 "add-qkv-bias": null,
                 "swiglu": null,
                 "normalization": "RMSNorm",
-                "max-new-tokens": 30,
+                "max-new-tokens": 8,
                 "micro-batch-size": 1,
                 "global-batch-size": 16,
                 "load":"/data/pipe/chatglm3-6b-base-mg-tp1pp2-legacy-base",

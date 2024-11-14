@@ -5,7 +5,7 @@ BASELINE_DIR="$BASE_DIR/baseline"
 #mkdir cache to store product and will be removed after test
 mkdir -p "$BASE_DIR/pipe_cache"
 touch "$BASE_DIR/exec_results.log"
-echo "Execution Results" > $BASE_DIR/exec_results.log
+echo "core0.7.0 Execution Results" > $BASE_DIR/exec_results.log
 
 GENERATE_LOG_DIR="$BASE_DIR/pipe_cache"
 GENERATE_JSON_DIR="$BASE_DIR/pipe_cache"

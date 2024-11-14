@@ -13,8 +13,8 @@
         <th>Mem.</th>
     </tr>
     <tr>
-        <td rowspan="22">ST</td>
-        <td rowspan="15">Pretrain</td>
+        <td rowspan="20">ST</td>
+        <td rowspan="13">Pretrain</td>
         <td>Mcore</td>
         <td>TP，PP，VPP，重计算，enable_recompute_layers_per_pp_rank，FA_TND</td>
         <td><a href="st/shell_scripts/llama2_tp2_pp4_vpp2_ptd.sh">llama2_tp2_pp4_vpp2.sh</a></td>
@@ -74,22 +74,6 @@
         <td>Mcore</td>
         <td>EP，CP，num_experts，moe_router_topk，aux_loss，moe_allgather，group_query_attention，rotary_base</td>
         <td><a href="st/shell_scripts/mixtral_mcore_tp4_cp2_ep2_ptd.sh">mixtral_mcore_tp4_cp2_ep2_ptd.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td>Mcore</td>
-        <td>moe_expert_capacity_factor，moe_alltoall，pad_to_capacity, topk_softmax_with_capacity</td>
-        <td><a href="st/shell_scripts/gpt4_mcore_tp4_cp2_32k_moe_drop.sh">gpt4_mcore_tp4_cp2_32k_moe_drop.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td>Mcore</td>
-        <td>enable_high_availability</td>
-        <td><a href="st/shell_scripts/llama2_tp2_pp1_ha_save_ptd.sh">llama2_tp2_pp1_ha_save_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
@@ -337,7 +321,7 @@
         <th>Memory</th>
     </tr>
     <tr>
-        <td rowspan="5"><a href="pipeline/baichuan2-13B">Baichuan2-13B</a></td>
+        <td rowspan="6"><a href="pipeline/baichuan2-13B">Baichuan2-13B</a></td>
         <td rowspan="5">Legacy</td>
         <td>pretrain</td>
         <td><a href="pipeline/baichuan2-13B/baichuan2_13B_tp8_pp1_ptd.sh">baichuan2_13B_legacy_tp8_pp1_ptd.sh</a></td>
@@ -372,6 +356,14 @@
         <td>Y</td>
         <td></td>
         <td></td>
+    </tr>
+    <tr>
+        <td rowspan="1">Mcore</td>
+        <td>pretrain</td>
+        <td><a href="pipeline/baichuan2-13B/baichuan2_13b_tp8_pp1_mcore.sh">baichuan2_13b_tp8_pp1_mcore.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
     </tr>
     <tr>
         <td rowspan="4"><a href="pipeline/chatglm3-6B">Chatglm3-6B</a></td>
@@ -434,7 +426,7 @@
         <td></td>
     </tr>
     <tr>
-        <td rowspan="4"><a href="pipeline/gemma-7B">Gemma-7B</a></td>
+        <td rowspan="5"><a href="pipeline/gemma-7B">Gemma-7B</a></td>
         <td rowspan="4">Legacy</td>
         <td>pretrain</td>
         <td><a href="pipeline/gemma-7B/gemma_7B_legacy_tp8_pp1_ptd.sh">gemma_7B_legacy_tp8_pp1_ptd.sh</a></td>
@@ -462,6 +454,14 @@
         <td>Y</td>
         <td></td>
         <td></td>
+    </tr>
+    <tr>
+        <td rowspan="1">Mcore</td>
+        <td>pretrain</td>
+        <td><a href="pipeline/gemma-7B/gemma2_tp8_pp1_mcore.sh">gemma2_tp8_pp1_mcore.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
     </tr>
     <tr>
         <td rowspan="4"><a href="pipeline/qwen15-7B">Qwen15-7B</a></td>
@@ -492,6 +492,33 @@
         <td>Y</td>
         <td></td>
         <td></td>
+    </tr>
+    <tr>
+        <td rowspan="1"><a href="pipeline/gpt4">GPT4</a></td>
+        <td rowspan="1">Mcore</td>
+        <td>pretrain</td>
+        <td><a href="pipeline/gpt4/gpt4_mcore_tp4_cp2_32k_moe_drop.sh">gpt4_mcore_tp4_cp2_32k_moe_drop.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td rowspan="1"><a href="pipeline/deepseek">Deepseek</a></td>
+        <td rowspan="1">Mcore</td>
+        <td>pretrain</td>
+        <td><a href="pipeline/deepseek/deepseek2_tp1_pp1_mcore_moe.sh">deepseek2_tp1_pp1_mcore_moe.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td rowspan="1"><a href="pipeline/mixtral">Mixtral</a></td>
+        <td rowspan="1">Mcore</td>
+        <td>pretrain</td>
+        <td><a href="pipeline/mixtral/mixtral_tp1_pp4_ep2_drop_mcore.sh">mixtral_tp1_pp4_ep2_drop_mcore.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
     </tr>
 </table>
 
