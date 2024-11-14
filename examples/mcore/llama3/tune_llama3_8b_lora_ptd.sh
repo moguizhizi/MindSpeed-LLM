@@ -27,6 +27,7 @@ DISTRIBUTED_ARGS="
 "
 
 GPT_ARGS="
+    --stage sft \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --use-mcore-models \
@@ -107,7 +108,7 @@ OUTPUT_ARGS="
     --save ${CKPT_SAVE_DIR} \
 "
 
-torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
+torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $FINETUNE_ARGS \

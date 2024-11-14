@@ -28,6 +28,7 @@ DISTRIBUTED_ARGS="
 "
 
 GPT_ARGS="
+    --stage sft \
     --use-mcore-models \
     --finetune \
     --is-instruction-dataset \
@@ -91,7 +92,7 @@ OUTPUT_ARGS="
     --eval-iters 100
 "
 
-torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
+torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $OUTPUT_ARGS \
