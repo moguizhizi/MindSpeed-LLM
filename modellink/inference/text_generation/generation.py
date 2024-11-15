@@ -181,10 +181,12 @@ def generate_tokens_probs_and_return_on_first_stage(
                 is_generation_done = is_generation_done | done_token
                 done = torch.all(is_generation_done)
 
-            if return_output_log_probs:
-                yield tokens[:, :(context_length + 1)], lengths, output_log_probs[:, :context_length]
-            else:
-                yield tokens[:, :(context_length + 1)], lengths, output_log_probs
+            if output_log_probs is None:
+                output_log_probs = torch.empty(output_log_probs_size,
+                                        dtype=torch.float32,
+                                        device=torch.cuda.current_device())
+
+            yield tokens[:, :(context_length + 1)], lengths, output_log_probs
 
             done = broadcast_from_last_pipeline_stage(1, torch.uint8,
                                                       tensor=done)

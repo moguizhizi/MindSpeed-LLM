@@ -494,7 +494,7 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     </tr>  
     <tr>
       <td rowspan="2">分布式推理</td>
-      <td>流式推理</td>
+      <td><a href="./docs/features/inference.md">流式推理</td>
       <td>✅</td>
       <td>✅</td>
       <td>【NAIE】</td>
