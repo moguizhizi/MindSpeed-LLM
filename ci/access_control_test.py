@@ -8,7 +8,7 @@ def read_files_from_txt(txt_file):
 
 
 def is_examples(file):
-    return file.startswith("examples/")
+    return file.startswith("examples/") or file.startswith("tests/poc/")
 
 
 def is_pipecase(file):
