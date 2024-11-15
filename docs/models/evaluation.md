@@ -46,5 +46,7 @@ MindSpeed-LLM 已支持的大模型评估数据统计如下：
 | QWen2.5-3B           | MMLU   | 65.6%     | [65.6%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-7B       | MMLU   | 73.8%     | [74.2%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                | 
 | QWen2.5-14B          | MMLU   | 79.4%     | [79.7%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | InternLM2.5-1.8b | MMLU   | 51.3%     | [53.5%](https://huggingface.co/internlm/internlm2_5-1_8b)                          |
 | InternLM2.5-7B       | MMLU   | 69.7%     | [71.6%](https://huggingface.co/internlm/internlm2_5-7b)               | InternLM2.5-20b  | MMLU   | 73.3%     | [74.2%](https://huggingface.co/internlm/internlm2_5-20b)                           |
+| Yi1.5-6B             | MMLU   | 63.2%     | [63.5%](https://huggingface.co/01-ai/Yi-1.5-6B/tree/main)             | Yi1.5-9B         | MMLU   | 69.2%     | [69.5%](https://huggingface.co/01-ai/Yi-1.5-9B/tree/main)                          |
+| Yi1.5-34B            | MMLU   | 76.9%     | [77.1%](https://huggingface.co/01-ai/Yi-1.5-34B/tree/main)            |
 
 具体的权重转换功能命令介绍见 [MindSpeed-LLM 大模型使用指南分布式评估](../USER_GUIDE.md/#大模型分布式评估)章节.

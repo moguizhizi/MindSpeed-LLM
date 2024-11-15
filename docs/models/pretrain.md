@@ -523,6 +523,31 @@
       <td>【Test】</td>
     </tr>
     <tr>
+      <td rowspan="3"><a href="https://huggingface.co/01-ai">Yi1.5</a></td>
+      <td><a href="https://huggingface.co/01-ai/Yi-1.5-6B/tree/main">6B</a></td>
+      <td> 4K</td>
+      <th>Mcore</th>
+      <td>1x8</td>
+      <td>【GTS】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
+      <td><a href="https://huggingface.co/01-ai/Yi-1.5-9B/tree/main">9B</a></td>
+      <td> 4K</td>
+      <th>Mcore</th>
+      <td>1x8</td>
+      <td>【GTS】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
+      <td><a href="https://huggingface.co/01-ai/Yi-1.5-34B/tree/main">34B</a></td>
+      <td> 4K</td>
+      <th>Mcore</th>
+      <td>2x8</td>
+      <td>【GTS】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
       <td rowspan="3"><a href="https://huggingface.co/mistralai">Mixtral</a></td>
       <td><a href="https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/tree/main">8x7B</a></td>
       <td> 32K</td>
