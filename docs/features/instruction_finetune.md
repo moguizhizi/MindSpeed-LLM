@@ -153,6 +153,17 @@ CKPT_LOAD_DIR="./model_weights/llama-2-7b-legacy/"
 ```bash
 bash examples/legacy/llama2/tune_llama2_7b_full_ptd.sh
 ```
+### 指令微调序列场景说明
+根据序列类型的不同，我们需要选择对应的微调脚本和不同的数据预处理方式，这里以llama2的指令微调举例：
+
+| 序列长度   | 特点                             | 训练脚本 | 数据预处理方式   |
+|--------|--------------------------------|----|---------------------------------------------------------|
+| 动态长度序列 | sample吞吐高  |   训练脚本需要使用`--variable-seq-lengths`参数   | 使用默认预处理脚本，如`data_convert_llama2_instruction.sh`         |
+| 样本拼接序列 | token吞吐高，支持长序列并行 |   训练脚本文件命名上会有`pack`标识   | 使用带pack标识的预处理脚本，如`data_convert_llama2_pretrain_pack.sh` |
+| 固定长度序列 | 性能低，不推荐使用 |  训练脚本文件命名上会有`pad`标识    | 使用默认预处理脚本，如`data_convert_llama2_instruction.sh`         |
+
+
+您可以根据自己的使用场景，灵活选择对应类型的指令微调训练脚本和数据预处理脚本。
 
 ## 参考文献
 
