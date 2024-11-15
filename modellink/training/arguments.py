@@ -458,7 +458,7 @@ def _add_network_args(parser):
     group.add_argument(
         '--stage',
         default=None,
-        choices=["sft", "dpo", "rm"],
+        choices=["sft", "dpo", "rm", "simpo"],
         help='Determine training mode'
     )
 
@@ -473,15 +473,33 @@ def _add_rl_args(parser):
         help='The beta parameter for the DPO loss.'
     )
     group.add_argument(
+        '--simpo-beta',
+        default=2.5,
+        type=float,
+        help='The beta parameter for the SimPO loss.'
+    )
+    group.add_argument(
+        '--gamma-beta-ratio',
+        default=1.4,
+        type=float,
+        help='The beta parameter for the SimPO loss.'
+    )
+    group.add_argument(
         '--dpo-loss-type',
         default="sigmoid",
         choices=["sigmoid", "hinge", "ipo"],
         help='The type of DPO loss to use.'
     )
     group.add_argument(
-        '--dpo-label-smoothing',
+        '--simpo-loss-type',
+        default="sigmoid",
+        choices=["sigmoid", "hinge", "ipo"],
+        help='The type of SimPO loss to use.'
+    )
+    group.add_argument(
+        '--simpo-label-smoothing',
         default=0.0,
-        help='The robust DPO label smoothing parameter in cDPO that should be between 0 and 0.5.'
+        help='The robust SimPO label smoothing parameter.'
     )
     group.add_argument(
         '--dpo-ftx',

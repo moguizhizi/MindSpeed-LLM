@@ -4,6 +4,7 @@ from megatron.training.initialize import initialize_megatron
 from modellink.tasks.post_train.sft import SFTTrainer
 from modellink.tasks.post_train.dpo import DPOTrainer
 from modellink.tasks.post_train.rm import RMTrainer
+from modellink.tasks.post_train.dpo import SimPOTrainer
 
 
 def get_trainer(stage):
@@ -19,6 +20,8 @@ def get_trainer(stage):
         return DPOTrainer()
     elif stage == "rm":
         return RMTrainer()
+    elif stage == "simpo":
+        return SimPOTrainer()
 
 
 class AutoTrainer:
