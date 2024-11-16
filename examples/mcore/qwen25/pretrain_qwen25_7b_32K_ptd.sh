@@ -12,13 +12,14 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 CKPT_LOAD_DIR="your model ckpt path"
 CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
-TOKENIZER_MODEL="your tokenizer path"
+TOKENIZER_PATH="your tokenizer path"
 
 
 TP=4
 PP=2
 SEQ_LEN=32768
-
+MBS=1
+GBS=64
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -54,8 +55,8 @@ GPT_ARGS="
     --rotary-base 1000000 \
     --use-fused-rotary-pos-emb \
     --untie-embeddings-and-output-weights \
-    --micro-batch-size 1 \
-    --global-batch-size 16 \
+    --micro-batch-size ${MBS} \
+    --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
     --padded-vocab-size 152064 \
     --tokenizer-type PretrainedFromHF \

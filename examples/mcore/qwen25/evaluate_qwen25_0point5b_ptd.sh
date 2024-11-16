@@ -3,7 +3,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 # Change for multinode config
 MASTER_ADDR=localhost
-MASTER_PORT=6013
+MASTER_PORT=6012
 NNODES=1
 NODE_RANK=0
 NPUS_PER_NODE=1
@@ -17,7 +17,7 @@ TASK="mmlu"
 
 TP=1
 PP=1
-MBS=2
+MBS=1
 SEQ_LEN=32768
 
 DISTRIBUTED_ARGS="
@@ -31,11 +31,11 @@ DISTRIBUTED_ARGS="
 # Different task needs different max_new_tokens value, please follow the instruction in readme.
 torchrun $DISTRIBUTED_ARGS evaluation.py \
        --use-mcore-models \
-       --task-data-path $DATA_PATH \
+       --task-data-path ${DATA_PATH} \
        --task ${TASK} \
        --tensor-model-parallel-size ${TP} \
        --pipeline-model-parallel-size ${PP} \
-       --micro-batch-size ${MBS}  \
+       --micro-batch-size ${MBS} \
        --seq-length ${SEQ_LEN} \
        --max-position-embeddings ${SEQ_LEN} \
        --tokenizer-type PretrainedFromHF  \
@@ -43,20 +43,20 @@ torchrun $DISTRIBUTED_ARGS evaluation.py \
        --max-new-tokens 1 \
        --make-vocab-size-divisible-by 1 \
        --padded-vocab-size 151936 \
-       --rotary-base 1000000 \
-       --num-layers 28  \
-       --hidden-size 1536  \
-       --ffn-hidden-size 8960 \
-       --num-attention-heads 12 \
+       --num-layers 24  \
+       --hidden-size 896  \
+       --ffn-hidden-size 4864 \
+       --num-attention-heads 14  \
        --group-query-attention \
        --num-query-groups 2 \
        --add-qkv-bias \
        --disable-bias-linear \
        --swiglu \
+       --rotary-base 1000000 \
        --position-embedding-type rope \
-       --load $CHECKPOINT \
+       --load ${CHECKPOINT} \
        --normalization RMSNorm \
-       --norm-epsilon 1e-06 \
+       --norm-epsilon 1e-6 \
        --tokenizer-not-use-fast \
        --exit-on-missing-checkpoint \
        --no-load-rng \
@@ -66,4 +66,4 @@ torchrun $DISTRIBUTED_ARGS evaluation.py \
        --seed 42 \
        --bf16 \
        --no-chat-template \
-       | tee logs/eval_mcore_qwen2_1point5b_${TASK}.log
+      | tee logs/eval_mcore_qwen25_0point5b_${TASK}.log

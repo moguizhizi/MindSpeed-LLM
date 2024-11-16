@@ -15,7 +15,7 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 TP=1
 PP=1
-MBS=2
+MBS=1
 SEQ_LEN=32768
 
 DISTRIBUTED_ARGS="
@@ -60,4 +60,4 @@ torchrun $DISTRIBUTED_ARGS inference.py \
        --attention-softmax-in-fp32 \
        --seed 42 \
        --bf16 \
-       | tee logs/generate_mcore_qwen2_0point5b.log
+       | tee logs/generate_mcore_qwen25_0point5b.log

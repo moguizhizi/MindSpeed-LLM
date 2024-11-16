@@ -18,7 +18,7 @@ TASK="mmlu"
 TP=1
 PP=1
 MBS=2
-SEQ_LEN=4096
+SEQ_LEN=32768
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
