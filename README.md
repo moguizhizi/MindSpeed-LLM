@@ -134,7 +134,7 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <td>【昇腾】</td>
   </tr>
   <tr>
-    <td rowspan="3">长序列并行</td>
+    <td rowspan="4">长序列并行</td>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/ring-attention-context-parallel.md">Ascend Ring Attention 长序列并行</a></td>
     <td>✅</td>
     <td>❌</td>
@@ -151,6 +151,12 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <td>✅</td>
     <td>❌</td>
     <td>【昇腾】</td>
+  </tr>
+  <tr>
+    <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/adaptive-cp.md">自适应长序列并行</a></td>
+    <td>✅</td>
+    <td>❌</td>
+    <td>【计算研究部】</td>
   </tr>
   <tr>
     <td rowspan="2">MOE</td>
@@ -191,10 +197,16 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <td>【计算研究部】</td>
   </tr>
   <tr>
-    <td rowspan="6">融合算子</td>
+    <td rowspan="7">融合算子</td>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/flash-attention.md">Flash attention</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>【昇腾】</td>
+  </tr>
+  <tr>
+    <td><a href="./docs/features/variable_length_flash_attention.md">Flash attention variable length</a></td>
+    <td>✅</td>
+    <td>❌</td>
     <td>【昇腾】</td>
   </tr>
   <tr>
@@ -398,7 +410,7 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <td>【昇腾】</td>
   </tr>
   <tr>
-    <td>长序列方案</td>
+    <td><a href="./docs/features/fine-tuning-with-context-parallel.md">长序列方案</a></td>
     <td>✅</td>
     <td>✅</td>
     <td>【NAIE】</td>

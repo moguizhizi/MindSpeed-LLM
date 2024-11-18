@@ -38,7 +38,6 @@ DIST_ALGO=(
     --context-parallel-algo adaptive_cp_algo
     --cp-attention-mask-type general
     --adaptive-cp-manually-set-mask-list
-    --cp-attention-mask-type general
     --adaptive-cp-dynamic-attn-mask
     --adaptive-cp-only-reschedule
     --sequence-parallel

@@ -166,6 +166,7 @@ def _validate_varlen_fa_args(args):
     # varlen FA layout must be TND
     if args.reset_position_ids:
         args.shape_order = 'TND'
+        print_rank0_by_args(args, f"When reset_position_ids is enabled, shape_order should be TND.")
 
 
 def _validate_cp_args(args):
@@ -234,7 +235,6 @@ def _validate_cp_args(args):
 
     if args.context_parallel_size > 1 and args.context_parallel_algo == 'adaptive_cp_algo':
         assert args.seq_length % args.context_parallel_size == 0, f"sequence length must be divisible by context_parallel_size"
-        args.use_flash_attn = True
         if args.cp_attention_mask_type == 'general':
             assert args.micro_batch_size == 1, f'When cp_attention_mask_type is set to general, the value of mbs can only be 1.'
 
@@ -245,7 +245,6 @@ def _validate_cp_args(args):
         head, remainder = divmod(args.num_attention_heads, args.ulysses_degree_in_cp * args.tensor_model_parallel_size)
         assert head >= 1 and remainder == 0, f"num_attention_heads must be divisible by ulysse-degree-in-cp * tensor_model_parallel_size in hybrid cp"
         assert args.seq_length % args.context_parallel_size == 0, f"sequence length must be divisible by context_parallel_size in hybrid cp"
-        args.use_flash_attn = True
         if args.cp_attention_mask_type == 'general':
             assert args.micro_batch_size == 1, f'When cp_attention_mask_type is set to general, the value of mbs can only be 1.'
 
