@@ -1,32 +1,38 @@
 #!/bin/bash
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
-GPUS_PER_NODE=8
+NPUS_PER_NODE=8
 MASTER_ADDR=localhost
 MASTER_PORT=6000
 NNODES=1
 NODE_RANK=0
-WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
+WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
 TOKENIZER_MODEL="your tokenizer path"
-CKPT_LOAD_DIR="your model ckpt path"
-TP=1
-PP=2
+CKPT_LOAD_DIR="your model load ckpt path"
+
+TP=8
+PP=1
 
 DISTRIBUTED_ARGS="
-    --nproc_per_node $GPUS_PER_NODE \
+    --nproc_per_node $NPUS_PER_NODE \
     --nnodes $NNODES \
     --node_rank $NODE_RANK \
     --master_addr $MASTER_ADDR \
     --master_port $MASTER_PORT
 "
 
+# To enable reset-position-ids, please use data_convert_qwen_instruction_pack.sh to convert dataset.
+ACCELERATE_ARGS="
+    --reset-position-ids \
+    --overlap-grad-reduce \
+    --use-mc2 \
+"
+
 GPT_ARGS="
-    --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \
@@ -34,15 +40,16 @@ GPT_ARGS="
     --hidden-size 4096 \
     --ffn-hidden-size 11008 \
     --num-attention-heads 32 \
-    --tokenizer-type Llama2Tokenizer \
-    --tokenizer-model ${TOKENIZER_MODEL} \
-    --seq-length 4096 \
-    --max-position-embeddings 4096 \
-    --micro-batch-size 1 \
-    --global-batch-size 128 \
-    --make-vocab-size-divisible-by 1 \
+    --tokenizer-type PretrainedFromHF \
+    --load ${CKPT_LOAD_DIR} \
+    --tokenizer-name-or-path ${TOKENIZER_MODEL} \
+    --seq-length 8192 \
+    --max-position-embeddings 32768 \
+    --micro-batch-size 2 \
+    --global-batch-size 64 \
+    --make-vocab-size-divisible-by 16 \
     --lr 1.25e-6 \
-    --train-iters 5000 \
+    --train-iters 1000 \
     --lr-decay-style cosine \
     --untie-embeddings-and-output-weights \
     --disable-bias-linear \
@@ -54,8 +61,6 @@ GPT_ARGS="
     --use-fused-rmsnorm \
     --swiglu \
     --use-flash-attn \
-    --use-mc2 \
-    --reset-position-ids \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
     --min-lr 1.25e-7 \
@@ -63,34 +68,34 @@ GPT_ARGS="
     --lr-warmup-fraction 0.01 \
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
-    --initial-loss-scale 65536 \
     --adam-beta2 0.95 \
+    --add-qkv-bias \
+    --initial-loss-scale 4096 \
+    --no-gradient-accumulation-fusion \
     --no-load-optim \
     --no-load-rng \
-    --use-distributed-optimizer \
-    --use-fused-swiglu \
-    --use-fused-rotary-pos-emb \
-    --overlap-grad-reduce \
     --bf16
 "
 
 DATA_ARGS="
     --data-path $DATA_PATH \
-    --split 949,50,1
+    --split 100,0,0
 "
 
 OUTPUT_ARGS="
     --log-interval 1 \
     --save-interval 10000 \
-    --eval-interval 1000 \
-    --eval-iters 10 \
+    --eval-interval 10000 \
+    --eval-iters 0 \
 "
 
 torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $OUTPUT_ARGS \
+    $ACCELERATE_ARGS \
+    --tokenizer-kwargs 'eos_token' '<|endoftext|>' 'pad_token' '<|extra_0|>' \
     --distributed-backend nccl \
-    --load $CKPT_LOAD_DIR \
-    --save $CKPT_SAVE_DIR \
-    | tee logs/train_llama2_7b.log
+    --jit-compile \
+    --save ${CKPT_SAVE_DIR} \
+    | tee logs/train_qwen_7b.log
