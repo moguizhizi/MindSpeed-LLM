@@ -14,9 +14,14 @@
 # limitations under the License.
 
 import os
-from functools import wraps
 import argparse
+from pathlib import Path
+from functools import wraps
 from modellink.training.utils import print_rank0_by_args
+
+cur_file_dir = Path(__file__).absolute().parent
+
+TEMPLATES_DIR = os.path.join(cur_file_dir.parent.parent, "configs/finetune/templates.json")
 
 
 def extra_args_provider_decorator(extra_args_provider):
@@ -559,6 +564,8 @@ def _add_training_args(parser):
                                 'chatml_de', 'qwen', 'llama3', 'llama2', 'mistral', 'mixtral', 'gemma', 'alpaca',
                                 'deepseek2', 'deepseek2-lite', 'cpm', 'baichuan2'],
                        help='Which template to use for constructing prompts in training/inference.'  'e.g., "qwen"')
+    group.add_argument('--prompt-type-path', type=str, default=TEMPLATES_DIR,
+                       help='Path to the json file of templates.')
     group.add_argument('--pad-to-multiple-of', type=int, default=8,
                        help='Used for Padding multiple in finetune. The default is 8.')
     group.add_argument('--scale-emb', type=float, default=None,

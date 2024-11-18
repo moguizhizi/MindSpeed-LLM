@@ -22,6 +22,7 @@ import os
 import sys
 import copy
 import logging
+from pathlib import Path
 
 try:
     import nltk
@@ -44,6 +45,11 @@ from megatron.core.datasets.indexed_dataset import (
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+cur_file_dir = Path(__file__).absolute().parent
+
+TEMPLATES_DIR = os.path.join(cur_file_dir, "configs/finetune/templates.json")
 
 
 class CustomLanguageVars(nltk.tokenize.punkt.PunktLanguageVars if nltk else object):
@@ -110,6 +116,8 @@ def add_data_args(parser):
                                 'deepseek2', 'deepseek2-lite', 'cpm', 'baichuan2'],
                        help='Which template to use for constructing prompts in training.'
                             'e.g., "qwen"')
+    group.add_argument('--prompt-type-path', type=str, default=TEMPLATES_DIR,
+                       help='Path to the json file of templates.')
     group.add_argument("--interleave-probs", default=None,
                        help='Probabilities to sample data from datasets. Use commas to separate multiple datasets. '
                             'probabilities should sum to 1. ex: "0.1, 0.2, 0.3, 0.4"')

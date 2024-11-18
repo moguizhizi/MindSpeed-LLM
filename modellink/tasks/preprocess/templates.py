@@ -13,7 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import re
+import json
 import logging
+from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum, unique
 from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple, Union
@@ -26,6 +30,10 @@ if TYPE_CHECKING:
     from .formatter import SLOTS, Formatter
 
 logger = logging.getLogger(__name__)
+
+cur_file_dir = Path(__file__).absolute().parent
+
+TEMPLATES_DIR = os.path.join(cur_file_dir.parent.parent.parent, "configs/finetune/templates.json")
 
 
 @dataclass
@@ -275,7 +283,8 @@ def get_templates() -> Dict[str, Template]:
     return templates
 
 
-def get_model_template(name):
+def get_model_template(name, prompt_type_path):
+    name = register_custom_template(name, prompt_type_path)
     if name is None:
         template = templates["empty"]  # placeholder
     else:
@@ -288,8 +297,9 @@ def get_model_template(name):
 def fix_model_tokenizer(
     tokenizer: "PreTrainedTokenizer",
     name: Optional[str] = None,
+    prompt_type_path: Optional[str] = None,
 ):
-    template = get_model_template(name)
+    template = get_model_template(name, prompt_type_path)
 
     stop_words = template.stop_words
     if template.replace_eos:
@@ -467,207 +477,70 @@ def _get_jinja_template(template: "Template", tokenizer: "PreTrainedTokenizer") 
     return jinja_template
 
 
-_register_template(
-    name="chatglm2",
-    format_user=StringFormatter(slots=["[Round {{idx}}]\n\n问：{{content}}\n\n答："]),
-    format_prefix=EmptyFormatter(slots=[{"token": "[gMASK]"}, {"token": "sop"}]),
-    format_separator=EmptyFormatter(slots=["\n\n"]),
-    efficient_eos=True,
-    force_system=True,
-)
+def register_custom_template(name, json_file_path=TEMPLATES_DIR) -> str:
+    if name in templates:
+        return name
+    
+    if not bool(re.match(r'(?:(?:/|\.{1,2}/|[^/\0]+/)(?:[^/\0]+/)*[^/\0]*|\.{1,2})', json_file_path)):
+        raise ValueError(f"Invalid Path: {json_file_path}, please provide a valid custom template path.")
+    
+    with open(json_file_path, 'r') as file:
+        config = json.load(file)
+
+    templates_dict = {template['name']: template for template in config}
+    config = templates_dict.get(name, None)
+
+    if not config:
+        raise ValueError(f"Can't find the template. Please provide a valid prompt type template in the {json_file_path}.")
+
+    format_user = _format_custom_template(config.get("format_user", None))
+    format_assistant = _format_custom_template(config.get("format_assistant", None))
+    format_system = _format_custom_template(config.get("format_system", None))
+    format_function = _format_custom_template(config.get("format_function", None))
+    format_observation = _format_custom_template(config.get("format_observation", None))
+    format_tools = _format_custom_template(config.get("format_tools", None))
+    format_separator = _format_custom_template(config.get("format_separator", None))
+    format_prefix = _format_custom_template(config.get("format_prefix", None))
+    default_system = _format_custom_template(config.get("default_system", ""))
+    stop_words = _format_custom_template(config.get("stop_words", []))
+    efficient_eos = _format_custom_template(config.get("efficient_eos", False))
+    replace_eos = _format_custom_template(config.get("replace_eos", False))
+    force_system = _format_custom_template(config.get("force_system", False))
+
+    if isinstance(default_system, list):
+        default_system = "".join(default_system) if all(isinstance(sentence, str) for sentence in default_system) else default_system
+    format_user = StringFormatter(**format_user) if format_user else None
+    format_assistant = StringFormatter(**format_assistant) if format_assistant else None
+    format_system = StringFormatter(**format_system) if format_system else None
+    format_function = FunctionFormatter(**format_function) if format_function else None
+    format_observation = StringFormatter(**format_observation) if format_observation else None
+    format_tools = ToolFormatter(**format_tools) if format_tools else None
+    format_separator = EmptyFormatter(**format_separator) if format_separator else None
+    format_prefix = EmptyFormatter(**format_prefix) if format_prefix else None
 
 
-_register_template(
-    name="chatglm3",
-    format_user=StringFormatter(slots=[{"token": "<|user|>"}, "\n", "{{content}}", {"token": "<|assistant|>"}]),
-    format_assistant=StringFormatter(slots=["\n", "{{content}}"]),
-    format_system=StringFormatter(slots=[{"token": "<|system|>"}, "\n", "{{content}}"]),
-    format_observation=StringFormatter(
-        slots=[{"token": "<|observation|>"}, "\n", "{{content}}", {"token": "<|assistant|>"}]
-    ),
-    format_tools=ToolFormatter(tool_format="glm4"),
-    format_prefix=EmptyFormatter(slots=[{"token": "[gMASK]"}, {"token": "sop"}]),
-    stop_words=["<|user|>", "<|observation|>"],
-    efficient_eos=True,
-)
+    _register_template(
+        name=name,
+        format_user=format_user,
+        format_assistant=format_assistant,
+        format_system=format_system,
+        format_function=format_function,
+        format_observation=format_observation,
+        format_tools=format_tools,
+        format_separator=format_separator,
+        format_prefix=format_prefix,
+        default_system=default_system,
+        stop_words=stop_words,
+        efficient_eos=efficient_eos,
+        replace_eos=replace_eos,
+        force_system=force_system
+    )
+
+    return name
 
 
-_register_template(
-    name="chatglm3_system",
-    format_user=StringFormatter(slots=[{"token": "<|user|>"}, "\n", "{{content}}", {"token": "<|assistant|>"}]),
-    format_assistant=StringFormatter(slots=["\n", "{{content}}"]),
-    format_system=StringFormatter(
-        slots=[{"token": "[gMASK]"}, {"token": "sop"}, {"token": "<|system|>"}, "\n", "{{content}}"]
-    ),
-    format_function=FunctionFormatter(slots=["{{name}}\n{{arguments}}"]),
-    format_observation=StringFormatter(
-        slots=[{"token": "<|observation|>"}, "\n", "{{content}}", {"token": "<|assistant|>"}]
-    ),
-    default_system=(
-        "You are ChatGLM3, a large language model trained by Zhipu.AI. "
-        "Follow the user's instructions carefully. Respond using markdown."
-    ),
-    stop_words=["<|user|>", "<|observation|>"],
-    efficient_eos=True,
-)
-
-
-_register_template(
-    name="glm4",
-    format_user=StringFormatter(slots=["<|user|>\n{{content}}<|assistant|>"]),
-    format_assistant=StringFormatter(slots=["\n{{content}}"]),
-    format_system=StringFormatter(slots=["<|system|>\n{{content}}"]),
-    format_function=FunctionFormatter(slots=["{{name}}\n{{arguments}}"], tool_format="glm4"),
-    format_observation=StringFormatter(slots=["<|observation|>\n{{content}}<|assistant|>"]),
-    format_tools=ToolFormatter(tool_format="glm4"),
-    format_prefix=EmptyFormatter(slots=["[gMASK]<sop>"]),
-    stop_words=["<|user|>", "<|observation|>"],
-    efficient_eos=True,
-)
-
-
-_register_template(
-    name="chatml",
-    format_user=StringFormatter(slots=["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
-    format_system=StringFormatter(slots=["<|im_start|>system\n{{content}}<|im_end|>\n"]),
-    format_observation=StringFormatter(slots=["<|im_start|>tool\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
-    format_separator=EmptyFormatter(slots=["\n"]),
-    stop_words=["<|im_end|>", "<|im_start|>"],
-    replace_eos=True,
-)
-
-
-_register_template(
-    name="chatml_de",
-    format_user=StringFormatter(slots=["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
-    format_system=StringFormatter(slots=["<|im_start|>system\n{{content}}<|im_end|>\n"]),
-    format_observation=StringFormatter(slots=["<|im_start|>tool\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
-    format_separator=EmptyFormatter(slots=["\n"]),
-    default_system="Du bist ein freundlicher und hilfsbereiter KI-Assistent.",
-    stop_words=["<|im_end|>", "<|im_start|>"],
-    replace_eos=True,
-)
-
-
-_register_template(
-    name="cpm",
-    format_user=StringFormatter(slots=["<用户>{{content}}<AI>"]),
-    format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
-)
-
-
-_register_template(
-    name="default",
-    format_user=StringFormatter(slots=["Human: {{content}}\nAssistant:"]),
-    format_system=StringFormatter(slots=["{{content}}\n"]),
-    format_separator=EmptyFormatter(slots=["\n"]),
-)
-
-
-_register_template(
-    name="empty",
-    format_user=StringFormatter(slots=["{{content}}"]),
-    format_assistant=StringFormatter(slots=["{{content}}"]),
-)
-
-
-_register_template(
-    name="qwen",
-    format_user=StringFormatter(slots=["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
-    format_system=StringFormatter(slots=["<|im_start|>system\n{{content}}<|im_end|>\n"]),
-    format_observation=StringFormatter(slots=["<|im_start|>tool\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
-    format_separator=EmptyFormatter(slots=["\n"]),
-    default_system="You are a helpful assistant.",
-    stop_words=["<|im_end|>"],
-    replace_eos=True,
-)
-
-
-_register_template(
-    name="llama3",
-    format_user=StringFormatter(
-        slots=[
-            (
-                "<|start_header_id|>user<|end_header_id|>\n\n{{content}}<|eot_id|>"
-                "<|start_header_id|>assistant<|end_header_id|>\n\n"
-            )
-        ]
-    ),
-    format_system=StringFormatter(slots=["<|start_header_id|>system<|end_header_id|>\n\n{{content}}<|eot_id|>"]),
-    format_observation=StringFormatter(
-        slots=[
-            (
-                "<|start_header_id|>tool<|end_header_id|>\n\n{{content}}<|eot_id|>"
-                "<|start_header_id|>assistant<|end_header_id|>\n\n"
-            )
-        ]
-    ),
-    format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
-    stop_words=["<|eot_id|>"],
-    replace_eos=True,
-)
-
-
-_register_template(
-    name="mistral",
-    format_user=StringFormatter(slots=["[INST] {{content}} [/INST]"]),
-    format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
-)
-
-
-_register_template(
-    name="mixtral",
-    format_user=StringFormatter(slots=["[INST] {{content}} [/INST]"]),
-    format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
-)
-
-
-_register_template(
-    name="gemma",
-    format_user=StringFormatter(slots=["<start_of_turn>user\n{{content}}<end_of_turn>\n<start_of_turn>model\n"]),
-    format_observation=StringFormatter(
-        slots=["<start_of_turn>tool\n{{content}}<end_of_turn>\n<start_of_turn>model\n"]
-    ),
-    format_separator=EmptyFormatter(slots=["<end_of_turn>\n"]),
-    format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
-    efficient_eos=True,
-)
-
-
-_register_template(
-    name="llama2",
-    format_user=StringFormatter(slots=[{"bos_token"}, "[INST] {{content}} [/INST]"]),
-    format_system=StringFormatter(slots=["<<SYS>>\n{{content}}\n<</SYS>>\n\n"]),
-)
-
-
-_register_template(
-    name="alpaca",
-    format_user=StringFormatter(slots=["### Instruction:\n{{content}}\n\n### Response:\n"]),
-    format_separator=EmptyFormatter(slots=["\n\n"]),
-    default_system=(
-        "Below is an instruction that describes a task. "
-        "Write a response that appropriately completes the request.\n\n"
-    ),
-)
-
-
-_register_template(
-    name="deepseek2",
-    format_user=StringFormatter(slots=["User: {{content}}\n\nAssistant:"]),
-    format_system=StringFormatter(slots=["{{content}}\n\n"]),
-    format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
-)
-
-_register_template(
-    name="deepseek2-lite",
-    format_user=StringFormatter(slots=["User: {{content}}\n\nAssistant:"]),
-    format_system=StringFormatter(slots=["{{content}}\n\n"]),
-    format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
-)
-
-_register_template(
-    name="baichuan2",
-    format_user=StringFormatter(slots=["<reserved_106>{{content}}<reserved_107>"]),
-    efficient_eos=True,
-)
+def _format_custom_template(slots: Dict) -> Dict:
+    if slots and isinstance(slots, Dict):
+        for key, slot in slots.items():
+            slots[key] = list(map(lambda slot: set(slot) if isinstance(slot, list) else slot, slot)) if slot else None
+    return slots

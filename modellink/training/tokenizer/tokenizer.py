@@ -61,7 +61,7 @@ def build_tokenizer(args):
         if ("PreTrainedTokenizerBase" not in str(tokenizer.tokenizer._pad.__func__)):
             tokenizer.tokenizer._pad = MethodType(PreTrainedTokenizerBase._pad, tokenizer.tokenizer)
             tokenizer.tokenizer.padding_side = "right"
-        fix_model_tokenizer(tokenizer.tokenizer, args.prompt_type.strip())
+        fix_model_tokenizer(tokenizer.tokenizer, args.prompt_type.strip(), args.prompt_type_path.strip())
 
     return tokenizer
 
