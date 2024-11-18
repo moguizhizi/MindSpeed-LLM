@@ -39,7 +39,7 @@ TUNE_ARGS="
     --lora-r 8 \
     --lora-alpha 16 \
     --lora-fusion \
-    --lora-target-models linear_qkv linear_proj linear_fc1 linear_fc2
+    --lora-target-modules linear_qkv linear_proj linear_fc1 linear_fc2
 "
 
 GPT_ARGS="
@@ -79,7 +79,7 @@ GPT_ARGS="
     --attention-softmax-in-fp32 \
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
-    --adam-beta2 0.999 \
+    --adam-beta2 0.95 \
     --add-qkv-bias \
     --initial-loss-scale 4096 \
     --no-gradient-accumulation-fusion \

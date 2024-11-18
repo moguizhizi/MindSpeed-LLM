@@ -79,7 +79,7 @@ GPT_ARGS="
     --weight-decay 0.0 \
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
-    --adam-beta2 0.999 \
+    --adam-beta2 0.95 \
     --initial-loss-scale 4096 \
     --no-gradient-accumulation-fusion \
     --no-masked-softmax-fusion \
