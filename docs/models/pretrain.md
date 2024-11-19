@@ -4,7 +4,6 @@
 
 `认证`【Pass】表示经过昇腾官方版本测试的模型，【Test】表示待测试模型
 
-
 <table>
   <thead>
     <tr>
@@ -520,20 +519,21 @@
       <td>【GTS】</td>
       <td>【Test】</td>
     </tr>
-    </tr>
-      <td> <a href="https://huggingface.co/Qwen/CodeQwen2.5-7B">7B(coder)</a> </td>
-      <td> 8K </td>
-      <th>Mcore</th>
-      <td> 1x8 </td>
-      <td>【China Mobile Cloud】</td>    
-      <td>【Pass】</td>
-    </tr>
     <tr>
       <td><a href="https://huggingface.co/Qwen/Qwen2.5-72B/tree/main">72B</a></td>
       <td>32K</td>
       <th>Mcore</th>
       <td>8x8</td>
       <td>【GTS】</td>
+      <td>【Test】</td>
+    </tr>
+	</tr>
+	  <td rowspan="1"><a href="https://huggingface.co/Qwen">CodeQwen2.5</a></td>
+      <td> <a href="https://huggingface.co/Qwen/CodeQwen2.5-7B">7B</a> </td>
+      <td> 8K </td>
+      <th>Mcore</th>
+      <td> 1x8 </td>
+      <td>【China Mobile Cloud】</td>    
       <td>【Test】</td>
     </tr>
     <tr>
@@ -675,6 +675,7 @@
   </tbody>
 </table>
 
+
 ## 社区BUG列表
 
 
@@ -720,7 +721,7 @@
    # SUPPORT_FP16 = SUPPORT_CUDA and torch.cuda.get_device_capability(0)[0] >= 7
    # 修改为：
    # SUPPORT_FP16 = True
-    ```
+   ```
 5. DeepSeek2：使用examples/mcore/deepseek2/pretratin_deepseek2_100b_8k_C_ptd.sh进行八机预训练任务时，需确保首节点有1.2T的host内存，第二节点有1.1T的host内存，以此类推。可通过以下命令进行查询
     ```bash
     # 查询host内存，通过free字段确定当前可用host内存
