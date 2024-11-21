@@ -109,7 +109,7 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
   </tr></thead>
 <tbody>
   <tr>
-    <td rowspan="4">SPTD并行</td>
+    <td rowspan="5">SPTD并行</td>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/tensor-parallel.md">张量并行</a></td>
     <td>✅</td>
     <td>✅</td>
@@ -131,6 +131,12 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/sequence-parallel.md">序列并行</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>【昇腾】</td>
+  </tr>
+  <tr>
+    <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/noop-layers.md">Noop Layers</a></td>
+    <td>✅</td>
+    <td>❌</td>
     <td>【昇腾】</td>
   </tr>
   <tr>

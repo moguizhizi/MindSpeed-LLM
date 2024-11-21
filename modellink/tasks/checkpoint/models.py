@@ -80,45 +80,57 @@ class ModelBase(abc.ABC):
                         raise AssertionError(f"check {self.__class__.__name__}.module_mapping **{attr_ident}**.")
             return obj
 
+        def _get_dst_obj(self, value, **kwargs):
+            if kwargs.get("layer_idx") is None:
+                kwargs["layer_idx"] = kwargs.get("dst_layer_idx")
+
+            return _get_obj(self, value, **kwargs)
+
+        def _get_src_obj(self, value, **kwargs):
+            if kwargs.get("layer_idx") is None:
+                kwargs["layer_idx"] = kwargs.get("src_layer_idx")
+
+            return _get_obj(self, value, **kwargs)
+
         def _func_generator_get_module(value):
             def func(self, **kwargs):
-                return _get_obj(self, value, **kwargs)
+                return _get_src_obj(self, value, **kwargs)
             return func
 
         def _func_generator_get_weight(value):
             def func(self, **kwargs):
-                return _get_obj(self, value, **kwargs).weight.data
+                return _get_src_obj(self, value, **kwargs).weight.data
             return func
 
         def _func_generator_get_bias(value):
             def func(self, **kwargs):
-                return _get_obj(self, value, **kwargs).bias.data
+                return _get_src_obj(self, value, **kwargs).bias.data
             return func
 
         def _func_generator_set_weight(value):
             def func(self, **kwargs):
-                return _get_obj(self, value, **kwargs).weight.data.copy_(kwargs.get('data'))
+                return _get_dst_obj(self, value, **kwargs).weight.data.copy_(kwargs.get('data'))
             return func
 
         def _func_generator_set_module(value):
             def func(self, **kwargs):
-                return _get_obj(self, value, **kwargs).data.copy_(kwargs.get('data'))
+                return _get_dst_obj(self, value, **kwargs).data.copy_(kwargs.get('data'))
             return func
 
         def _func_generator_set_bias(value):
             def func(self, **kwargs):
-                return _get_obj(self, value, **kwargs).bias.data.copy_(kwargs.get('data'))
+                return _get_dst_obj(self, value, **kwargs).bias.data.copy_(kwargs.get('data'))
             return func
 
         def _func_generator_has_module(value):
             def func(self, **kwargs):
-                obj = _get_obj(self, value, **kwargs)
+                obj = _get_src_obj(self, value, **kwargs)
                 return True if obj else False
             return func
-        
+
         def _func_generator_has_bias(value):
             def func(self, **kwargs):
-                bias = getattr(_get_obj(self, value, **kwargs), 'bias', None)
+                bias = getattr(_get_src_obj(self, value, **kwargs), 'bias', None)
                 return bias is not None
             return func
 
@@ -136,11 +148,24 @@ class ModelBase(abc.ABC):
     def update_module(self, src_model):
         self.set_preprocess_state(src_model)
         self.set_postprocess_state(src_model)
-        for layer_idx in tqdm(range(self.args.num_layers), "set layer states"):
-            self.set_layer_state(src_model, layer_idx)
+        if not (hasattr(self.args, "noop_layers") and self.args.noop_layers):
+            for layer_idx in tqdm(range(self.args.num_layers), "set layer states"):
+                self.set_layer_state(src_model, layer_idx)
+            return
+
+        # Do ckpt conversion when noop layer is configured.
+        # For example, hf_layer = [0, 1], add noop layer [1, 3], then mg_layers = [0(0), 1(noop), 2(1), 3(noop)]
+        hf_num_layers = self.args.num_layers - len(self.args.noop_layers)
+        mg_layer_list = [i for i in range(hf_num_layers)]
+        for i in self.args.noop_layers:
+            # insert noop layer
+            mg_layer_list.insert(i, -1)
+        for dst_layer_idx, src_layer_idx in enumerate(mg_layer_list):
+            if not self.is_noop_layer(src_layer_idx):
+                self.set_layer_state_base(src_model, src_layer_idx=src_layer_idx, dst_layer_idx=dst_layer_idx)
 
     def set_preprocess_state(self, src_model):
-        '''Set embedding params.'''
+        """Set embedding params."""
         embeddings_weight = src_model.get_embedding_word_embeddings_weight()
         if embeddings_weight.size(0) > self.get_embedding_word_embeddings_weight().size(0):           
             logger.info(f"Source embedding size: {embeddings_weight.size()} "
@@ -168,56 +193,73 @@ class ModelBase(abc.ABC):
             self.set_final_layernorm_bias(data=final_layernorm_bias)
 
     def set_layer_state(self, src_model, layer_idx):
-        self.set_attn_state(layer_idx, src_model)
-        self.set_mlp_state(layer_idx, src_model)
-        input_layernorm_weight = src_model.get_layers_input_layernorm_weight(layer_idx=layer_idx)
-        self.set_layers_input_layernorm_weight(layer_idx=layer_idx, data=input_layernorm_weight)
+        """
+        For source layer index == destination layer index.
+        """
+        self.set_layer_state_base(src_model, layer_idx, layer_idx)
+
+    @staticmethod
+    def is_noop_layer(src_layer_idx):
+        return src_layer_idx == -1
+
+    def set_layer_state_base(self, src_model, src_layer_idx, dst_layer_idx):
+        """
+        We update megatron module by transferring layers in src_layer_idx into those in dst_layer_idx .
+        """
+        kwargs = {'src_layer_idx': src_layer_idx, "dst_layer_idx": dst_layer_idx}
+        self.set_attn_state(src_layer_idx=src_layer_idx, dst_layer_idx=dst_layer_idx, src_model=src_model)
+        self.set_mlp_state(src_model, **kwargs)
+        input_layernorm_weight = src_model.get_layers_input_layernorm_weight(layer_idx=src_layer_idx)
+        self.set_layers_input_layernorm_weight(layer_idx=dst_layer_idx, data=input_layernorm_weight)
+
         if self.args.post_norm:
             post_attn_layernorm_weight = src_model.get_layers_self_attention_post_attention_layernorm_weight(
-                layer_idx=layer_idx)
-            self.set_layers_self_attention_post_attention_layernorm_weight(layer_idx=layer_idx,
+                layer_idx=src_layer_idx)
+            self.set_layers_self_attention_post_attention_layernorm_weight(layer_idx=dst_layer_idx,
                                                                            data=post_attn_layernorm_weight)
         else:
-            pre_mlp_layernorm_weight = src_model.get_layers_self_attention_pre_mlp_layernorm_weight(layer_idx=layer_idx)
-            self.set_layers_self_attention_pre_mlp_layernorm_weight(layer_idx=layer_idx, data=pre_mlp_layernorm_weight)
+            pre_mlp_layernorm_weight = src_model.get_layers_self_attention_pre_mlp_layernorm_weight(
+                layer_idx=src_layer_idx)
+            self.set_layers_self_attention_pre_mlp_layernorm_weight(layer_idx=dst_layer_idx,
+                                                                    data=pre_mlp_layernorm_weight)
 
-        if self.has_layers_input_layernorm_bias(layer_idx=layer_idx):
-            input_layernorm_bias = src_model.get_layers_input_layernorm_bias(layer_idx=layer_idx)
-            self.set_layers_input_layernorm_bias(layer_idx=layer_idx, data=input_layernorm_bias)
-        if self.has_layers_self_attention_pre_mlp_layernorm_bias(layer_idx=layer_idx):
-            pre_mlp_layernorm_bias = src_model.get_layers_self_attention_pre_mlp_layernorm_bias(layer_idx=layer_idx)
-            self.set_layers_self_attention_pre_mlp_layernorm_bias(layer_idx=layer_idx, data=pre_mlp_layernorm_bias)
+        if self.has_layers_input_layernorm_bias(layer_idx=src_layer_idx):
+            input_layernorm_bias = src_model.get_layers_input_layernorm_bias(layer_idx=src_layer_idx)
+            self.set_layers_input_layernorm_bias(layer_idx=dst_layer_idx, data=input_layernorm_bias)
 
-    def set_attn_state(self, layer_idx, src_model):
-        '''Set self-attention params.'''
-        # Get attention layer & state.
+        if self.has_layers_self_attention_pre_mlp_layernorm_bias(layer_idx=src_layer_idx):
+            pre_mlp_layernorm_bias = src_model.get_layers_self_attention_pre_mlp_layernorm_bias(layer_idx=src_layer_idx)
+            self.set_layers_self_attention_pre_mlp_layernorm_bias(layer_idx=dst_layer_idx, data=pre_mlp_layernorm_bias)
+
+    def set_attn_state(self, src_layer_idx, dst_layer_idx, src_model):
+        """Set self-attention params."""
         if getattr(src_model.get_args(), "qk_layernorm", False):
             if getattr(src_model.get_args(), "q_lora_rank", None):
-                q_layernorm = src_model.get_layers_self_attention_q_layernorm_weight(layer_idx=layer_idx)
-                self.set_layers_self_attention_q_layernorm_weight(layer_idx=layer_idx, data=q_layernorm)
-            k_layernorm = src_model.get_layers_self_attention_k_layernorm_weight(layer_idx=layer_idx)
-            self.set_layers_self_attention_k_layernorm_weight(layer_idx=layer_idx, data=k_layernorm)
-        
+                q_layernorm = src_model.get_layers_self_attention_q_layernorm_weight(layer_idx=src_layer_idx)
+                self.set_layers_self_attention_q_layernorm_weight(layer_idx=dst_layer_idx, data=q_layernorm)
+            k_layernorm = src_model.get_layers_self_attention_k_layernorm_weight(layer_idx=src_layer_idx)
+            self.set_layers_self_attention_k_layernorm_weight(layer_idx=dst_layer_idx, data=k_layernorm)
+
         if getattr(src_model.get_args(), "multi_head_latent_attention", False):
             if getattr(src_model.get_args(), "q_lora_rank", None):
-                linear_qb = src_model.get_layers_self_attention_linear_qb_weight(layer_idx=layer_idx)
-                self.set_layers_self_attention_linear_qb_weight(layer_idx=layer_idx, data=linear_qb)
-            linear_kvb = src_model.get_layers_self_attention_linear_kvb_weight(layer_idx=layer_idx)
-            self.set_layers_self_attention_linear_kvb_weight(layer_idx=layer_idx, data=linear_kvb)
-        
-        qkv_weight = src_model.get_layers_self_attention_linear_qkv_weight(layer_idx=layer_idx)
-        proj_weight = src_model.get_layers_self_attention_linear_proj_weight(layer_idx=layer_idx)
-        self.set_layers_self_attention_linear_qkv_weight(layer_idx=layer_idx, data=qkv_weight)
-        self.set_layers_self_attention_linear_proj_weight(layer_idx=layer_idx, data=proj_weight)
+                linear_qb = src_model.get_layers_self_attention_linear_qb_weight(layer_idx=src_layer_idx)
+                self.set_layers_self_attention_linear_qb_weight(layer_idx=dst_layer_idx, data=linear_qb)
+            linear_kvb = src_model.get_layers_self_attention_linear_kvb_weight(layer_idx=src_layer_idx)
+            self.set_layers_self_attention_linear_kvb_weight(layer_idx=dst_layer_idx, data=linear_kvb)
+
+        qkv_weight = src_model.get_layers_self_attention_linear_qkv_weight(layer_idx=src_layer_idx)
+        proj_weight = src_model.get_layers_self_attention_linear_proj_weight(layer_idx=src_layer_idx)
+        self.set_layers_self_attention_linear_qkv_weight(layer_idx=dst_layer_idx, data=qkv_weight)
+        self.set_layers_self_attention_linear_proj_weight(layer_idx=dst_layer_idx, data=proj_weight)
         if self.args.add_qkv_bias:
-            qkv_bias = src_model.get_layers_self_attention_linear_qkv_bias(layer_idx=layer_idx)
-            self.set_layers_self_attention_linear_qkv_bias(layer_idx=layer_idx, data=qkv_bias)
+            qkv_bias = src_model.get_layers_self_attention_linear_qkv_bias(layer_idx=src_layer_idx)
+            self.set_layers_self_attention_linear_qkv_bias(layer_idx=dst_layer_idx, data=qkv_bias)
         if self.args.add_dense_bias:
-            proj_bias = src_model.get_layers_self_attention_linear_proj_bias(layer_idx=layer_idx)
-            self.set_layers_self_attention_linear_proj_bias(layer_idx=layer_idx, data=proj_bias)
+            proj_bias = src_model.get_layers_self_attention_linear_proj_bias(layer_idx=src_layer_idx)
+            self.set_layers_self_attention_linear_proj_bias(layer_idx=dst_layer_idx, data=proj_bias)
 
     def _set_mlp_state(self, src_model, **kwargs):
-        '''Set MLP params.'''
+        """Set MLP params."""
         fc1_weight = src_model.get_layers_mlp_linear_fc1_weight(**kwargs)
         fc2_weight = src_model.get_layers_mlp_linear_fc2_weight(**kwargs)
         self.set_layers_mlp_linear_fc1_weight(data=fc1_weight, **kwargs)
@@ -235,35 +277,34 @@ class ModelBase(abc.ABC):
             self.set_layers_self_attention_post_mlp_layernorm_weight(data=post_mlp_layernorm_weight, **kwargs)
     
     def _set_mlp_experts_state(self, src_model, **kwargs):
-        '''Set MLP experts params.'''
+        """Set MLP experts params."""
         fc1_weight = src_model.get_layers_mlp_experts_linear_fc1_weight(**kwargs)
         fc2_weight = src_model.get_layers_mlp_experts_linear_fc2_weight(**kwargs)
         self.set_layers_mlp_experts_linear_fc1_weight(data=fc1_weight, **kwargs)
         self.set_layers_mlp_experts_linear_fc2_weight(data=fc2_weight, **kwargs)
 
     def _set_mlp_shared_experts_state(self, src_model, **kwargs):
-        '''Set MLP shared experts params.'''
+        """Set MLP shared experts params."""
         fc1_weight = src_model.get_layers_mlp_shared_experts_linear_fc1_weight(**kwargs)
         fc2_weight = src_model.get_layers_mlp_shared_experts_linear_fc2_weight(**kwargs)
         self.set_layers_mlp_shared_experts_linear_fc1_weight(data=fc1_weight, **kwargs)
         self.set_layers_mlp_shared_experts_linear_fc2_weight(data=fc2_weight, **kwargs)
 
     def _set_moe_grouped_gemm_state(self, src_model, **kwargs):
-        '''Set MOE grouped gemm params.'''
+        """Set MOE grouped gemm params."""
         weight1 = src_model.get_layers_mlp_experts_weight1_module(**kwargs)
         weight2 = src_model.get_layers_mlp_experts_weight2_module(**kwargs)
         self.set_layers_mlp_experts_weight1_module(data=weight1, **kwargs)
         self.set_layers_mlp_experts_weight2_module(data=weight2, **kwargs)
 
-    def set_mlp_state(self, layer_idx, src_model):
+    def set_mlp_state(self, src_model, **kwargs):
         args = src_model.get_args()
-        kwargs = {'layer_idx': layer_idx}
         num_experts = getattr(args, 'num_experts', None) or getattr(args, 'num_local_experts', None)
         first_k_dense_replace = self.get_first_k_dense_replace()
         moe_layer_freq = self.get_moe_layer_freq()
         shared_expert_gate = getattr(args, 'shared_expert_gate', False)
-
-        if layer_idx >= first_k_dense_replace and layer_idx % moe_layer_freq == 0:
+        dst_layer_idx = kwargs["dst_layer_idx"]
+        if dst_layer_idx >= first_k_dense_replace and dst_layer_idx % moe_layer_freq == 0:
             router_weight = src_model.get_layers_mlp_router_weight(**kwargs)
             self.set_layers_mlp_router_weight(**kwargs, data=router_weight)
             if shared_expert_gate:
@@ -729,8 +770,13 @@ class MegatronModel(ModelBase):
             self.args.iteration = 1  # '0', 'release' don't work
             self.args.hidden_size = hf_args.hidden_size
             self.args.num_attention_heads = hf_args.num_attention_heads
+
             self.args.num_layers = hf_args.num_layers
-            
+            if self.args.noop_layers is not None:
+                self.args.num_layers = hf_args.num_layers + len(self.args.noop_layers)
+                logger.info(f"[INFO] When using noop_layer, origin layers from huggingface is {hf_args.num_layers}, "
+                            f"add noop layer {len(self.args.noop_layers)}, so megatron_ckpt has {self.args.num_layers}")
+
             self.args.add_position_embedding = hf_args.add_position_embedding
             self.args.use_rotary_position_embeddings = hf_args.use_rotary_position_embeddings
             self.args.swiglu = hf_args.swiglu
@@ -814,6 +860,10 @@ class MegatronModel(ModelBase):
 
         if self.md and self.args_cmd.num_layer_list:
             self.args.num_layer_list = self.args_cmd.num_layer_list
+        
+        if self.args_cmd.noop_layers:
+            self.args.noop_layers = self.args_cmd.noop_layers.split(',')
+            self.args.noop_layers = [int(i) for i in self.args.noop_layers]
 
         # gradient_accumulation_fusion should be false in ckpt convertion
         self.args.gradient_accumulation_fusion = False
@@ -907,7 +957,6 @@ class MegatronModel(ModelBase):
 
         if pp_stage_cache_flag:
             self.pp_stage_cache.append(models)
-
 
     def check_for_args(self, queue, saver_megatron):
         if saver_megatron:

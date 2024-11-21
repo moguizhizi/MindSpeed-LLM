@@ -62,6 +62,7 @@ def add_arguments(parser):
     group.add_argument('--spec', type=str, default=None, nargs='*',
                         help='Specify the <module_location function_name> pair '
                              'that returns a spec to customize transformer layer, depending on the use case.')
+    group.add_argument("--noop-layers", type=str, default=None, help='Specity the noop layers.')
 
 
 def verify_transformers_version():

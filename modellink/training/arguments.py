@@ -424,6 +424,7 @@ def _add_algorithm_args(parser):
     group.add_argument('--original-max-position-embeddings', type=float,
                        help='original max position embeddings for rope scaling type')
 
+    group.add_argument("--noop-layers", type=str, default=None, help='Specity the noop layers.')
     group.add_argument('--reuse-fp32-param', action='store_true',
                        help='The distributed training optimizer frees up '
                             'param copies of FP32 to save memory.')
@@ -934,7 +935,20 @@ def _add_dummy_args(args):
     args.moe_alltoall_overlap_comm = False
     args.moe_allgather_overlap_comm = False
     args.moe_without_activation = False
-    args.noop_layers = None
+
+
+def _validate_noop_layer(args):
+    if isinstance(args.noop_layers, str):
+        noop_layers = set()
+        for x in args.noop_layers.split(','):
+            if int(x) >= args.num_layers or int(x) < 0:
+                raise AssertionError(f'each element in args.noop_layers({args.noop_layers}) should bigger or equal '
+                                     f'to 0 and smaller than args.num_layers({args.num_layers})')
+            noop_layers.add(int(x))
+        args.noop_layers = noop_layers
+        if args.num_layer_list:
+            print_rank0_by_args("num layer list would be disabled when noop-layer is activated.")
+            args.num_layer_list = None
 
 
 def _validate_vpp(args):
@@ -1004,7 +1018,7 @@ def validate_args_decorator(megatron_validate_args):
         _validate_output_layer_slice_num(args)
         _validate_optimizer(args)
         _validate_rl_training(args)
-
+        _validate_noop_layer(args)
         _add_dummy_args(args)
 
         from modellink.training.utils import print_args

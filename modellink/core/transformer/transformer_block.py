@@ -25,6 +25,7 @@ from megatron.core.models.gpt.gpt_layer_specs import _get_mlp_module_spec
 from megatron.core.transformer import build_module
 from megatron.core.transformer.custom_layers.transformer_engine import TENorm
 from megatron.core.utils import make_sharded_tensor_for_checkpoint, make_viewless_tensor
+from mindspeed.core.transformer.transformer_block import NoopTransformerLayer, _get_layer_offset
 
 
 def get_num_layers_to_build_wrapper(fn):
@@ -65,6 +66,7 @@ def _transformer_block_build_layers(self):
     use_te = args.transformer_impl == "transformer_engine"
 
     def build_layer(layer_spec, layer_number):
+        # For deepseek
         if (
                 args.num_experts
                 and args.first_k_dense_replace is not None
@@ -82,6 +84,10 @@ def _transformer_block_build_layers(self):
             else:
                 layer_spec.submodules.mlp = _get_mlp_module_spec(use_te=use_te, moe_grouped_gemm=args.moe_grouped_gemm)
 
+        # For noop layer
+        global_layer_number = _get_layer_offset(args) + layer_number
+        if args.noop_layers and isinstance(args.noop_layers, set) and global_layer_number - 1 in args.noop_layers:
+            return NoopTransformerLayer(global_layer_number)
         return build_module(layer_spec, config=self.config, layer_number=layer_number, )
 
     # offset is implicit in TransformerLayer

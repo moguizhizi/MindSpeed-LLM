@@ -58,6 +58,8 @@ def add_arguments(parser):
     group.add_argument('--spec', type=str, default=None, nargs='*',
                        help='Specify the <module_location function_name> pair '
                             'that returns a spec to customize transformer layer, depending on the use case.')
+    group.add_argument("--noop-layers", type=str, default=None, help='Specity the noop layers.')
+
 
 
 def update_padded_vocab_size(md, model_mg, orig_vocab_size):
@@ -401,6 +403,22 @@ def save_model(model_mg, md, **kwargs):
                 kwargs["vp_rank"] = vp_rank
                 vp_models.append(model_mg.get_model_item(**kwargs))
             if args_cmd.save_model_type == 'mg':
+                if margs.noop_layers:
+                    for layer_idx in margs.noop_layers:
+                        logger.info(f"Weight in noop layer {layer_idx} would be clear.")
+                        layers_per_pp = margs.num_layers // margs.pipeline_model_parallel_size
+                        layers_per_vpp = layers_per_pp // virtual_pipeline_model_parallel_size
+                        
+                        pp_rank_idx = (layer_idx // layers_per_vpp) % margs.pipeline_model_parallel_size
+                        vpp_rank_idx = layer_idx // (layers_per_vpp * margs.pipeline_model_parallel_size)
+                        vpp_layer_idx = (layer_idx % (layers_per_vpp * margs.pipeline_model_parallel_size)) % layers_per_vpp
+                        
+                        if 'pp_rank' not in kwargs:
+                            raise KeyError("The key 'pp_rank' does not exist!")
+                        
+                        if pp_rank_idx == int(kwargs["pp_rank"]):
+                            vp_models[vpp_rank_idx].decoder.layers[vpp_layer_idx] = torch.nn.Module()
+                        
                 # Split the PP into multiple VPPs and select the corresponding layers for each VPP by copying and deleting
                 save_checkpoint(md.iteration, vp_models, None, None, 0)
             elif args_cmd.save_model_type == "hf":
@@ -489,6 +507,10 @@ def save_model_checkpoint(model_provider, queue, args):
     if virtual_pipeline_model_parallel_size is None:
         virtual_pipeline_model_parallel_size = 1
 
+    if args.noop_layers:
+        args.noop_layers = args.noop_layers.split(',')
+        args.noop_layers = [int(i) for i in args.noop_layers]
+    
     for vp_rank in range(virtual_pipeline_model_parallel_size):
         model_mg.set_virtual_pipeline_model_parallel_rank(vp_rank)
         kwargs = {"vp_rank": vp_rank}
@@ -505,6 +527,7 @@ def save_model_checkpoint(model_provider, queue, args):
                 set_model_layer_mlp(model_mg, msg, md, total_layer_num, **kwargs)
 
                 total_layer_num = total_layer_num + 1
+                # For noop layers, we dont check keys.
                 check_message(msg)
 
             post_process = (
