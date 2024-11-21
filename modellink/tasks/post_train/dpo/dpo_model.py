@@ -53,38 +53,57 @@ class DPOModel(HyperModelABC):
         self.args = get_args()
         self.train_model = train_model
         self.refer_model = refer_model
+        self._set_model_chunk_id()
 
         self.ori_micro_batch_size = self.args.micro_batch_size
         self.new_micro_batch_size = self.args.actual_micro_batch_size // 2
 
         self.input_tensor = None
+        
+    def _set_model_chunk_id(self):
+        if self.args.virtual_pipeline_model_parallel_size is not None:
+            self.model_chunk_id = mpu.get_virtual_pipeline_model_parallel_rank()
+        else:
+            self.model_chunk_id = 0
 
     def __call__(self, input_ids, position_ids, attention_mask):
+        self._set_model_chunk_id()
         self.set_input_tensor()
         self.args.micro_batch_size = self.new_micro_batch_size
 
         if self.input_tensor is None:
-            train_input_ids, refer_input_ids = torch.chunk(
-                input_ids, 2, dim=0)
+            train_input_ids, refer_input_ids = (None, None) if input_ids is None else torch.chunk(input_ids, 2, dim=0)
             train_position_ids, refer_position_ids = (None, None) if position_ids is None else torch.chunk(
                 position_ids, 2, dim=0)
-            train_attention_mask, refer_attention_mask = (None, None) if attention_mask is None else torch.chunk(
-                attention_mask, 2, dim=0)
+            if isinstance(attention_mask, list):
+                masks = [x.chunk(2, dim=0) for x in attention_mask]
+                train_attention_mask, refer_attention_mask = list(zip(*masks))
+                train_attention_mask, refer_attention_mask = list(train_attention_mask), list(refer_attention_mask)
+            else:
+                train_attention_mask, refer_attention_mask = (None, None) if attention_mask is None else torch.chunk(
+                    attention_mask, 2, dim=0)
             refer_input_ids = refer_input_ids.detach()
             refer_position_ids = None if refer_position_ids is None else refer_position_ids.detach()
-            refer_attention_mask = refer_attention_mask.detach()
+            if refer_attention_mask is not None:
+                if isinstance(refer_attention_mask, list):
+                    refer_attention_mask = [x.detach() for x in refer_attention_mask]
+                else:
+                    refer_attention_mask = refer_attention_mask.detach()
         else:
-            refer_input_ids = input_ids
-            train_input_ids = input_ids
-            train_position_ids, refer_position_ids = (None, None) if position_ids is None else torch.chunk(
-                position_ids, 2, dim=0)
-            train_attention_mask, refer_attention_mask = (None, None) if attention_mask is None else torch.chunk(
-                attention_mask, 2, dim=0)
+            train_input_ids, refer_input_ids = (None, None) if input_ids is None else torch.chunk(input_ids, 2, dim=0)
+            train_position_ids, refer_position_ids = (None, None) if position_ids is None else torch.chunk(position_ids, 2, dim=0)
+            if isinstance(attention_mask, list):
+                masks = [x.chunk(2, dim=0) for x in attention_mask]
+                train_attention_mask, refer_attention_mask = list(zip(*masks))
+                train_attention_mask, refer_attention_mask = list(train_attention_mask), list(refer_attention_mask)
+            else:
+                train_attention_mask, refer_attention_mask = (None, None) if attention_mask is None else torch.chunk(
+                    attention_mask, 2, dim=0)
 
         with torch.no_grad():
-            refer_output = self.refer_model(refer_input_ids, refer_position_ids, refer_attention_mask)
-
-        policy_output = self.train_model(train_input_ids, train_position_ids, train_attention_mask)
+            refer_output = self.refer_model[self.model_chunk_id](refer_input_ids, refer_position_ids, refer_attention_mask)
+        
+        policy_output = self.train_model[self.model_chunk_id](train_input_ids, train_position_ids, train_attention_mask)
 
         if mpu.is_pipeline_last_stage():
             output_tensor = torch.cat((policy_output, refer_output), dim=0)
@@ -100,13 +119,13 @@ class DPOModel(HyperModelABC):
 
         See megatron.model.transformer.set_input_tensor()
         """
-        input_tensor = get_attr_from_wrapped_model(self.train_model, "input_tensor")
+        input_tensor = get_attr_from_wrapped_model(self.train_model[self.model_chunk_id], "input_tensor")
 
         if input_tensor[0] is not None:
             self.input_tensor = torch.chunk(input_tensor[0], 2, dim=1)
 
-            set_train_input_tensor = get_attr_wrapped_model(self.train_model, "set_input_tensor")
-            set_refer_input_tensor = get_attr_wrapped_model(self.refer_model, "set_input_tensor")
+            set_train_input_tensor = get_attr_wrapped_model(self.train_model[self.model_chunk_id], "set_input_tensor")
+            set_refer_input_tensor = get_attr_wrapped_model(self.refer_model[self.model_chunk_id], "set_input_tensor")
             set_train_input_tensor(self.input_tensor[0])
             set_refer_input_tensor(self.input_tensor[1])
 
@@ -114,13 +133,14 @@ class DPOModel(HyperModelABC):
         """Sets the is_first_microbatch flag if it exists. When this flag is set,
         TE modules will update their fp8 parameter cache.
         """
-        self.train_model.set_is_first_microbatch()
-        self.refer_model.set_is_first_microbatch()
+        self.train_model[self.model_chunk_id].set_is_first_microbatch()
+        self.refer_model[self.model_chunk_id].set_is_first_microbatch()
 
     def zero_grad_buffer(self) -> None:
-        self.train_model.zero_grad_buffer()
+        self.train_model[self.model_chunk_id].zero_grad_buffer()
 
     def finish_grad_sync(self) -> None:
-        self.train_model.finish_grad_sync()
+        self.train_model[self.model_chunk_id].finish_grad_sync()
+
 
 

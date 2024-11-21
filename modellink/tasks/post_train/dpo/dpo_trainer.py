@@ -9,9 +9,11 @@ from megatron.core import mpu, tensor_parallel
 from megatron.core.enums import ModelType
 from megatron.training.checkpointing import load_checkpoint
 from megatron.training.utils import average_losses_across_data_parallel_group
+from megatron.training.global_vars import set_args
 from modellink.tasks.post_train.base import BaseTrainer
 from modellink.tasks.post_train.dpo.dpo_model import DPOModel
 from modellink.training.utils import get_tune_attention_mask, get_finetune_data_on_this_tp_rank
+from modellink.training.utils import get_batch_on_this_cp_rank, generate_actual_seq_len
 
 
 class DPOTrainer(BaseTrainer):
@@ -37,27 +39,34 @@ class DPOTrainer(BaseTrainer):
 
         self.args.actual_micro_batch_size = self.args.micro_batch_size * 4
         self.hyper_model = DPOModel(
-            self.train_args[1][0],
+            self.train_args[1],
             self._init_reference_model()
         )   
 
     @staticmethod
     def get_batch(data_iterator):
-        """Generate a batch identical to Llama factory"""
+        """Generate a batch."""
+
         args = get_args()
 
-        if (not mpu.is_pipeline_first_stage()) and (not mpu.is_pipeline_last_stage()):
-            if args.variable_seq_lengths and args.pipeline_model_parallel_size > 2:
-                tokens, attention_mask = get_finetune_data_on_this_tp_rank(data_iterator)
-                labels, position_ids = None, None
-            else:
-                tokens, labels, attention_mask, position_ids = None, None, None, None
-
-            all_results = (tokens, labels, attention_mask, position_ids)
-            return all_results
         # Items and their type.
         keys = ['input_ids', 'attention_mask', 'labels']
+        if args.reset_position_ids:
+            keys += ['position_ids']
         data_type = torch.int64
+
+        if (not mpu.is_pipeline_first_stage()) and (not mpu.is_pipeline_last_stage()):
+            tokens, attention_mask = get_finetune_data_on_this_tp_rank(data_iterator)
+            if args.variable_seq_lengths and args.pipeline_model_parallel_size > 2:
+                return tokens, None, attention_mask, None
+            else:
+                if args.reset_position_ids:
+                    # Broadcast data.
+                    data_b = tensor_parallel.broadcast_data(keys, next(data_iterator), data_type)
+                    generate_actual_seq_len(data_b)
+                batch = {'attention_mask': attention_mask}
+                batch = get_batch_on_this_cp_rank(batch)
+                return None, None, batch['attention_mask'], None
 
         # Broadcast data.
         data_b = tensor_parallel.broadcast_data(keys, next(data_iterator), data_type)
@@ -65,12 +74,23 @@ class DPOTrainer(BaseTrainer):
         # Unpack
         labels = data_b.get('labels').long()
         tokens = data_b.get('input_ids').long()
+
+        position_ids = None
+        if args.reset_position_ids:
+            position_ids = data_b.get('position_ids').long()
+            generate_actual_seq_len(data_b)
+
         attention_mask_1d = data_b.get('attention_mask').long()
         attention_mask = get_tune_attention_mask(attention_mask_1d)
-        position_ids = None
-
-        all_results = (tokens, labels, attention_mask, position_ids)
-        return all_results
+        
+        batch = {
+                'tokens': tokens,
+                'labels': labels,
+                'attention_mask': attention_mask,
+                'position_ids': position_ids
+            }
+        batch = get_batch_on_this_cp_rank(batch)
+        return batch.values()
 
     def loss_func(self, input_tensor: torch.Tensor, output_tensor: torch.Tensor):
         """DPO Loss function.
@@ -333,7 +353,7 @@ class DPOTrainer(BaseTrainer):
         Returns:
             The initialized reference model.
         """
-        model = get_model(self.model_provider, ModelType.encoder_or_decoder)
+        model = get_model(self.model_provider, ModelType.encoder_or_decoder, wrap_with_ddp=False)
 
         self.args.load = self.args.ref_model if self.args.ref_model is not None else self.args.load
         if self.args.load:
@@ -341,10 +361,16 @@ class DPOTrainer(BaseTrainer):
             # to avoid assert error
             consumed_train_samples = self.args.consumed_train_samples
             self.args.consumed_train_samples = 0
-            load_checkpoint(model, None, None, 'load', strict)
+            args_ = get_args()
+            if not args_.finetune:
+                args_.is_load_refer = True
+                args_.no_load_rng = True
+                args_.no_load_optim = True
+                set_args(args_)
+            load_checkpoint(model, None, None, 'load', strict=strict)
             self.args.consumed_train_samples = consumed_train_samples
 
-        return model[0].eval()
+        return [model[k].eval() for k in range(len(model))]
 
     def _compute_log_probs(self, all_logits, label) -> Tuple[torch.Tensor, ...]:
         """
@@ -427,5 +453,18 @@ class DPOTrainer(BaseTrainer):
             per_token_log_probs = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
             all_log_probs = (per_token_log_probs * loss_mask).sum(-1)
             valid_length = loss_mask.sum(-1)
+            
+        if mpu.get_context_parallel_world_size() > 1:
+            torch.distributed.all_reduce(
+                valid_length,
+                op=torch.distributed.ReduceOp.SUM,
+                group=mpu.get_context_parallel_group()
+            )
+
+            torch.distributed.all_reduce(
+                all_log_probs,
+                op=torch.distributed.ReduceOp.SUM,
+                group=mpu.get_context_parallel_group()
+            )
 
         return all_log_probs, valid_length

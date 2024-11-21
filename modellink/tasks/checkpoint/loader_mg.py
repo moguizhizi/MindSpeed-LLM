@@ -233,7 +233,11 @@ def _get_message_layer_mlp(message, model, md=None, is_moe_mlp=False, **kwargs):
 def get_message_layer_mlp(message, model, md=None, **kwargs):
     # Grab all parallel tensors for this layer
     margs = model.get_args()
-    layer_idx = kwargs["layer_idx"] + kwargs["pp_rank"] * len(model.get_layers_module(**kwargs))
+    if margs.num_layer_list:
+        num_layer_list = [int(x) for x in margs.num_layer_list.split(',')]
+        layer_idx = sum(num_layer_list[:kwargs["pp_rank"]]) + kwargs["layer_idx"]
+    else:
+        layer_idx = kwargs["layer_idx"] + kwargs["pp_rank"] * len(model.get_layers_module(**kwargs))
     first_k_dense_replace = model.get_first_k_dense_replace()
     moe_layer_freq = model.get_moe_layer_freq()
     shared_expert_gate = getattr(margs, 'shared_expert_gate', None)

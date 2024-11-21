@@ -448,11 +448,18 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
   </tr></thead>
 <tbody>
   <tr>
-    <td>偏好对齐</td>
-    <td>Offline DPO</td>
+    <td>直接偏好对齐</td>
+    <td><a href="./docs/features/offline_dpo.md">Offline DPO</a></td>
     <td>✅</td>
     <td>❌</td>
     <td>【NAIE】</td>
+  </tr>
+  <tr>
+    <td>简单偏好对齐</td>
+    <td><a href="./docs/features/simdpo.md">SimPO</a></td>
+    <td>✅</td>
+    <td>❌</td>
+    <td>【China Mobile Cloud】</td>
   </tr>
   <tr>
     <td>奖励模型</td>
@@ -462,6 +469,7 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <td>【昇腾】</td>
   </tr>
 </tbody></table>
+
 
 ---
 

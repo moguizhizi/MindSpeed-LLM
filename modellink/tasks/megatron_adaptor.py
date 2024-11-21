@@ -131,6 +131,7 @@ class CoreAdaptation(MegatronAdaptationABC):
         self.patch_parallel_state()
         self.patch_datasets()
         self.patch_utils()
+        self.patch_schedules()
 
     def patch_fusions(self):
         from mindspeed.core.fusions.fused_layer_norm import (FusedLayerNormAffineFunction, FastLayerNormFN)
@@ -409,6 +410,11 @@ class CoreAdaptation(MegatronAdaptationABC):
                                 generate_adaptive_cp_mask_list_by_user)
         MegatronAdaptation.register('mindspeed.core.context_parallel.utils.generate_adaptive_cp_grid_mask_by_user',
                                 generate_adaptive_cp_grid_mask_by_user)
+
+    def patch_schedules(self):
+        from ..core import forward_backward_pipelining_with_interleaving_wrapper
+        MegatronAdaptation.register('megatron.core.pipeline_parallel.schedules.forward_backward_pipelining_with_interleaving',
+                                    forward_backward_pipelining_with_interleaving_wrapper)
 
 
 class LegacyAdaptation(MegatronAdaptationABC):

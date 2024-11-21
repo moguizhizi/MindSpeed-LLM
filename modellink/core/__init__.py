@@ -38,3 +38,4 @@ from .optimizer.distrib_optimizer import distributed_optimizer_init_wrapper, dis
 from .optimizer.distrib_optimizer import get_parameter_state_dp_zero_with_high_availability_wrapper
 from .transformer.custom_layers.transformer_engine import PTNorm
 from .transformer.mlp import core_mlp_init
+from .pipeline_parallel.schedules import forward_backward_pipelining_with_interleaving_wrapper

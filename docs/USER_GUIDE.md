@@ -406,6 +406,10 @@ bash examples/legacy/llama2/ckpt_convert_llama2_legacy2hf_lora.sh
 - [多轮对话：ShareGPT数据集](https://huggingface.co/datasets/shibing624/roleplay-zh-sharegpt-gpt4-data)
 - [多轮对话：AlpacaHistroy数据集](https://huggingface.co/datasets/kimnt93/oaast-selected)
 
+常用的对话pairwise配对微调数据集有：
+
+- [orca-rlhf数据集](https://huggingface.co/datasets/Intel/orca_dpo_pairs)
+
 数据集下载可以基于网页直接下载，也可以基于命令行下载，比如：
 
 ```shell

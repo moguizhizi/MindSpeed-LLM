@@ -46,3 +46,15 @@ def forward_backward_func_wrapper(fn):
             tft_set_losses_reduced(losses_reduced)
         return losses_reduced
     return wrapper
+
+
+def forward_backward_pipelining_with_interleaving_wrapper(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        args_ = get_args()
+        if args_.virtual_pipeline_model_parallel_size is not None and args_.stage == "dpo":
+            kwargs['micro_batch_size'] = args_.micro_batch_size * 4
+        if args_.virtual_pipeline_model_parallel_size is not None and args_.stage == "simpo":
+            kwargs['micro_batch_size'] = args_.micro_batch_size * 2
+        return fn(*args, **kwargs)
+    return wrapper

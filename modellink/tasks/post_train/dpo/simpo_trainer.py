@@ -4,9 +4,8 @@ from typing import Dict, Tuple
 from functools import partial
 import torch
 import torch.nn.functional as F
-from megatron.training import get_args, get_model
-from megatron.core import mpu, tensor_parallel
-from megatron.core.enums import ModelType
+from megatron.training import get_args
+from megatron.core import mpu
 from megatron.training.utils import average_losses_across_data_parallel_group
 from modellink.tasks.post_train.base import BaseTrainer
 from modellink.tasks.post_train.dpo import DPOTrainer
@@ -26,9 +25,13 @@ class SimPOTrainer(BaseTrainer):
 
         Sets up the instance variables for the model provider and initializes the SimPO model.
         """
-        super().__init__()
+        super().__init__(
+            model_provider=self.model_provider,
+            get_batch_func=self.get_batch,
+            loss_func=self.loss_func,
+            forward_step_func=self.forward_step)
 
-        self.policy_model = self.train_args[1][0]
+        self.args.actual_micro_batch_size = self.args.micro_batch_size * 2
 
     def loss_func(self, input_tensor: torch.Tensor, output_tensor: torch.Tensor):
         """SimPO Loss function.
@@ -60,6 +63,10 @@ class SimPOTrainer(BaseTrainer):
             metrics[key] = average_losses_across_data_parallel_group([metrics[key]])
 
         return loss, metrics
+    
+    @staticmethod
+    def get_batch(data_iterator):
+        return DPOTrainer.get_batch(data_iterator)
 
     def forward_step(self, data_iterator, model):
         """SimPO Forward training step.
@@ -70,10 +77,10 @@ class SimPOTrainer(BaseTrainer):
         """
         # Get the batch.
         self.timers('batch-generator', log_level=2).start()
-        tokens, labels, attention_mask, position_ids = DPOTrainer.get_batch(data_iterator)
+        tokens, labels, attention_mask, position_ids = self.get_batch(data_iterator)
         self.timers('batch-generator').stop()
 
-        output_tensor = self.policy_model(tokens, position_ids, attention_mask)
+        output_tensor = model(tokens, position_ids, attention_mask)
 
         return output_tensor, partial(self.loss_func, labels)
 
@@ -282,5 +289,18 @@ class SimPOTrainer(BaseTrainer):
             per_token_log_probs = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
             all_log_probs = (per_token_log_probs * loss_mask).sum(-1)
             valid_length = loss_mask.sum(-1)
+            
+        if mpu.get_context_parallel_world_size() > 1:
+            torch.distributed.all_reduce(
+                valid_length,
+                op=torch.distributed.ReduceOp.SUM,
+                group=mpu.get_context_parallel_group()
+            )
+
+            torch.distributed.all_reduce(
+                all_log_probs,
+                op=torch.distributed.ReduceOp.SUM,
+                group=mpu.get_context_parallel_group()
+            )
 
         return all_log_probs, valid_length

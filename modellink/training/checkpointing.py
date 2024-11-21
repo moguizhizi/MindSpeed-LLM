@@ -25,15 +25,17 @@ from modellink.tasks.post_train.utils import load_checkpoint_loosely
 def _load_base_checkpoint_wrapper(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
+        args_ = get_args()
+        if getattr(args_, 'is_load_refer', False):
+            kwargs['checkpoint_step'] = args_.refer_model_iter
         state_dict, checkpoint_name, release = fn(*args, **kwargs)
         rank0 = kwargs.pop('rank0')
         if is_enable_lora() and state_dict is not None:
-            args_ = get_args()
             words_to_match = {'weight': 'base_layer.weight', 'bias': 'base_layer.bias'}
             exclude_words = ['base_layer', 'lora_', 'norm']
             state_dict = modify_keys_with_dict(state_dict, words_to_match, exclude_words)
 
-            if not args_.lora_load:
+            if not args_.lora_load or getattr(args_, 'is_load_refer', False):
                 return state_dict, checkpoint_name, release
 
             # Read the tracker file and set the iteration.

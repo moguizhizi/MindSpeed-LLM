@@ -506,14 +506,15 @@ def _add_rl_args(parser):
         help='The robust SimPO label smoothing parameter.'
     )
     group.add_argument(
-        '--dpo-ftx',
-        default=0.0,
-        help='The supervised fine-tuning loss coefficient in DPO training.'
-    )
-    group.add_argument(
         '--ref-model',
         default=None,
         help='Path to the reference model used for the PPO or DPO training.'
+    )
+    group.add_argument(
+        '--refer-model-iter',
+        type=int,
+        default=1,
+        help='iteration of the reference model used for the PPO or DPO training.'
     )
     group.add_argument(
         '--dpo-label-smoothing',
@@ -805,15 +806,7 @@ def _validate_group_limited_greedy(args):
 
 
 def _validate_rl_training(args):
-    if args.stage == "dpo":
-        if any(
-                [
-                    args.num_layers_per_virtual_pipeline_stage is not None,
-                    args.num_experts is not None,
-                    args.context_parallel_size > 1
-                ]
-        ):
-            raise AssertionError('VPP, EP, CP unsupported now.')
+    return
 
 
 def get_layer_offset(pp_size, num_layer_list):

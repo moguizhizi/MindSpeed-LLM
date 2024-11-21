@@ -529,7 +529,7 @@
     </tr>
 	</tr>
 	  <td rowspan="1"><a href="https://huggingface.co/Qwen">CodeQwen2.5</a></td>
-      <td> <a href="https://huggingface.co/Qwen/CodeQwen2.5-7B">7B</a> </td>
+      <td> <a href="https://huggingface.co/Qwen/Qwen2.5-Coder-7B">7B</a> </td>
       <td> 8K </td>
       <th>Mcore</th>
       <td> 1x8 </td>
