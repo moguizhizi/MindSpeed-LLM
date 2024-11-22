@@ -49,6 +49,49 @@ MindSpeed-LLM 已支持的大模型评估数据统计如下：
 | InternLM2.5-1.8b     | MMLU   | 51.3%     | [53.5%](https://huggingface.co/internlm/internlm2_5-1_8b)             | InternLM2.5-7B   | MMLU   | 69.7%     | [71.6%](https://huggingface.co/internlm/internlm2_5-7b)                            | 
 | InternLM2.5-20b      | MMLU   | 73.3%     | [74.2%](https://huggingface.co/internlm/internlm2_5-20b)              | Yi1.5-6B         | MMLU   | 63.2%     | [63.5%](https://huggingface.co/01-ai/Yi-1.5-6B/tree/main)                          |
 | Yi1.5-9B             | MMLU   | 69.2%     | [69.5%](https://huggingface.co/01-ai/Yi-1.5-9B/tree/main)             | Yi1.5-34B        | MMLU   | 76.9%     | [77.1%](https://huggingface.co/01-ai/Yi-1.5-34B/tree/main)                         | 
-| CodeQWen2.5-7B       | Human. | 66.5%     | [61.6%](https://modelscope.cn/models/Qwen/Qwen2.5-Coder-7B)           |  
+| CodeQWen2.5-7B       | Human. | 66.5%     | [61.6%](https://modelscope.cn/models/Qwen/Qwen2.5-Coder-7B)           | Qwen2.5-Math-7B  |MMLU-STEM| 65.1%    | [67.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)                         |
+| Qwen2.5-Math-72B     |MMLU-STEM| 83.7%    | [82.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)            |
 
 具体的权重转换功能命令介绍见 [MindSpeed-LLM 大模型使用指南分布式评估](../USER_GUIDE.md/#大模型分布式评估)章节.
+
+
+## 社区BUG列表
+
+1.Qwen2.5-Math:评估集使用MMLU-STEM评估集，MMLU-STEM为MMLU评估集的子集，可以在下载MMLU评估集后自行删除无关学科，并将评估脚本`TASK`配置设置为**mmlu**进行评估任务。
+按照Qwen2.5-Math官方评估代码中的定义，MMLU-STEM的学科范围如下:
+
+> abstract_algebra(抽象代数)
+> 
+> astronomy(天文学)
+> 
+> college_biology(大学生物学)
+> 
+> college_chemistry(大学化学)
+> 
+> college_computer_science(大学计算机科学)
+> 
+> college_mathematics(大学数学)
+> 
+> college_physics(大学物理学)
+> 
+> computer_security(计算机安全)
+> 
+> conceptual_physics(概念物理学)
+> 
+> electrical_engineering(电气工程学)
+> 
+> elementary_mathematics(初等数学)
+> 
+> high_school_biology(高中生物学)
+> 
+> high_school_chemistry(高中化学)
+> 
+> high_school_computer_science(高中计算机科学)
+> 
+> high_school_mathematics(高中数学)
+> 
+> high_school_physics(高中物理学)
+> 
+> high_school_statistics(高中统计学)
+> 
+> machine_learning(机器学习)
