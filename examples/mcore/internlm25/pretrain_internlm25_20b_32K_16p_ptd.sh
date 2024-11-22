@@ -45,7 +45,7 @@ GPT_ARGS="
     --group-query-attention \
     --num-query-groups 8 \
     --tokenizer-type PretrainedFromHF \
-    --tokenizer-name-or-path ${TOKENIZER_MODEL} \
+    --tokenizer-name-or-path ${TOKENIZER_PATH} \
     --seq-length ${SEQ_LEN} \
     --max-position-embeddings ${SEQ_LEN} \
     --micro-batch-size ${MBS} \
@@ -100,6 +100,7 @@ OUTPUT_ARGS="
     --save-interval 2000 \
     --eval-interval 2000 \
     --eval-iters 0 \
+    --log-throughput \
 "
 
 torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
