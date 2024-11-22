@@ -20,6 +20,7 @@ import json
 from functools import wraps
 
 import time
+
 # The earliest we can measure the start time.
 _TRAIN_START_TIME = time.time()
 
@@ -74,7 +75,7 @@ def model_provider_func_wrapper(model_provider_func):
             from peft.tuners.lora import tp_layer
             from modellink.tasks.finetune.lora.lora_moe import LoraParallelLinearMoE
             tp_layer.LoraParallelLinear = LoraParallelLinearMoE
-            
+
             if hasattr(args, 'lora_fusion') and args.lora_fusion:
                 from peft.tuners.lora.tp_layer import LoraParallelLinear
                 from modellink.tasks.finetune.lora.cc_lora_forward import CCLoraParallelLinearForward
@@ -97,14 +98,15 @@ def model_provider_func_wrapper(model_provider_func):
             def _hook(_module, _x_in, _x_out):
                 """ Extract the feature map of model"""
                 _x_out.requires_grad_(True)
-                
-            def _create_hooks(_model, layer):  
+
+            def _create_hooks(_model, layer):
                 """ Make the hooks function"""
                 for name, module in _model.named_modules():
                     if isinstance(module, megatron.core.tensor_parallel.layers.VocabParallelEmbedding):
                         _name = name.split('.')[-1]
                         if _name in layer:
                             module.register_forward_hook(_hook)
+
             if args.recompute_method == 'block' and args.recompute_granularity == 'full':
                 _create_hooks(model, args.lora_register_forward_hook)
 
@@ -117,12 +119,13 @@ def model_provider_func_wrapper(model_provider_func):
                 for param in module.parameters():
                     if not param.requires_grad and hasattr(param, 'sequence_parallel'):
                         delattr(param, 'sequence_parallel')
-            
+
             megatron.training.utils.ALL_MODULE_WRAPPER_CLASSNAMES = tuple(
                 list(megatron.training.utils.ALL_MODULE_WRAPPER_CLASSNAMES) + [PeftModel, LoraModel]
             )
 
         return model
+
     return wrapper
 
 
@@ -132,6 +135,7 @@ def get_model_wrapper(fn):
         model_provider_func = model_provider_func_wrapper(model_provider_func)
         model = fn(model_provider_func, model_type, wrap_with_ddp)
         return model
+
     return wrapper
 
 
@@ -456,7 +460,8 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
             train_duration = timers('interval-time').active_time()  # overall_elapsed
             train_samples = args.consumed_train_samples - train_samples_start
             train_iterations = iteration - iteration_start
-            train_iterations_time_msecs_avg = (train_duration * 1000.0) / train_iterations if train_iterations > 0 else None
+            train_iterations_time_msecs_avg = (
+                                                          train_duration * 1000.0) / train_iterations if train_iterations > 0 else None
             if eval_iterations > 0:
                 validation_iterations_time_msecs_avg = (eval_duration * 1000.0) / eval_iterations
             else:
@@ -487,7 +492,8 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                 "number of microbatches should be increasing due to batch size rampup"
             save_checkpoint_and_time(iteration, model, optimizer,
                                      opt_param_scheduler,
-                                     num_floating_point_operations_so_far)
+                                     num_floating_point_operations_so_far,
+                                     checkpointing_context=None)
         num_microbatches = get_num_microbatches()
         update_num_microbatches(args.consumed_train_samples, consistency_check=True)
 
@@ -535,13 +541,13 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
 
         # Autoresume
         if args.adlr_autoresume and \
-           (iteration % args.adlr_autoresume_interval == 0):
+                (iteration % args.adlr_autoresume_interval == 0):
             check_adlr_autoresume_termination(iteration, model, optimizer,
                                               opt_param_scheduler)
 
         # Evaluation
         if args.eval_interval and iteration % args.eval_interval == 0 and \
-           args.do_valid:
+                args.do_valid:
             timers('interval-time').stop()
             if args.use_distributed_optimizer and args.overlap_param_gather:
                 optimizer.disable_pre_hook()
@@ -571,17 +577,19 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
             if any(signal_handler.signals_received()):
                 save_checkpoint_and_time(iteration, model, optimizer,
                                          opt_param_scheduler,
-                                         num_floating_point_operations_so_far)
+                                         num_floating_point_operations_so_far,
+                                         checkpointing_context=None)
                 print_datetime('exiting program after receiving SIGTERM.')
                 exit = True
                 break
 
         if args.save and args.save_interval and \
-           iteration % args.save_interval == 0:
+                iteration % args.save_interval == 0:
             timers('interval-time').stop()
             save_checkpoint_and_time(iteration, model, optimizer,
                                      opt_param_scheduler,
-                                     num_floating_point_operations_so_far)
+                                     num_floating_point_operations_so_far,
+                                     checkpointing_context=None)
             saved_checkpoint = True
             timers('interval-time', log_level=0).start(barrier=True)
 
@@ -597,7 +605,8 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                 if not saved_checkpoint:
                     save_checkpoint_and_time(iteration, model, optimizer,
                                              opt_param_scheduler,
-                                             num_floating_point_operations_so_far)
+                                             num_floating_point_operations_so_far,
+                                             checkpointing_context=None)
                 print_datetime('exiting program after {} minutes'.format(train_time))
                 exit = True
                 break
@@ -607,7 +616,8 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
             if args.save and not saved_checkpoint:
                 save_checkpoint_and_time(iteration, model, optimizer,
                                          opt_param_scheduler,
-                                         num_floating_point_operations_so_far)
+                                         num_floating_point_operations_so_far,
+                                         checkpointing_context=None)
             torch.distributed.barrier()
             print_datetime('exiting program at iteration {}'.format(iteration))
             exit = True
@@ -622,7 +632,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
 
     if is_profile_enabled():
         prof.stop()
-    
+
     track_e2e_metrics()
 
     # Flush TensorBoard and WandB writers.

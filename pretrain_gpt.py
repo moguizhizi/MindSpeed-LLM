@@ -16,6 +16,7 @@ from megatron.core.enums import ModelType
 from megatron.core.datasets.blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
 from megatron.core.datasets.gpt_dataset import GPTDatasetConfig
 from megatron.core.datasets.gpt_dataset import MockGPTDataset, GPTDataset
+from megatron.core.datasets.utils import get_blend_from_list
 import megatron.legacy.model
 from megatron.core.models.gpt import GPTModel
 from modellink.training import pretrain
@@ -171,11 +172,14 @@ def core_gpt_dataset_config_from_args(args):
     return GPTDatasetConfig(
         random_seed=args.seed,
         sequence_length=args.seq_length,
-        blend=args.data_path,
-        blend_per_split=[args.train_data_path, args.valid_data_path, args.test_data_path],
+        blend=get_blend_from_list(args.data_path),
+        blend_per_split=[
+            get_blend_from_list(args.train_data_path),
+            get_blend_from_list(args.valid_data_path),
+            get_blend_from_list(args.test_data_path)
+        ],
         split=args.split,
         path_to_cache=args.data_cache_path,
-        mock=args.mock_data,
         mmap_bin_files=args.mmap_bin_files,
         tokenizer=tokenizer,
         reset_position_ids=args.reset_position_ids,

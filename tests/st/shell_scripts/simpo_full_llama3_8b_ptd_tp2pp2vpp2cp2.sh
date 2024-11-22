@@ -14,6 +14,7 @@ basepath=$(cd `dirname $0`; cd ../../../; pwd)
 DATA_PATH="/data/pairwise_dataset/baseline/orca_rlhf/orca_rlhf_llama3"
 TOKENIZER_MODEL="/data/Meta-Llama-3-8B-Instruct"
 CKPT_LOAD_DIR="/data/llama-3-8b_tp2pp2vpp2"
+
 TP=2
 PP=2
 CP=2

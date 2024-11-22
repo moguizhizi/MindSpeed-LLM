@@ -43,6 +43,7 @@ def initialize_model_parallel_decorator(initialize_model_parallel):
             expert_model_parallel_size: int = 1,
             nccl_communicator_config_path: Optional[str] = None,
             distributed_timeout_minutes: int = 30,
+            order: str = "tp-cp-ep-dp-pp",
     ):
         from megatron.training.utils import print_rank_0
         timeout = timedelta(minutes=distributed_timeout_minutes)
@@ -54,13 +55,14 @@ def initialize_model_parallel_decorator(initialize_model_parallel):
         initialize_model_parallel(
             tensor_model_parallel_size,
             pipeline_model_parallel_size,
-            virtual_pipeline_model_parallel_size,
+            None,
             pipeline_model_parallel_split_rank,
             use_sharp,
             context_parallel_size,
             1,
             nccl_communicator_config_path,
             distributed_timeout_minutes,
+            order,
         )
 
         rank = torch.distributed.get_rank()

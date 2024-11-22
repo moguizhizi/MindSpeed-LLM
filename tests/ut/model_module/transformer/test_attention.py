@@ -18,7 +18,7 @@ from mindspeed.model.transformer import get_attention_mask
 from mindspeed.model.transformer import set_attention_mask
 
 from tests.test_tools.dist_test import DistributedTest
-from tests.test_tools.utils import initialize_model_parallel
+from tests.test_tools.utils import initialize_model_parallel, initialize_model_parallel_decorator
 from modellink.tasks.models.common.alibi import Alibi
 from modellink.training.utils import seed_all
 
@@ -53,6 +53,11 @@ def run_attention_module(test_args, use_mcore, use_cp, cp_size, u_size, use_alib
     args = parse_args(None, True)
     args.use_cp_send_recv_overlap = True
     args.cp_attention_mask_type = 'causal'
+    args.tp_2d = None
+    args.tp_x = 1
+    args.tp_y = 1
+    args.use_nd_matmul = False
+    args.ampipe_degree = 0
 
     if use_alibi:
         args.position_embedding_type = 'alibi'
@@ -75,7 +80,8 @@ def run_attention_module(test_args, use_mcore, use_cp, cp_size, u_size, use_alib
     set_args(args)
     # clear global attention mask set by last test case
     set_attention_mask(None)
-    initialize_model_parallel(context_parallel_size=cp_size)
+    initialize_model_parallel_nest = initialize_model_parallel_decorator(initialize_model_parallel)
+    initialize_model_parallel_nest(context_parallel_size=cp_size)
     seed_all(1234)
 
     rank = dist.get_rank()

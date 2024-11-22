@@ -11,7 +11,7 @@
 ```bash
 git clone https://github.com/NVIDIA/Megatron-LM.git
 cd Megatron-LM
-git checkout core_r0.6.0
+git checkout core_r0.7.0
 ```
 
 ### 2. 获取 MindSpeed-Core 与 MindSpeed-LLM
@@ -57,6 +57,7 @@ python ./preprocess_data.py \
 在完成数据集转换后，配置词表路径：
 
 ```bash
+# 注意：提供的路径需要加上双引号
 CKPT_SAVE_DIR="your model save ckpt path"   # 模型训练好后权重保存地址
 DATA_PATH="your data path"  # 数据集路径
 TOKENIZER_MODEL="your tokenizer path"   # 分词器路径

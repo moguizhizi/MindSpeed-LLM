@@ -150,67 +150,6 @@ def switch_load_balancing_loss_func(gates, tokens_per_expert, topk, moe_aux_loss
     return aux_loss
 
 
-def permute(tokens, indices, num_out_tokens: int = None, padded_mode: bool = False):
-    if padded_mode:
-        return permute_with_padded_tokens(tokens, indices)
-
-    if indices.dim() == 1:
-        topk = 1
-    else:
-        topk = indices.size(1)
-    flatten_indices = indices.view(-1)
-    # sorted_indices = torch.argsort(flatten_indices, stable=True) # 原版
-    # mindspeed 优化
-    sorted_indices = torch.sort(flatten_indices.float(), stable=True)[1]
-    if num_out_tokens is not None:
-        sorted_indices = sorted_indices[:num_out_tokens]
-    permuted_tokens = tokens.index_select(0, sorted_indices // topk)
-    return permuted_tokens, sorted_indices
-
-
-def unpermute(
-    permuted_tokens: torch.Tensor,
-    sorted_indices: torch.Tensor,
-    probs: torch.Tensor = None,
-    padded_mode: bool = False,
-    restore_shape: torch.Size = None,
-):
-    if padded_mode:
-        return unpermute_with_padded_tokens(
-            permuted_tokens, sorted_indices, probs, restore_shape=restore_shape
-        )
-
-    if sorted_indices.numel() != permuted_tokens.size(0):
-        raise AssertionError(f"sorted_indices.numel()={sorted_indices.numel()} should be equal to permuted_tokens.size(0)={permuted_tokens.size(0)}")
-
-    if probs is not None:
-        # Unpermute and merge the tokens with their probabilities
-        num_unpermuted_tokens = probs.numel()
-        topk = probs.size(1)
-    else:
-        # Unpermute the tokens without merge
-        num_unpermuted_tokens = permuted_tokens.size(0)
-        topk = 1
-    unpermuted_tokens = torch.zeros(
-        [num_unpermuted_tokens, permuted_tokens.shape[-1]],
-        dtype=permuted_tokens.dtype,
-        device=permuted_tokens.device,
-    )
-    # megatron优化
-    unpermuted_tokens.index_copy_(0, sorted_indices, permuted_tokens)
-    unpermuted_tokens = unpermuted_tokens.reshape(-1, topk, permuted_tokens.size(-1))
-
-    # Mindspeed半成品
-    # sorted_indices = torch.argsort(sorted_indices.float()).int()
-    # unpermuted_tokens = permuted_tokens.index_select(0, sorted_indices)
-    # unpermuted_tokens = unpermuted_tokens.reshape(-1, topk, permuted_tokens.size(-1))
-    if probs is not None:
-        unpermuted_tokens = unpermuted_tokens * probs.unsqueeze(-1)
-    unpermuted_tokens = unpermuted_tokens.sum(dim=1)
-
-    return unpermuted_tokens
-
-
 def permute_with_padded_tokens(tokens, indices):
     """Permute the tokens based on the indices, only used in padding mode.
        The input indices shape is [num_expert, capacity], it indicates which tokens were selected by each expert separately.

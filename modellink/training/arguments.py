@@ -699,6 +699,7 @@ def _validate_recompute_args(args):
 
 
 def _validate_high_availability(args):
+
     if args.enable_high_availability:
         try:
             import mindio_ttp
@@ -752,6 +753,8 @@ def _validate_moe_args(args):
             raise ValueError(f'moe_expert_capacity_factor must be set to use moe_pad_expert_input_to_capacity')
         if args.shared_expert_gate_output_dimension != 1 and args.shared_expert_gate_output_dimension != args.hidden_size:
             raise AssertionError('shared expert gate output dimension can only be configured with 1 or hidden_size')
+        if hasattr(args, 'use_fused_moe_token_permute_and_unpermute') and args.use_fused_moe_token_permute_and_unpermute:
+            raise AssertionError('moe_expert_capacity_factor mode does not support use_fused_moe_token_permute_and_unpermute')
 
 
 def _validate_mla(args):
@@ -901,6 +904,11 @@ def _store_variables(args):
         args.num_layers_per_virtual_pipeline_stage = None
         args.overlap_p2p_comm = None
 
+    if not args.data_path:
+        args.data_path = True
+
+    args.mock_data = 0
+
     return variable_dict
 
 
@@ -932,9 +940,15 @@ def _add_dummy_args(args):
     args.moe_tp_extend_ep = False
     args.recompute_in_bubble = False
     args.use_nanopipe = False
+    args.tp_2d = None
+    args.tp_x = 1
+    args.tp_y = 1
+    args.use_nd_matmul = False
     args.moe_alltoall_overlap_comm = False
     args.moe_allgather_overlap_comm = False
     args.moe_without_activation = False
+    args.disable_gloo_group = None
+    args.ampipe_degree = 0
 
 
 def _validate_noop_layer(args):

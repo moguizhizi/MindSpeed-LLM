@@ -107,4 +107,4 @@ torchrun $DISTRIBUTED_ARGS $basepath/posttrain_gpt.py \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
     --variable-seq-lengths \
-    --log-throughput 
+    --log-throughput

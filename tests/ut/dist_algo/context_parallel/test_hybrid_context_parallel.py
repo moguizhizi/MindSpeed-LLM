@@ -19,7 +19,7 @@ from mindspeed.model.transformer import set_attention_mask
 
 
 from tests.test_tools.dist_test import DistributedTest
-from tests.test_tools.utils import initialize_model_parallel
+from tests.test_tools.utils import initialize_model_parallel, initialize_model_parallel_decorator
 from modellink.training.utils import seed_all
 
 
@@ -66,10 +66,16 @@ def run_hybridattn_cp(test_args, cp_size, u_size, cp_args):
     args.context_parallel_size = cp_size
     args.ulysses_degree_in_cp = u_size
     args.seq_length = seq_len
+    args.tp_2d = None
+    args.tp_x = 1
+    args.tp_y = 1
+    args.use_nd_matmul = False
+    args.ampipe_degree = 0
     set_args(args)
     # clear global attention mask set by last test case
     set_attention_mask(None)
-    initialize_model_parallel(context_parallel_size=cp_size)
+    initialize_model_parallel_nest = initialize_model_parallel_decorator(initialize_model_parallel)
+    initialize_model_parallel_nest(context_parallel_size=cp_size)
     seed_all(1234)
 
     rank = dist.get_rank()

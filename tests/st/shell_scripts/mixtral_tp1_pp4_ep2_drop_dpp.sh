@@ -22,7 +22,7 @@ echo "NODE_RANK ${NODE_RANK}"
 
 DATA_PATH="/data/pretrain_dataset/alpaca_text_document"
 TOKENIZER_MODEL="/data/mixtral-8-7b-hf/Mixtral-8x7B/tokenizer.model"
-CKPT_LOAD_DIR="/data/Mixtral-8x7B-tp1pp4ep2"
+CKPT_LOAD_DIR="/data/Mixtral-8x7B-tp1pp4ep2/"
 CKPT_SAVE_DIR="/data/ckpt"
 
 TP=1

@@ -58,7 +58,7 @@
 git clone https://gitee.com/ascend/ModelLink.git 
 git clone https://github.com/NVIDIA/Megatron-LM.git
 cd Megatron-LM
-git checkout core_r0.6.0
+git checkout core_r0.7.0
 cp -r megatron ../ModelLink/
 cd ..
 cd ModelLink
@@ -91,8 +91,8 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 # 安装加速库
 git clone https://gitee.com/ascend/MindSpeed.git
 cd MindSpeed
-# checkout commit from MindSpeed core_r0.6.0 in 1021
-git checkout 969686ff 
+# checkout commit from MindSpeed core_r0.7.0 in 2024.11.04
+git checkout f3332571 
 pip install -r requirements.txt 
 pip3 install -e .
 cd ..
@@ -778,6 +778,7 @@ examples/mcore/llama2/pretrain_llama2_7b_ptd.sh *(mcore分支)*
 路径配置：包括**权重保存路径**、**权重加载路径**、**词表路径**、**数据集路径**
  ```shell
 # 根据实际情况配置权重保存、权重加载、词表、数据集路径
+# 注意：提供的路径需要加双引号
 CKPT_SAVE_DIR="./ckpt/llama-2-7b"  #权重保存路径
 CKPT_LOAD_DIR="./model_weights/llama-2-7b-legacy/"  #权重加载路径
 TOKENIZER_MODEL="./model_from_hf/llama-2-7b-hf/tokenizer.model"  #词表路径
@@ -805,12 +806,21 @@ TOKENIZER_MODEL="./model_from_hf/llama-2-7b-hf/tokenizer.model"
 
 支持多数据集训练，参数格式如下
 
+格式一（数据集权重根据提供的weight参数）
 ```shell 
 --data-path dataset1-weight dataset1-path dataset2-weight dataset2-path
 ```
 **示例：**
 ```shell 
---data-path 0.5 "./dataset/enwiki_text_document1" 0.5 "./dataset/enwiki_text_document2"
+--data-path "0.5 ./dataset/enwiki_text_document1 0.5 ./dataset/enwiki_text_document2"
+```
+格式二（根据数据集的长度推出数据集的权重）
+```shell 
+--data-path dataset1-path dataset2-path
+```
+**示例：**
+```shell 
+--data-path "./dataset/enwiki_text_document1 ./dataset/enwiki_text_document2"
 ```
 
 【单机运行】 

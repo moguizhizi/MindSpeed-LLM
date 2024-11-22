@@ -7,14 +7,14 @@ import torch
 
 from megatron.training import get_args
 from megatron.core.datasets.blended_dataset import BlendedDataset
-from megatron.core.datasets.megatron_dataset import MegatronDataset, LowLevelDataset, MockDataset
+from megatron.core.datasets.megatron_dataset import MegatronDataset, LowLevelDataset
 from megatron.core import mpu
 
 from ..parallel_state import get_pipeline_model_parallel_node_info
 
 logger = logging.getLogger(__name__)
 
-MidLevelDataset = Union[MegatronDataset, MockDataset]
+MidLevelDataset = MegatronDataset
 
 TopLevelDataset = Union[BlendedDataset, MidLevelDataset]
 
@@ -38,7 +38,7 @@ def need_to_build_dataset():
 
 @staticmethod
 def build_generic_dataset(
-    cls: Union[Type[DistributedDataset], Callable], is_built_on_rank: Callable, *args: Any
+        cls: Union[Type[DistributedDataset], Callable], is_built_on_rank: Callable, synchronize_ranks: bool = True, *args: Any
 ) -> Optional[Union[DistributedDataset, Iterable]]:
     """Build the DistributedDataset
 

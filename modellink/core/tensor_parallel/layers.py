@@ -49,6 +49,53 @@ def vocab_embedding_forward_wrapper(fn):
     return wrapper
 
 
+def linear_forward_main_grad_wrapper(forward_func):
+    @wraps(forward_func)
+    def linear_forward_main_grad(ctx,
+                                 inputs,
+                                 weight,
+                                 bias,
+                                 gradient_accumulation_fusion,
+                                 async_grad_allreduce,
+                                 sequence_parallel,
+                                 grad_output_buffer,):
+        output = forward_func(ctx,
+                              inputs,
+                              weight,
+                              bias,
+                              gradient_accumulation_fusion,
+                              async_grad_allreduce,
+                              sequence_parallel,
+                              grad_output_buffer,)
+        ctx.weight = weight
+        return output
+
+    return linear_forward_main_grad
+
+
+def linear_backward_main_grad_wrapper(backward_func):
+    @wraps(backward_func)
+    def linear_backward_main_grad(ctx, grad_output):
+        class NewCtx:
+            pass
+        new_ctx = NewCtx()
+        inputs, _ = ctx.saved_tensors
+        for key in dir(ctx):
+            if key == 'saved_tensors':
+                setattr(new_ctx, 'saved_tensors', (inputs, ctx.weight))
+            elif key.startswith('__') or key == 'saved_variables':
+                continue
+            else:
+                try:
+                    getattr(ctx, key)
+                except AttributeError:
+                    continue
+                setattr(new_ctx, key, getattr(ctx, key))
+        return backward_func(new_ctx, grad_output)
+
+    return linear_backward_main_grad
+
+
 class SegmentedColumnParallelLinear(ColumnParallelLinear):
     def __int__(self):
         super(ColumnParallelLinear, self).__init__()
@@ -93,9 +140,10 @@ class SegmentedColumnParallelLinear(ColumnParallelLinear):
         bias = self.bias if not self.skip_bias_add else None
 
         if (
-                self.async_tensor_model_parallel_allreduce
+                self.allreduce_dgrad
                 or self.sequence_parallel
                 or self.explicit_expert_comm
+                or self.disable_grad_reduce
         ):
             input_parallel = input_
         else:
@@ -110,6 +158,9 @@ class SegmentedColumnParallelLinear(ColumnParallelLinear):
         else:
             self._forward_impl = linear_with_grad_accumulation_and_async_allreduce
 
+
+        allreduce_dgrad = False if self.explicit_expert_comm else self.allreduce_dgrad
+
         weight = torch.split(weight, weight.shape[0] // args_.output_layer_slice_num, dim=0)
 
         output_parallel = []
@@ -119,15 +170,15 @@ class SegmentedColumnParallelLinear(ColumnParallelLinear):
                 weight=weight[i],
                 bias=bias,
                 gradient_accumulation_fusion=self.gradient_accumulation_fusion,
-                async_grad_allreduce=False
-                if self.explicit_expert_comm
-                else self.async_tensor_model_parallel_allreduce,
+                async_grad_allreduce=allreduce_dgrad,
                 sequence_parallel=False if self.explicit_expert_comm else self.sequence_parallel,
                 grad_output_buffer=self.grad_output_buffer
                 if self.config.defer_embedding_wgrad_compute
                 else None,
+                allreduce_dgrad=allreduce_dgrad,
             ))
         output_parallel = torch.cat(output_parallel, dim=2)
+
         if self.gather_output:
             # All-gather across the partitions.
             assert not self.sequence_parallel

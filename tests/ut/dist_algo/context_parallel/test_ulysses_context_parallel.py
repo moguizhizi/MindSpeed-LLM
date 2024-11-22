@@ -14,7 +14,7 @@ from mindspeed.core.context_parallel.ulysses_context_parallel import UlyssesCont
 from modellink.training.utils import seed_all
 
 from tests.test_tools.dist_test import DistributedTest
-from tests.test_tools.utils import initialize_model_parallel
+from tests.test_tools.utils import initialize_model_parallel, initialize_model_parallel_decorator
 
 
 class FlashSelfAttention(torch.nn.Module):
@@ -140,6 +140,12 @@ class TestUlyssesAttention(DistributedTest):
 
     def test_ulysses_context_parallel_seq8192_bs2_bf16(self):
         args = parse_args(None, True)
+        args.tp_2d = None
+        args.tp_x = 1
+        args.tp_y = 1
+        args.use_nd_matmul = False
+        args.ampipe_degree = 0
         set_args(args)
-        initialize_model_parallel(context_parallel_size=self.world_size)
+        initialize_model_parallel_nest = initialize_model_parallel_decorator(initialize_model_parallel)
+        initialize_model_parallel_nest(context_parallel_size=self.world_size)
         run_ulysses_cp(self.world_size, 2, 8192, torch.bfloat16)

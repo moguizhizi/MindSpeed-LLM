@@ -6,7 +6,7 @@ import numpy as np
 import torch.distributed as dist
 
 # To activate modellink.patches.__init__
-import modellink
+from modellink import megatron_adaptor
 from megatron.training.global_vars import set_args
 from megatron.training.arguments import parse_args
 from mindspeed.core.context_parallel.adaptive_context_parallel import adaptive_attn_context_parallel
@@ -19,14 +19,14 @@ from mindspeed.core.parallel_state import (get_context_parallel_group_for_send_r
                                            get_context_parallel_group_for_hybrid_ring,
                                            get_context_parallel_for_hybrid_ring_global_ranks,
                                            get_context_parallel_group_for_hybrid_ulysses)
-from mindspeed.core.context_parallel.utils import (set_scheduling_info, 
-                                                   get_scheduling_info, 
+from mindspeed.core.context_parallel.utils import (set_scheduling_info,
+                                                   get_scheduling_info,
                                                    clear_global_info,
                                                    adaptive_cp_ops,
                                                    set_remapped_seq_order)
 
 from tests.test_tools.dist_test import DistributedTest
-from tests.test_tools.utils import initialize_model_parallel
+from tests.test_tools.utils import initialize_model_parallel, initialize_model_parallel_decorator
 from modellink.training.utils import seed_all
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -36,7 +36,7 @@ def get_data_on_this_cp_rank(data, remapped_seq_order, cp_size, cp_rank, dim=0):
     """ Slice data along sequence dimension into multiple chunks,
         which are parallelized across GPUs in a context parallel group.
         Dispatch data in a striped way for load-balance.
-    """ 
+    """
     per = data.shape[dim] // cp_size
     index = torch.tensor(remapped_seq_order[cp_rank * per:(cp_rank + 1) * per], device=data.device, dtype=torch.int)
     data = data.index_select(dim, index)
@@ -47,7 +47,7 @@ def get_data_on_this_cp_rank_hybrid(data, remapped_seq_order, adap_size, adap_ra
     """ Slice data along sequence dimension into multiple chunks,
         which are parallelized across GPUs in a context parallel group.
         Dispatch data in a striped way for load-balance.
-    """ 
+    """
     ulys_size = get_context_parallel_for_hybrid_ulysses_world_size()
     ulys_rank = get_context_parallel_for_hybrid_ulysses_rank()
     per = data.shape[dim] // adap_size // ulys_size
@@ -80,9 +80,15 @@ def run_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
     args = parse_args(None, True)
     args.seq_length = seq_len
     args.context_parallel_algo = 'adaptive_cp_algo'
+    args.tp_2d = None
+    args.tp_x = 1
+    args.tp_y = 1
+    args.use_nd_matmul = False
+    args.ampipe_degree = 0
     args.use_cp_send_recv_overlap = True
     set_args(args)
-    initialize_model_parallel(context_parallel_size=cp_size)
+    initialize_model_parallel_nest = initialize_model_parallel_decorator(initialize_model_parallel)
+    initialize_model_parallel_nest(context_parallel_size=cp_size)
     seed_all(1234)
 
     case = cp_args
@@ -178,8 +184,14 @@ def run_hybrid_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
     args.ulysses_degree_in_cp = 2
     args.use_flash_attn = True
     args.use_cp_send_recv_overlap = True
+    args.tp_2d = None
+    args.tp_x = 1
+    args.tp_y = 1
+    args.use_nd_matmul = False
+    args.ampipe_degree = 0
     set_args(args)
-    initialize_model_parallel(context_parallel_size=cp_size)
+    initialize_model_parallel_nest = initialize_model_parallel_decorator(initialize_model_parallel)
+    initialize_model_parallel_nest(context_parallel_size=cp_size)
     seed_all(1234)
 
     case = cp_args
@@ -225,7 +237,7 @@ def run_hybrid_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
     dout_ = get_data_on_this_cp_rank_hybrid(dout.clone().detach(), remapped_seq_order, adap_size, adap_rank)
     for x in [q_, k_, v_]:
         x.requires_grad = True
-    
+
     cp_para = dict()
     cp_para['causal'] = args.cp_attention_mask_type == 'causal'
     cp_para['cp_group'] = get_context_parallel_group_for_hybrid_ring()
@@ -237,7 +249,8 @@ def run_hybrid_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
     _q_ = _SeqAllToAll.apply(get_context_parallel_group_for_hybrid_ulysses(), q_, 2, 0)
     _k_ = _SeqAllToAll.apply(get_context_parallel_group_for_hybrid_ulysses(), k_, 2, 0)
     _v_ = _SeqAllToAll.apply(get_context_parallel_group_for_hybrid_ulysses(), v_, 2, 0)
-    out_ = adaptive_attn_context_parallel(_q_, _k_, _v_, n // get_context_parallel_for_hybrid_ulysses_world_size(), cp_para, scale, mask_list, dropout_p=0)
+    out_ = adaptive_attn_context_parallel(_q_, _k_, _v_, n // get_context_parallel_for_hybrid_ulysses_world_size(),
+                                          cp_para, scale, mask_list, dropout_p=0)
     out_ = _SeqAllToAll.apply(get_context_parallel_group_for_hybrid_ulysses(), out_, 0, 2)
     out_.backward(dout_)
 

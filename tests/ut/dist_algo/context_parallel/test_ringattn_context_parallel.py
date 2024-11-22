@@ -12,7 +12,7 @@ from mindspeed.model.transformer import get_attention_mask
 
 from modellink.training.utils import seed_all
 from tests.test_tools.dist_test import DistributedTest
-from tests.test_tools.utils import initialize_model_parallel
+from tests.test_tools.utils import initialize_model_parallel, initialize_model_parallel_decorator
 from modellink.core.transformer.dot_product_attention import do_ring_context_parallel
 
 
@@ -48,8 +48,14 @@ def run_ringattn_cp(cp_size, bs, seq_len, dtype, cp_args):
     args.use_cp_send_recv_overlap = send_recv_overlap
     args.seq_length = seq_len
     args.use_flash_attn = True
+    args.tp_2d = None
+    args.tp_x = 1
+    args.tp_y = 1
+    args.use_nd_matmul = False
+    args.ampipe_degree = 0
     set_args(args)
-    initialize_model_parallel(context_parallel_size=cp_size)
+    initialize_model_parallel_nest = initialize_model_parallel_decorator(initialize_model_parallel)
+    initialize_model_parallel_nest(context_parallel_size=cp_size)
     seed_all(1234)
 
     rank = dist.get_rank()
