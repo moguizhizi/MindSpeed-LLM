@@ -111,4 +111,22 @@ class TestCheckpoint(object):
         base_dir = '/data/ci/qwen2_moe/hf_base/qwen2_moe_hf_base'
         save_dir = os.path.join(self.test_config['test_qwen2_moe_mcore2hf_tp1pp2ep2'][0]['save-dir'], 'mg2hf')
         assert weight_compare(base_dir, save_dir, suffix="safetensors", use_md5=True)
+        shutil.rmtree(save_dir)    
+
+    def test_aquila2_pad_hf2legacy_tp8pp1(self):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_aquila2_pad_hf2legacy_tp8pp1'])
+        assert exit_code == 0
+        base_dir = "/data/Aquila2-legacy-base"
+        save_dir = self.test_config['test_aquila2_pad_hf2legacy_tp8pp1'][0]['save-dir']
+        assert weight_compare(base_dir, save_dir)
+        shutil.rmtree(save_dir)
+
+    def test_aquila2_pad_legacy2hf_tp8pp1(self):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_aquila2_pad_legacy2hf_tp8pp1'])
+        assert exit_code == 0
+        base_dir = '/data/Aquila2-7b/base-mg2hf-tp8pp1'
+        save_dir = os.path.join(self.test_config['test_aquila2_pad_legacy2hf_tp8pp1'][0]['save-dir'], 'mg2hf')
+        assert weight_compare(base_dir, save_dir, suffix="safetensors", use_md5=True)
         shutil.rmtree(save_dir)

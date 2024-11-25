@@ -177,7 +177,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="16">UT</td>
+        <td rowspan="18">UT</td>
         <td>Inference</td>
         <td>Legacy</td>
         <td>greedy_search, lora_inference, deterministic_computation, chatglm3_inference, baichuan2_inference</td>
@@ -243,7 +243,7 @@
         <td></td>
     </tr>
     <tr>
-        <td rowspan="4">Checkpoint</td>
+        <td rowspan="6">Checkpoint</td>
         <td rowspan="2"> Mcore </td>
         <td> hf2mcore, tp, pp, ep, dpp, vpp, deepseek2; hf2mcore, tp, deepseek2</td>
         <td><a href="ut/checkpoint/test_checkpoint.py">test_checkpoint.py</a></td>
@@ -259,7 +259,7 @@
         <td></td>
     </tr>
     <tr>
-        <td rowspan="2">Legacy</td>
+        <td rowspan="4">Legacy</td>
         <td> legacy2mcore, lora</td>
         <td><a href="ut/checkpoint/test_convert_ckpt_from_huggingface.py">test_legacy2hf.py</a></td>
         <td>Y</td>
@@ -269,6 +269,20 @@
     <tr>
         <td>legacy2legacy, lora</td>
         <td><a href="ut/checkpoint/test_convert_ckpt_from_megatron.py">test_legacy2legacy.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>hf2legacy</td>
+        <td><a href="ut/checkpoint/test_checkpoint.py">test_hf2legacy.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>legacy2hf</td>
+        <td><a href="ut/checkpoint/test_checkpoint.py">test_legacy2hf.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
