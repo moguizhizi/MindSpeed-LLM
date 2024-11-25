@@ -88,6 +88,9 @@ pip install apex-0.1_ascend*-cp38-cp38m-linux_aarch64.whl
 # source ascend-toolkit 环境变量
 source /usr/local/Ascend/ascend-toolkit/set_env.sh 
 
+# source atb库 环境变量
+source /usr/local/Ascend/nnal/atb/set_env.sh 
+
 # 安装加速库
 git clone https://gitee.com/ascend/MindSpeed.git
 cd MindSpeed
