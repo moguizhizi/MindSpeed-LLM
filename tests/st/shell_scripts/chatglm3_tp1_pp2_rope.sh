@@ -95,9 +95,8 @@ DATA_ARGS="
 
 OUTPUT_ARGS="
     --log-interval 1 \
-    --save-interval 1000 \
     --eval-interval 1000 \
-    --eval-iters 10 \
+    --eval-iters 1 \
 "
 
 torchrun $DISTRIBUTED_ARGS $basepath/pretrain_gpt.py \
@@ -105,5 +104,4 @@ torchrun $DISTRIBUTED_ARGS $basepath/pretrain_gpt.py \
     $DATA_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
-    --load ${CKPT_LOAD_DIR} \
-    --save $CKPT_SAVE_DIR
+    --load ${CKPT_LOAD_DIR}

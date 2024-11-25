@@ -106,15 +106,11 @@ DATA_ARGS=(
 
 OUTPUT_ARGS=(
     --log-interval 1
-    --save-interval 10000
     --eval-interval 1000
     --eval-iters 1
     --no-load-optim
     --no-load-rng
-    --no-save-optim
-    --no-save-rng
     --load ${CKPT_LOAD_DIR}
-    --save ${CKPT_SAVE_DIR}
 )
 
 
