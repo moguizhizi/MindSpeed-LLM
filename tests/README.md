@@ -13,8 +13,8 @@
         <th>Mem.</th>
     </tr>
     <tr>
-        <td rowspan="20">ST</td>
-        <td rowspan="13">Pretrain</td>
+        <td rowspan="21">ST</td>
+        <td rowspan="14">Pretrain</td>
         <td>Mcore</td>
         <td>TP，PP，VPP，重计算，enable_recompute_layers_per_pp_rank，FA_TND</td>
         <td><a href="st/shell_scripts/llama2_tp2_pp4_vpp2_ptd.sh">llama2_tp2_pp4_vpp2.sh</a></td>
@@ -106,6 +106,14 @@
         <td>Mcore</td>
         <td>shared_experts shared_expert_gate</td>
         <td><a href="st/shell_scripts/qwen2_moe_tp1_pp2_ep2_cp2_32k_ptd.sh">qwen2_moe_tp1_pp2_ep2_cp2_32k_ptd.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>Mcore</td>
+        <td>noop_layers</td>
+        <td><a href="st/shell_scripts/llama3_mcore_tp2_pp2_vpp2_noop_layer.sh">llama3_mcore_tp2_pp2_vpp2_noop_layer.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
@@ -252,7 +260,7 @@
         <td></td>
     </tr>
     <tr>
-        <td>hf2mcore, tp, pp, dpp, vpp, chatglm3, qwen2</td>
+        <td>hf2mcore, tp, pp, dpp, vpp, chatglm3, qwen2, noop_layers</td>
         <td><a href="ut/checkpoint/test_convert_ckpt_from_huggingface.py">test_hf2mcore.py</a></td>
         <td>Y</td>
         <td></td>

@@ -121,6 +121,18 @@ class CovertMCoreQwen2CkptFromHuggingfaceArgs:
     tokenizer_model = "/data/Qwen2-1.5B/tokenizer.model"
 
 
+class CovertMCoreNoopLayerCkptFromHuggingfaceArgs:
+    model_type = "GPT"
+    load_model_type = "hf"
+    save_model_type = "mg"
+    target_tensor_parallel_size = "2"
+    target_pipeline_parallel_size = "2"
+    num_layers_per_virtual_pipeline_stage = "2"
+    load_dir = "/data/llama-3-8b-hf-layer14/"
+    save_dir = "/data/llama-3-8b-hf-nooplayer-tp2pp2vpp2-mcore-test/"
+    base_dir = "/data/llama-3-8b-hf-nooplayer-tp2pp2vpp2-mcore-base/"
+    tokenizer_model = "/data/llama-3-8b-hf/tokenizer.json"
+
 
 class TestConvertCkptFromHuggingface:
 
@@ -385,3 +397,28 @@ class TestConvertCkptFromHuggingface:
         ]
         exit_code = subprocess.run(["python", file_path] + arguments).returncode
         assert exit_code == 0 and weight_compare(args.base_dir, args.save_dir), "convert_weights_qwen2_mcore_form_huggingface failed!"
+        
+    def test_convert_weights_noop_layer_mcore_form_huggingface(self):
+        args = CovertMCoreNoopLayerCkptFromHuggingfaceArgs()
+        """
+        Test case for noop layer
+        """
+        base_dir = Path(__file__).absolute().parents[3]
+        file_path = os.path.join(base_dir, "convert_ckpt.py")
+        arguments = [
+            "--model-type", args.model_type,
+            "--load-model-type", args.load_model_type,
+            "--save-model-type", args.save_model_type,
+            "--target-tensor-parallel-size", args.target_tensor_parallel_size,
+            "--target-pipeline-parallel-size", args.target_pipeline_parallel_size,
+            "--num-layers-per-virtual-pipeline-stage", args.num_layers_per_virtual_pipeline_stage,
+            "--noop-layers", "1,15",
+            "--load-dir", args.load_dir,
+            "--save-dir", args.save_dir,
+            "--use-mcore-models",
+            "--model-type-hf", "llama2",
+            "--params-dtype", "bf16",
+            "--tokenizer-model", args.tokenizer_model,
+        ]
+        exit_code = subprocess.run(["python", file_path] + arguments).returncode
+        assert exit_code == 0 and weight_compare(args.base_dir, args.save_dir), "convert_weights_noop_layer_mcore_form_huggingface failed!"
