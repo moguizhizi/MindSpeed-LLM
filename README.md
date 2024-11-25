@@ -595,18 +595,21 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <td>昇腾NPU驱动</td>
     <td rowspan="2">在研版本</td>
     <td rowspan="2">《<a href="https://www.hiascend.com/document/detail/zh/canncommercial/80RC2/softwareinst/instg/instg_0003.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit">驱动固件安装指南</a>》</td>
-    <td rowspan="8">Atlas 900 A2 PODc</td>
+    <td rowspan="9">Atlas 900 A2 PODc</td>
   </tr>
   <tr>
     <td>昇腾NPU固件</td>
   </tr>
   <tr>
     <td>Toolkit（开发套件）</td>
-    <td rowspan="2">在研版本</td>
-    <td rowspan="2">《<a href="https://www.hiascend.com/document/detail/zh/canncommercial/80RC2/softwareinst/instg/instg_0000.html">CANN 软件安装指南</a>》</td>
+    <td rowspan="3">在研版本</td>
+    <td rowspan="3">《<a href="https://www.hiascend.com/document/detail/zh/canncommercial/80RC2/softwareinst/instg/instg_0000.html">CANN 软件安装指南</a>》</td>
   </tr>
   <tr>
     <td>Kernel（算子包）</td>
+  </tr>
+  <tr>
+    <td>NNAL（Ascend Transformer Boost加速库）</td>
   </tr>
   <tr>
   </tr>
@@ -637,13 +640,13 @@ MindSpeed-LLM版本有以下五个维护阶段：
 
 MindSpeed-LLM已发布版本维护策略：
 
-| **MindSpeed-LLM版本** | **维护策略** | **当前状态** | **发布时间**   | **后续状态**         | **EOL日期** |
-|-----------------|-----------|--------|------------|-----------------------|-----------|
-| 1.0.RC4             |  常规版本  | 维护   | 2024/012/30 | 预计2025/06/30起无维护 |           |
-| 1.0.RC3             |  常规版本  | 维护   | 2024/09/30 | 预计2025/03/30起无维护 |           |
-| 1.0.RC2             |  常规版本  | EOL   | 2024/06/30 | 生命周期终止 | 2024/12/30          |
-| 1.0.RC1             |  常规版本  | EOL   | 2024/03/30 | 生命周期终止     | 2024/9/30|
-| bk_origin_23    |  Demo     | EOL    | 2023       | 生命周期终止     | 2024/6/30 |
+| **MindSpeed-LLM版本** | **对应标签** | **维护策略** | **当前状态** | **发布时间**   | **后续状态**         | **EOL日期** |
+| ------------------- | ----------- | -------- | ------------ | ----------------------- | ----------- | -----------|
+| 1.0.0              |  \          | 常规版本  | 维护   | 2024/12/30 | 预计2025/06/30起无维护 |           |
+| 1.0.RC3            | v1.0.RC3.0  | 常规版本  | 维护   | 2024/09/30 | 预计2025/03/30起无维护 |           |
+| 1.0.RC2            | v1.0.RC2.0  | 常规版本  | EOL   | 2024/06/30 | 生命周期终止 | 2024/12/30          |
+| 1.0.RC1            | v1.0.RC1.0  | 常规版本  | EOL   | 2024/03/30 | 生命周期终止     | 2024/9/30|
+| bk_origin_23       | \           | Demo     | EOL   | 2023       | 生命周期终止     | 2024/6/30 |
 
 ---
 
