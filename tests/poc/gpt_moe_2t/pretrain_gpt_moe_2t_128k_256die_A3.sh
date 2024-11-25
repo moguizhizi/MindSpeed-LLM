@@ -3,7 +3,7 @@
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
-NPUS_PER_NODE=8
+NPUS_PER_NODE=16
 MASTER_ADDR=localhost
 MASTER_PORT=6000
 NNODES=16
@@ -19,7 +19,7 @@ CKPT_SAVE_DIR="your save ckpt path"
 TP=8
 PP=2
 EP=8
-CP=8
+CP=16
 CP_TYPE='megatron_cp_algo'
 NUM_LAYERS=14
 SEQ_LEN=131072
@@ -71,9 +71,7 @@ GPT_ARGS="
     --overlap-param-gather \
     --use-distributed-optimizer \
     --reuse-fp32-param \
-    --recompute-granularity full \
-    --recompute-method block \
-    --recompute-num-layers 5 \
+    --swap-attention \
     --num-layers-per-virtual-pipeline-stage 1 \
     --enable-recompute-layers-per-pp-rank \
     --use-fused-moe-token-permute-and-unpermute \
@@ -90,7 +88,6 @@ GPT_ARGS="
     --min-lr 6.0e-6 \
     --lr-warmup-fraction .001 \
     --lr-decay-iters 430000 \
-    --no-gradient-accumulation-fusion \
     --no-masked-softmax-fusion \
     --no-bias-gelu-fusion \
     --attention-softmax-in-fp32 \
@@ -132,4 +129,4 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $CKPT_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
-    | tee logs/pretrain_gpt_moe_276b_128die_A2.log
+    | tee logs/pretrain_gpt_moe_2t_128k_256die_A3.log

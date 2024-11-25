@@ -16,15 +16,15 @@ MERGE_FILE="your merge file path"
 CKPT_LOAD_DIR="your model ckpt path"
 CKPT_SAVE_DIR="your save ckpt path"
 
-TP=8
+TP=4
 PP=2
 EP=8
-CP=16
+CP=1
 CP_TYPE='megatron_cp_algo'
-NUM_LAYERS=14
-SEQ_LEN=131072
+NUM_LAYERS=12
+SEQ_LEN=8192
 MBS=1
-GBS=16
+GBS=128
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -72,10 +72,9 @@ GPT_ARGS="
     --use-distributed-optimizer \
     --reuse-fp32-param \
     --swap-attention \
+    --recompute-activation-function \
     --num-layers-per-virtual-pipeline-stage 1 \
-    --enable-recompute-layers-per-pp-rank \
     --use-fused-moe-token-permute-and-unpermute \
-    --use-fused-ring-attention-update \
     --train-iters 2000 \
     --weight-decay 0.1 \
     --adam-beta1 0.9 \
@@ -88,6 +87,7 @@ GPT_ARGS="
     --min-lr 6.0e-6 \
     --lr-warmup-fraction .001 \
     --lr-decay-iters 430000 \
+    --no-gradient-accumulation-fusion \
     --no-masked-softmax-fusion \
     --no-bias-gelu-fusion \
     --attention-softmax-in-fp32 \
@@ -129,4 +129,4 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $CKPT_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
-    | tee logs/pretrain_gpt_moe_276b_256die_A3.log
+    | tee logs/pretrain_gpt_moe_2t_8k_256die_A3.log

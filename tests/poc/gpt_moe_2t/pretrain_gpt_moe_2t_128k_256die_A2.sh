@@ -129,4 +129,4 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $CKPT_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
-    | tee logs/pretrain_gpt_moe_276b_256die_A2.log
+    | tee logs/pretrain_gpt_moe_2t_128k_256die_A2.log
