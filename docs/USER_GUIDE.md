@@ -8,6 +8,7 @@
 
 ## 目录
 
+<!-- TOC -->
 - [MindSpeed-LLM 使用指南](#mindspeed-llm-使用指南)
   - [目录](#目录)
   - [前期准备](#前期准备)
@@ -27,6 +28,8 @@
         - [2.2 微调数据集处理方法](#22-微调数据集处理方法)
           - [2.2.1 Alpaca风格数据集处理方法](#221-alpaca风格数据集处理方法)
           - [2.2.2 Sharegpt风格数据集处理方法](#222-sharegpt风格数据集处理方法)
+        - [2.3 RLHF任务数据集处理](#23-rlhf任务数据集处理)
+          - [2.3.1 Pairwise数据集处理](#231-Pairwise数据集处理)
       - [ 3. 数据集合并](#-3-数据集合并)
   - [ 大模型分布式预训练](#-大模型分布式预训练)
       - [ 1. 准备工作](#-1-准备工作)
@@ -45,6 +48,7 @@
       - [ 1. 基准评估](#-1-基准评估)
       - [ 2. 指令微调评估](#-2-指令微调评估)
       - [  3. LoRA权重评估](#--3-lora权重评估)
+
 
 ---
 
@@ -90,7 +94,6 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # source atb库 环境变量
 source /usr/local/Ascend/nnal/atb/set_env.sh 
-
 # 安装加速库
 git clone https://gitee.com/ascend/MindSpeed.git
 cd MindSpeed
@@ -409,10 +412,6 @@ bash examples/legacy/llama2/ckpt_convert_llama2_legacy2hf_lora.sh
 - [多轮对话：ShareGPT数据集](https://huggingface.co/datasets/shibing624/roleplay-zh-sharegpt-gpt4-data)
 - [多轮对话：AlpacaHistroy数据集](https://huggingface.co/datasets/kimnt93/oaast-selected)
 
-常用的对话pairwise配对微调数据集有：
-
-- [orca-rlhf数据集](https://huggingface.co/datasets/Intel/orca_dpo_pairs)
-
 数据集下载可以基于网页直接下载，也可以基于命令行下载，比如：
 
 ```shell
@@ -716,6 +715,11 @@ bash examples/legacy/llama2/data_convert_llama2_instruction.sh
 ```
 
 微调时，数据集路径输入 ./finetune_dataset/alpaca 即可
+
+##### 2.3 RLHF任务数据集处理
+###### 2.3.1 Pairwise数据集处理
+
+见：[Pairwise](./features/pairwise_dataset.md)数据集预处理说明。
 
 
 #### <span id="jump3.3"> 3. 数据集合并

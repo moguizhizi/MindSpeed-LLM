@@ -4,6 +4,8 @@
 
 ![](../../sources/images/dpo/dpo_vs_rlhf.png)
 
+这里实现的是经典DPO算法，在训练过程中，不会使用policy-model进行推理并参与其权重更新，因此是offline的。
+
 ## 使用说明
 
 ### 数据预处理
@@ -24,7 +26,7 @@ python ./preprocess_data.py \
     --map-keys '{"prompt":"question", "query":"", "system":"system"}'
 ```
 
-更多关于pairwise数据集说明见：[pairwise-dataset](./pairwise_dataset.md ) 。
+更多关于pairwise数据集预处理说明见：[Pairwise-dataset](./pairwise_dataset.md ) 。
 
 ### 训练参数
 
@@ -36,7 +38,7 @@ dpo训练脚本参照：examples/mcore/llama3/dpo_llama3_8b_full_ptd.sh
 
   必选，用于指定训练方法为dpo
 
--  **`--is-pairwise-dataset`**
+- **`--is-pairwise-dataset`**
 
   必选，指定dpo使用pairwise配对数据集
 

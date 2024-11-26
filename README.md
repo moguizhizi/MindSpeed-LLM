@@ -442,6 +442,48 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
 
 ## <span id="jump3"> 分布式偏好对齐
 
+【偏好对齐实测性能】
+
+<table>
+  <tr>
+    <th>模型</th>
+    <th>硬件</th>
+    <th>算法</th>
+    <th>集群</th>
+    <th>方案</th>
+    <th>序列</th>
+    <th>吞吐</th>
+  </tr>
+  <tr>
+    <td rowspan="4">llama2-7B</td>
+    <td rowspan="4">Atlas 900 A2 PODc</td>
+    <td rowspan="4">DPO</td>
+    <td rowspan="3">1x8</td>
+    <td>全参</td>
+    <td>dynamic</td>
+    <td><a href="./examples/mcore/llama2/dpo_llama2_7b_full_ptd.sh">12.77 samples/s</td>
+  </tr>
+  <tr>
+    <td>全参</td>
+    <td>16K</td>
+    <td><a href="./examples/mcore/llama2/dpo_llama2_7b_full_16k.sh">0.442 samples/s</td>
+  </tr>
+  <tr>
+    <td>Lora</td>
+    <td>dynamic</td>
+    <td><a href="./examples/mcore/llama2/dpo_llama2_7b_lora_ptd.sh">9.79 samples/s</td>
+  </tr>
+  <tr>
+    <td rowspan="1">2x8</td>
+    <td>全参</td>
+    <td>32K</td>
+    <td><a href="./examples/mcore/llama2/dpo_llama2_7b_full_32k.sh">0.227 samples/s</td>
+  </tr>
+</table>
+
+
+
+
 【偏好对齐特性】
 
 <table><thead>
@@ -454,14 +496,20 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
   </tr></thead>
 <tbody>
   <tr>
-    <td>直接偏好对齐</td>
+    <td rowspan="1">数据预处理</td>
+    <td><a href="./docs/features/pairwise_dataset.md">Pairwise数据集处理</a></td>
+    <td>✅</td>
+    <td>✅</td>
+    <td>【NAIE】</td>
+  </tr>
+  <tr>
+    <td rowspan="2">偏好对齐</td>
     <td><a href="./docs/features/offline_dpo.md">Offline DPO</a></td>
     <td>✅</td>
     <td>❌</td>
     <td>【NAIE】</td>
   </tr>
   <tr>
-    <td>简单偏好对齐</td>
     <td><a href="./docs/features/simdpo.md">SimPO</a></td>
     <td>✅</td>
     <td>❌</td>
@@ -500,7 +548,7 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
       <td>【昇腾】</td>
     </tr>
     <tr>
-      <td rowspan="3">数据处理</td>
+      <td rowspan="4">数据处理</td>
       <td><a href="./docs/features/pretrain_dataset.md">预训练数据处理</a></td>
       <td>✅</td>
       <td>✅</td>
@@ -517,7 +565,13 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
       <td>✅</td>
       <td>✅</td>
       <td>【昇腾】</td>
-    </tr>  
+    </tr>
+    <tr>
+      <td><a href="./docs/features/pairwise_dataset.md">Pairwise数据集处理</a></td>
+      <td>✅</td>
+      <td>✅</td>
+      <td>【NAIE】</td>
+    </tr>
     <tr>
       <td rowspan="2">分布式推理</td>
       <td><a href="./docs/features/inference.md">流式推理</td>
@@ -652,7 +706,10 @@ MindSpeed-LLM已发布版本维护策略：
 
 ## 致谢
 
-MindSpeed-LLM由华为公司的下列部门联合贡献 ：
+MindSpeed-LLM由华为公司的下列部门以及昇腾生态合作伙伴联合贡献 ：
+
+华为公司：
+
 - 昇腾计算产品部
 - 计算算法部
 - 计算研究部
@@ -660,6 +717,10 @@ MindSpeed-LLM由华为公司的下列部门联合贡献 ：
 - 全球技术服务部：GTS
 - 华为云计算
 - 昇腾计算生态使能部
+
+生态合作伙伴：
+
+- 中国移动云（China Mobile Cloud）：震泽平台
 
 感谢来自社区的每一个PR，欢迎贡献 MindSpeed-LLM
 

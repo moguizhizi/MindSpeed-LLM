@@ -10,7 +10,7 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 DATA_PATH="your data path"
 TOKENIZER_MODEL="your tokenizer path"
-CKPT_LOAD_DIR="your model save ckpt path"
+CKPT_LOAD_DIR="your model load ckpt path"
 LORA_CKPT_DIR='your lora ckpt dir'
 TP=1
 PP=8

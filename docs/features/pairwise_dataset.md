@@ -1,8 +1,8 @@
-# pairwise 数据集处理
+# Pairwise 数据集处理
 
 在大模型后训练任务，比如RLHF中，通常需要用到基于人类偏好反馈的数据集，这些语料包含人类对同一个问题的不同回答或不同表述的偏好或评价。在DPO或SimPO任务中，常用的数据集为pairwise格式数据集，顾名思义，pairwise数据集为配对数据集，即对同一个问题，包含两个答案，一个好的（chosen），一个坏的（rejected）。比如[orca_dpo_pairs](https://huggingface.co/datasets/Intel/orca_dpo_pairs)数据集，包含四个字段：system、question、chosen、rejected。
 
-![](D:\Genlovy_Hoo\HuaWei\ModelLink_forPR\sources\images\dpo\orca_rlhf.png)
+![](../../sources/images/dpo/orca_rlhf.png)
 
 pairwise配对数据集样本示例：
 
@@ -14,17 +14,17 @@ pairwise配对数据集样本示例：
  }
 ```
 
-## 常用的pairwise数据集
+## 常用的Pairwise数据集
 
-常用pairwise数据集有：
+常用Pairwise数据集有：
 
 - [orca_dpo_pairs](https://huggingface.co/datasets/Intel/orca_dpo_pairs)
 - [orpo-dpo-mix-40k](https://huggingface.co/datasets/mlabonne/orpo-dpo-mix-40k)
 - [alpaca_messages_2k_dpo_test](https://huggingface.co/datasets/fozziethebeat/alpaca_messages_2k_dpo_test)
 
-## pairwise数据集下载
+## Pairwise数据集下载
 
-`pairwise` 数据集下载可以基于网页直接下载，也可以基于命令行下载，比如：
+`Pairwise` 数据集下载可以基于网页直接下载，也可以基于命令行下载，比如：
 
 ```shell
 cd dataset/
@@ -32,9 +32,9 @@ wget https://huggingface.co/datasets/Intel/orca_dpo_pairs/blob/main/orca_rlhf.js
 cd ..
 ```
 
-## pairwise数据集处理方法
+## Pairwise数据集处理方法
 
-pairwise格式数据预处理脚本：
+Pairwise格式数据预处理脚本：
 
 ```shell
 # 请按照您的真实环境 source set_env.sh 环境变量
@@ -60,7 +60,7 @@ python ./preprocess_data.py \
 
 【--handler-name】
 
-pairwise数据预处理时，可指定为`AlpacaStylePairwiseHandler`或`SharegptStylePairwiseHandler`，并根据`--map-keys`参数提取对应数据的列。
+Pairwise数据预处理时，可指定为`AlpacaStylePairwiseHandler`或`SharegptStylePairwiseHandler`，分别处理alpaca风格和sharegpt风格的配对数据集，并根据`--map-keys`参数提取对应数据的列。alpaca风格数据集和sharegpt风格数据集及二者对应map-keys参数说明分别参见[alpaca风格数据集](./alpaca_dataset.md)和[sharegpt风格数据集](./sharegpt_dataset.md)处理说明。
 
 ### 启动脚本
 

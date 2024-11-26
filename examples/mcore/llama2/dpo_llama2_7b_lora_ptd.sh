@@ -12,10 +12,11 @@ WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
 CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
-TOKENIZER_PATH="your tokenizer path"
+TOKENIZER_MODEL="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
-TP=2
-PP=4
+LORA_CKPT_DIR="your lora ckpt path"
+TP=1
+PP=2
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -26,6 +27,11 @@ DISTRIBUTED_ARGS="
 "
 
 GPT_ARGS="
+    --lora-load ${LORA_CKPT_DIR} \
+    --lora-r 16 \
+    --lora-alpha 32 \
+    --lora-target-modules linear_qkv linear_proj linear_fc1 linear_fc2 \
+    --variable-seq-lengths \
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
@@ -35,7 +41,7 @@ GPT_ARGS="
     --ffn-hidden-size 11008 \
     --num-attention-heads 32 \
     --tokenizer-type PretrainedFromHF \
-    --tokenizer-name-or-path ${TOKENIZER_PATH} \
+    --tokenizer-name-or-path ${TOKENIZER_MODEL} \
     --seq-length 4096 \
     --max-position-embeddings 4096 \
     --micro-batch-size 1 \
@@ -54,6 +60,7 @@ GPT_ARGS="
     --use-fused-rmsnorm \
     --swiglu \
     --use-flash-attn \
+    --use-mc2 \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
     --min-lr 1.25e-7 \
@@ -70,16 +77,20 @@ GPT_ARGS="
     --use-fused-swiglu \
     --use-fused-rotary-pos-emb \
     --overlap-grad-reduce \
-    --finetune \
     --bf16
 "
 
 DATA_ARGS="
     --data-path $DATA_PATH \
     --split 100,0,0 \
-    --prompt-type llama2 \
     --is-instruction-dataset \
-    --variable-seq-lengths
+    --log-throughput
+"
+
+RL_ARGS="
+    --stage dpo \
+    --dpo-loss-type sigmoid \
+    --is-pairwise-dataset
 "
 
 OUTPUT_ARGS="
@@ -89,18 +100,12 @@ OUTPUT_ARGS="
     --eval-iters 10 \
 "
 
-RL_ARGS="
-    --stage dpo \
-    --dpo-loss-type sigmoid \
-    --is-pairwise-dataset
-"
-
 torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
-    $OUTPUT_ARGS \
     $RL_ARGS \
+    $OUTPUT_ARGS \
     --distributed-backend nccl \
     --load $CKPT_LOAD_DIR \
     --save $CKPT_SAVE_DIR \
-    | tee logs/train_llama2_7b.log
+    | tee logs/dpo_llama2_7b_lora.log
