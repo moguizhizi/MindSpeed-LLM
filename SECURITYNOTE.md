@@ -69,4 +69,10 @@ MindSpeed-LLM 暂时未发布wheel包，无正式对外公开接口，所有功�
 
 ## 通信矩阵
 
-[通信矩阵说明](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5%E4%BF%A1%E6%81%AF)
+### [通信矩阵说明](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5%E4%BF%A1%E6%81%AF)
+
+### 特殊场景
+
+| 场景                                  | 使用方法                                         | 是否有风险 |
+| ------------------------------------- | ------------------------------------------------ | ---------- |
+| 用户下载并使用HuggingFace的开源数据集 | 调用`load_dataset`函数，并填写对应开源数据集路径 | 无风险     |
