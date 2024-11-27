@@ -8,8 +8,8 @@ python convert_ckpt.py \
     --save-model-type mg \
     --target-tensor-parallel-size 1 \
     --target-pipeline-parallel-size 2 \
-    --load-dir ./model_from_hf/Llama2-hf/ \
+    --load-dir ./model_from_hf/llama-2-7b-hf/ \
     --save-dir ./model_weights/Llama2-mcore/ \
-    --tokenizer-model ./model_from_hf/Llama2-hf/tokenizer.model \
+    --tokenizer-model ./model_from_hf/llama-2-7b-hf/tokenizer.model \
     --use-mcore-models \
     --model-type-hf llama2

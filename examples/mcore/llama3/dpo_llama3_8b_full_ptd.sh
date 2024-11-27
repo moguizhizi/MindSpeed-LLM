@@ -11,7 +11,7 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
 TOKENIZER_MODEL="your tokenizer path"
-CKPT_LOAD_DIR="your model save ckpt path"
+CKPT_LOAD_DIR="your model load ckpt path"
 TP=1
 PP=8
 

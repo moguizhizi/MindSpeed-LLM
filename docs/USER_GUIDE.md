@@ -115,9 +115,7 @@ pip install -r requirements.txt
 
 从Huggingface等网站下载开源模型权重
 
-预训练权重链接在 [MindSpeed-LLM 预置大模型](./models/pretrain.md/#mindspeed-llm-预置模型) 章节列表的`参数`列链接中可以获取
-
-更多社区资源可以在`模型`列链接中获取，如`Chat/Instruct`权重等
+预训练权重链接在 [MindSpeed-LLM 预置大模型](./models/pretrain.md/#mindspeed-llm-预置模型) 章节列表的`参数`列链接中可以获取；更多社区资源可以在`模型`列链接中获取，如`Chat/Instruct`权重等。
 
 权重可以基于网页直接下载，也可以基于命令行下载，保存到MindSpeed-LLM/model_from_hf目录，比如：
 
@@ -143,9 +141,6 @@ cd ../../
 ##### 2.1 Huggingface权重转换到Megatron-LM格式
 
 ```shell
-# 请按照您的真实环境 source set_env.sh 环境变量
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
-
 python convert_ckpt.py \
     --model-type GPT \
     --load-model-type hf \
@@ -216,9 +211,6 @@ bash examples/mcore/llama2/ckpt_convert_llama2_hf2mcore.sh
 ##### 2.2 Megatron-LM权重转换到Huggingface格式
 
 ```shell
-# 请按照您的真实环境 soure set_env.sh 环境变量
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
-
 python convert_ckpt.py \
     --model-type GPT \
     --load-model-type mg \
@@ -254,9 +246,6 @@ bash examples/mcore/llama2/ckpt_convert_llama2_mcore2hf.sh
 ##### 2.3 Megatron-LM格式权重互转
 
 ```shell
-# 请按照您的真实环境 source set_env.sh 环境变量
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
-
 # legacy转legacy
 python convert_ckpt.py \
     --model-type GPT \
@@ -319,11 +308,15 @@ mcore转legacy时设置此参数以指定保存权重格式为legacy
 在上述权重转换命令中，加入如下参数可以将训练的lora权重与base进行融合。
 
 ```bash
---lora-load ${CHECKPOINT_LORA}  \
+--lora-load ./ckpt/llama-2-7b-lora  \
 --lora-r 16 \
 --lora-alpha 32 \
 --lora-target-modules query_key_value dense dense_h_to_4h dense_4h_to_h \
 ```
+
+【lora-load】
+
+`--lora-load`为lora权重路径，lora微调权重可通过lora微调（见低参微调章节）保存，在此处加载
 
 【lora-r】
 
@@ -340,9 +333,6 @@ mcore转legacy时设置此参数以指定保存权重格式为legacy
 【合并后转换为Megatron-Legacy权重】
 
 ```shell
-# 请按照您的真实环境 source set_env.sh 环境变量
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
-
 python convert_ckpt.py \
     --model-type GPT \
     --load-model-type mg \
@@ -367,9 +357,6 @@ bash examples/legacy/llama2/ckpt_convert_llama2_legacy2legacy_lora.sh
 【合并后转换为Huggingface权重】
 
 ```shell
-# 请按照您的真实环境 source set_env.sh 环境变量
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
-
 python convert_ckpt.py \
     --model-type GPT \
     --load-model-type mg \
@@ -426,13 +413,9 @@ cd ..
 ##### 2.1 预训练数据集处理方法
 
 ```shell
-# 请按照您的真实环境 source set_env.sh 环境变量
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
-mkdir ./dataset
-
 python ./preprocess_data.py \
     --input ./dataset/train-00000-of-00042-d964455e17e96d5a.parquet \
-    --tokenizer-name-or-path ./model_from_hf/llama-2-hf \
+    --tokenizer-name-or-path ./model_from_hf/llama-2-7b-hf \
     --tokenizer-type PretrainedFromHF \
     --handler-name GeneralPretrainHandler \
     --output-prefix ./dataset/enwiki \
@@ -501,8 +484,6 @@ cd ..
 在指令监督微调时，instruction 列对应的内容会与 input 列对应的内容拼接后作为人类指令，即人类指令为 instruction\ninput。而 output 列对应的内容为模型回答。如果指定了history，则会将历史对话内容也加入进来。如果指定system 列，则对应的内容将被作为系统提示词。
 
 ```shell
-# 请按照您的真实环境 source set_env.sh 环境变量
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
 mkdir ./finetune_dataset
 
 python ./preprocess_data.py \
@@ -612,8 +593,6 @@ cd ..
 ```
 Sharegpt格式数据预处理脚本：
 ```shell
-# 请按照您的真实环境 source set_env.sh 环境变量
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
 mkdir ./finetune_dataset
 
 python ./preprocess_data.py \
@@ -664,8 +643,6 @@ OpenAI格式示例：
 OpenAI格式数据预处理脚本：
 
 ```shell
-# 请按照您的真实环境 source set_env.sh 环境变量
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
 mkdir ./finetune_dataset
 
 python ./preprocess_data.py \
@@ -1073,7 +1050,7 @@ bash examples/mcore/llama2/generate_llama2_7b_ptd.sh
 ```shell
 # 按实际情况修改启动脚本中模型权重路径和分词器路径
 CHECKPOINT="./model_weights/llama-2-7b-legacy"
-TOKENIZER_PATH="./model_from_hf/llama-2-hf/"
+TOKENIZER_PATH="./model_from_hf/llama-2-7b-hf/"
 
 # 启动任务（以 legacy 为例）
 bash examples/legacy/llama2/generate_llama2_7b_ptd.sh
@@ -1154,9 +1131,6 @@ bash examples/legacy/llama2/evaluate_llama2_7B_lora_ptd.sh
 ```
 
 ```shell
-#请根据实际路径 source set_env.sh 环境变量
-source /usr/local/Ascend/ascend-toolkit/set_env.sh 
-
 # 修改模型参数路径和词表路径
 TOKENIZER_PATH="./model_from_hf/llama-2-hf/"  #词表路径
 CHECKPOINT="./model_weights/llama-2-7b-legacy"  #权重路径

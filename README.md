@@ -482,8 +482,6 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
 </table>
 
 
-
-
 【偏好对齐特性】
 
 <table><thead>

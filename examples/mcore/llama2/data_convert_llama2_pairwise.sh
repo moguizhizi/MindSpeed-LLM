@@ -6,7 +6,7 @@ python ./preprocess_data.py \
         --input ./dataset/orca_rlhf.jsonl \
         --tokenizer-type PretrainedFromHF \
         --tokenizer-not-use-fast \
-        --tokenizer-name-or-path ./model_from_hf/Llama2-hf/ \
+        --tokenizer-name-or-path ./model_from_hf/llama-2-7b-hf/ \
         --output-prefix ./dataset/orca_rlhf \
         --workers 4 \
         --log-interval 1000 \
