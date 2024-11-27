@@ -1,3 +1,5 @@
+#!/bin/bash
+
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 NPUS_PER_NODE=8
@@ -12,7 +14,6 @@ CKPT_LOAD_DIR="your model ckpt path"
 CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
-
 
 TP=1
 PP=8
@@ -35,56 +36,60 @@ TUNE_ARGS="
     --variable-seq-lengths \
     --tokenizer-not-use-fast \
     --prompt-type qwen \
+    --lora-r 8 \
+    --lora-alpha 16 \
+    --lora-fusion \
+    --lora-target-modules linear_qkv linear_proj linear_fc1 linear_fc2
 "
 
 GPT_ARGS="
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
+    --num-layers 28 \
     --num-layer-list 4,4,4,4,3,3,3,3 \
-    --num-layers 28  \
-    --hidden-size 3584  \
+    --hidden-size 3584 \
     --ffn-hidden-size 18944 \
-    --num-attention-heads 28  \
-    --max-position-embeddings ${SEQ_LEN} \
+    --num-attention-heads 28 \
+    --tokenizer-type PretrainedFromHF \
+    --tokenizer-name-or-path ${TOKENIZER_PATH} \
     --seq-length ${SEQ_LEN} \
-    --disable-bias-linear \
-    --add-qkv-bias \
-    --group-query-attention \
-    --num-query-groups 4 \
-    --use-flash-attn \
-    --swiglu \
-    --use-fused-swiglu \
-    --normalization RMSNorm \
-    --norm-epsilon 1e-6 \
-    --use-fused-rmsnorm \
-    --position-embedding-type rope \
-    --rotary-base 1000000 \
-    --use-fused-rotary-pos-emb \
-    --untie-embeddings-and-output-weights \
+    --max-position-embeddings ${SEQ_LEN} \
     --micro-batch-size ${MBS} \
     --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
     --padded-vocab-size 152064 \
-    --tokenizer-type PretrainedFromHF \
-    --tokenizer-name-or-path ${TOKENIZER_PATH} \
-    --attention-dropout 0.0 \
-    --hidden-dropout 0.0 \
-    --train-iters 2000 \
+    --rotary-base 1000000.0 \
     --lr 1.25e-6 \
-    --lr-decay-style cosine \
     --min-lr 1.25e-7 \
-    --lr-warmup-fraction 0.01 \
-    --init-method-std 0.01 \
+    --train-iters 2000 \
+    --lr-decay-style cosine \
+    --untie-embeddings-and-output-weights \
+    --disable-bias-linear \
+    --attention-dropout 0.0 \
+    --init-method-std 0.02 \
+    --hidden-dropout 0.0 \
+    --position-embedding-type rope \
+    --normalization RMSNorm \
+    --swiglu \
+    --use-flash-attn \
     --weight-decay 0.0 \
+    --use-rotary-position-embeddings \
+    --no-masked-softmax-fusion \
+    --attention-softmax-in-fp32 \
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
     --adam-beta2 0.95 \
+    --add-qkv-bias \
     --initial-loss-scale 4096 \
     --no-gradient-accumulation-fusion \
-    --no-masked-softmax-fusion \
-    --attention-softmax-in-fp32 \
-    --bf16
+    --no-load-optim \
+    --no-load-rng \
+    --seed 1234 \
+    --bf16 \
+    --group-query-attention \
+    --num-query-groups 4 \
+    --norm-epsilon 1e-06
 "
 
 DATA_ARGS="
@@ -92,29 +97,19 @@ DATA_ARGS="
     --split 100,0,0
 "
 
-CKPT_ARGS="
-    --no-load-optim \
-    --no-load-rng \
-    --no-save-optim \
-    --no-save-rng \
-    --seed 1234 \
-"
-
 OUTPUT_ARGS="
     --log-interval 1 \
     --save-interval 2000 \
     --eval-interval 2000 \
     --eval-iters 0 \
-    --log-throughput
 "
 
 torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
-    $CKPT_ARGS \
     $OUTPUT_ARGS \
     $TUNE_ARGS \
+    --distributed-backend nccl \
     --load ${CKPT_LOAD_DIR} \
     --save ${CKPT_SAVE_DIR} \
-    --distributed-backend nccl \
-    | tee logs/tune_mcore_qwen25_7b_full.log
+    | tee logs/tune_mcore_qwen25_7b_lora.log
