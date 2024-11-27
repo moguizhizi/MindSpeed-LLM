@@ -718,7 +718,7 @@ MindSpeed-LLM由华为公司的下列部门以及昇腾生态合作伙伴联合�
 
 生态合作伙伴：
 
-- 中国移动云（China Mobile Cloud）：震泽平台
+- 移动云（China Mobile Cloud）：大云震泽智算平台
 
 感谢来自社区的每一个PR，欢迎贡献 MindSpeed-LLM
 
