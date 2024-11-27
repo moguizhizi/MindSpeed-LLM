@@ -457,7 +457,7 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
   <tr>
     <td rowspan="4">llama2-7B</td>
     <td rowspan="4">Atlas 900 A2 PODc</td>
-    <td rowspan="4">DPO</td>
+    <td rowspan="4">Offline DPO</td>
     <td rowspan="3">1x8</td>
     <td>全参</td>
     <td>dynamic</td>
