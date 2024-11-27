@@ -404,13 +404,13 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <td>【昇腾】</td>
   </tr>
   <tr>
-    <td><a href="./docs/features/multi-sample_pack_fine-tuning.md">多样本 pack</td>
+    <td><a href="./docs/features/multi-sample_pack_fine-tuning.md">多样本pack微调</td>
     <td>✅</td>
     <td>✅</td>
     <td>【NAIE】</td>
   </tr>
     <tr>
-    <td><a href="./docs/features/multi-turn_conversation.md">多轮对话</a></td>
+    <td><a href="./docs/features/multi-turn_conversation.md">多轮对话微调</a></td>
     <td>✅</td>
     <td>✅</td>
     <td>【昇腾】</td>
@@ -578,7 +578,7 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
       <td>【NAIE】</td>
     </tr>
     <tr>
-      <td>微调后 Chat 对话</td>
+      <td><a href="./docs/features/chat.md"> Chat对话</td>
       <td>✅</th>
       <td>✅</th>
       <td>【NAIE】</td>

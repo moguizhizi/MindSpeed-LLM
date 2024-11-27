@@ -1,4 +1,4 @@
-# 多轮对话
+# MindSpeed-LLM 多轮对话微调
 
 ## 特性介绍
 
@@ -8,7 +8,7 @@
 
 ### 使用说明
 
-可以直接使用[chat](../../examples/mcore/gemma2/chat_gemma2_9b_ptd.sh)或者[generate](../../examples/mcore/gemma2/generate_gemma2_9b_ptd.sh)脚本，并加载预置权重，与模型进行多轮对话，以达到预期效果。其中预置权重可以是大预言模型的chat权重，base权重或是微调后的权重。
+可以直接使用[chat](../../examples/mcore/gemma2/chat_gemma2_9b_ptd.sh)或者[generate](../../examples/mcore/gemma2/generate_gemma2_9b_ptd.sh)脚本，并加载预置权重，与模型进行多轮对话，以达到预期效果。其中预置权重可以是大语言模型的chat权重，base权重或是微调后的权重。
 
 ### 效果展示
 
@@ -25,11 +25,11 @@ You >> Here I go again. Remember why I came to buy flowers yesterday?
 ModelLink:
 Yes, I do remember. You came to buy flowers for your sister's birthday, and you mentioned that she likes pink roses. Is there anything else related to that purchase that I can help you with today?
 ```
-## 开始多轮对话微调
+## 开始多轮对话指令微调
 
 有关Alpaca数据集的详细介绍，请参阅[**Alpaca风格数据的说明文档**](alpaca_dataset.md)。
 
-### 多对话数据处理
+### 多轮对话数据处理
 
 对使用带有`history`字段的 Alpaca 数据集，并运行如下[脚本](../../examples/mcore/gemma2/data_convert_gemma2_instruction.sh)：
 
@@ -119,7 +119,7 @@ TOKENIZER_PATH="./model_from_hf/gemma2_hf/"
 CHECKPOINT="./ckpt/"
 ```
 
-**运行多轮对话推理脚本** 
+**运行多轮对话脚本** 
 
 ```bash
 bash examples/mcore/gemma2/chat_gemma2_9b_ptd.sh
