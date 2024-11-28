@@ -475,6 +475,7 @@ def _add_rl_args(parser):
     group.add_argument(
         '--dpo-beta',
         default=0.1,
+        type=float,
         help='The beta parameter for the DPO loss.'
     )
     group.add_argument(
@@ -491,12 +492,14 @@ def _add_rl_args(parser):
     )
     group.add_argument(
         '--dpo-loss-type',
+        type=str,
         default="sigmoid",
         choices=["sigmoid", "hinge", "ipo"],
         help='The type of DPO loss to use.'
     )
     group.add_argument(
         '--simpo-loss-type',
+        type=str,
         default="sigmoid",
         choices=["sigmoid", "hinge", "ipo"],
         help='The type of SimPO loss to use.'
@@ -504,11 +507,13 @@ def _add_rl_args(parser):
     group.add_argument(
         '--simpo-label-smoothing',
         default=0.0,
+        type=float,
         help='The robust SimPO label smoothing parameter.'
     )
     group.add_argument(
         '--ref-model',
         default=None,
+        type=str,
         help='Path to the reference model used for the PPO or DPO training.'
     )
     group.add_argument(
@@ -520,11 +525,13 @@ def _add_rl_args(parser):
     group.add_argument(
         '--dpo-label-smoothing',
         default=0.0,
+        type=float,
         help="The robust DPO label smoothing parameter in cDPO that should be between 0 and 0.5.",
     )
     group.add_argument(
         '--pref-ftx',
         default=0.0,
+        type=float,
         help="The supervised fine-tuning loss coefficient in DPO training.",
     )
     group.add_argument(
