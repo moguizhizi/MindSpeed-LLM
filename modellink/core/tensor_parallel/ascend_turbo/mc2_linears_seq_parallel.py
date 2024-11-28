@@ -17,6 +17,7 @@
 import torch
 import torch_npu
 from .ascend_turbo_cfg import ascend_turbo_cfg
+from megatron.training import get_args
 
 
 class ColumnSeqParallelLinear(torch.autograd.Function):
@@ -24,6 +25,7 @@ class ColumnSeqParallelLinear(torch.autograd.Function):
     def forward(ctx, input_, weight, bias, group):
         ctx.save_for_backward(input_, weight)
         ctx.use_bias = bias is not None
+        ctx.gradient_accumulation_fusion = get_args().gradient_accumulation_fusion
 
         rank = torch.distributed.get_rank(group)
         hcomm_info = None
@@ -99,8 +101,35 @@ class ColumnSeqParallelLinear(torch.autograd.Function):
             all_gather_output.shape[0] * all_gather_output.shape[1],
             all_gather_output.shape[2],
         )
-
-        grad_weight = grad_output_.t().matmul(all_gather_output)
+        
+        if ctx.gradient_accumulation_fusion and weight.main_grad.dtype == torch.float32:
+            from mindspeed.ops.npu_matmul_add import npu_matmul_add_fp32
+            npu_matmul_add_fp32(all_gather_output, grad_output_, weight.main_grad)
+            
+            if hasattr(weight, 'grad_added_to_main_grad'):
+                # When overlap_grad_reduce is True, need to ensure that backward hooks
+                # are all run on the main backprop thread to prevent deadlocks. Setup
+                # dummy grad_weight tensor to prevent backward hooks from being run
+                # in a background thread.
+                if getattr(weight, 'zero_out_wgrad', False):
+                    grad_weight = torch.zeros(
+                        weight.main_grad.shape,
+                        dtype=input_.dtype,
+                        device=torch.cuda.current_device(),
+                        requires_grad=False,
+                    )
+                else:
+                    grad_weight = torch.empty(
+                        weight.main_grad.shape,
+                        dtype=input_.dtype,
+                        device=torch.cuda.current_device(),
+                        requires_grad=False,
+                    )
+                weight.grad_added_to_main_grad = True
+            else:
+                grad_weight = None
+        else:
+            grad_weight = grad_output_.t().matmul(all_gather_output)
 
         is_grad_bias_needed = ctx.needs_input_grad[2]
         if is_grad_bias_needed and ctx.use_bias:
@@ -121,6 +150,7 @@ class RowSeqParallelLinear(torch.autograd.Function):
     def forward(ctx, input_, weight, bias, group):
         ctx.save_for_backward(input_, weight)
         ctx.use_bias = bias is not None
+        ctx.gradient_accumulation_fusion = get_args().gradient_accumulation_fusion
 
         rank = torch.distributed.get_rank(group)
         world_size = ascend_turbo_cfg.get_world_size()
@@ -165,7 +195,35 @@ class RowSeqParallelLinear(torch.autograd.Function):
         grad_input = grad_input.view_as(input_)
 
         x = input_.reshape(input_.shape[0] * input_.shape[1], input_.shape[2])
-        grad_weight = all_gather_grad_output.t().matmul(x)
+        
+        if ctx.gradient_accumulation_fusion and weight.main_grad.dtype == torch.float32:
+            from mindspeed.ops.npu_matmul_add import npu_matmul_add_fp32
+            npu_matmul_add_fp32(x, all_gather_grad_output, weight.main_grad)
+            
+            if hasattr(weight, 'grad_added_to_main_grad'):
+                # When overlap_grad_reduce is True, need to ensure that backward hooks
+                # are all run on the main backprop thread to prevent deadlocks. Setup
+                # dummy grad_weight tensor to prevent backward hooks from being run
+                # in a background thread.
+                if getattr(weight, 'zero_out_wgrad', False):
+                    grad_weight = torch.zeros(
+                        weight.main_grad.shape,
+                        dtype=input_.dtype,
+                        device=torch.cuda.current_device(),
+                        requires_grad=False,
+                    )
+                else:
+                    grad_weight = torch.empty(
+                        weight.main_grad.shape,
+                        dtype=input_.dtype,
+                        device=torch.cuda.current_device(),
+                        requires_grad=False,
+                    )
+                weight.grad_added_to_main_grad = True
+            else:
+                grad_weight = None
+        else:
+            grad_weight = all_gather_grad_output.t().matmul(x)
 
         is_grad_bias_needed = ctx.needs_input_grad[2]
         if is_grad_bias_needed and ctx.use_bias:
