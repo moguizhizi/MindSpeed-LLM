@@ -424,6 +424,24 @@
     }
   },
   {
+    "name": "minicpm3",
+    "format_user": {
+      "slots": [
+        "User: {{content}}\n\nAssistant:"
+      ]
+    },
+    "format_system": {
+      "slots": [
+        "{{content}}\n\n"
+      ]
+    },
+    "format_prefix": {
+      "slots": [
+        ["bos_token"]
+      ]
+    }
+  },
+  {
     "name": "baichuan2",
     "format_user": {
       "slots": [

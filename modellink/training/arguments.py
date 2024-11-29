@@ -74,6 +74,8 @@ def _add_mla_args(parser):
 
     group.add_argument('--multi-head-latent-attention', action='store_true', default=False,
                        help='Use Multi-head Latent Attention(MLA)')
+    group.add_argument('--padded-base-length', type=int, default=128,
+                       help='Fill Q K V of Multi-head-latent-attention to an integer multiple of this parameter.')
     group.add_argument('--q-lora-rank', type=int, default=None, help='The low rank of q')
     group.add_argument('--kv-lora-rank', type=int, default=None, help='The low rank of k and v')
     group.add_argument('--v-head-dim', type=int, default=None, help='The head dim of v')
@@ -415,8 +417,12 @@ def _add_network_size_args(parser):
 def _add_algorithm_args(parser):
     group = parser.add_argument_group(title='algorithm')
     group.add_argument('--rotary-base', type=float, help='rotary-base.')
-    group.add_argument('--rope-scaling-type', type=str, default=None, choices=["llama3", "yarn"],
-                       help='The sub-variant of RoPE to use, support type llama3 and yarn.')
+    group.add_argument('--rope-scaling-type', type=str, default=None, choices=["llama3", "yarn", "longrope"],
+                       help='The sub-variant of RoPE to use, support type llama3 and yarn and longrope.')
+    group.add_argument('--long-factor', type=str, default=None,
+                       help='rope factor list for long rope scaling type.')
+    group.add_argument('--short-factor', type=str, default=None,
+                       help='rope factor list for long rope scaling type.')
     group.add_argument('--low-freq-factor', type=float,
                        help='rope low freq factory for rope scaling type.')
     group.add_argument('--high-freq-factor', type=float,
@@ -570,7 +576,7 @@ def _add_training_args(parser):
     group.add_argument('--prompt-type', type=str, default=None,
                        choices=['default', 'empty', 'chatglm2', 'chatglm3', 'chatglm3_system', 'glm4', 'chatml',
                                 'chatml_de', 'qwen', 'llama3', 'llama2', 'mistral', 'mixtral', 'gemma', 'alpaca',
-                                'deepseek2', 'deepseek2-lite', 'cpm', 'baichuan2'],
+                                'deepseek2', 'deepseek2-lite', 'minicpm3', 'cpm', 'baichuan2'],
                        help='Which template to use for constructing prompts in training/inference.'  'e.g., "qwen"')
     group.add_argument('--prompt-type-path', type=str, default=TEMPLATES_DIR,
                        help='Path to the json file of templates.')
@@ -766,6 +772,8 @@ def _validate_moe_args(args):
 
 def _validate_mla(args):
     if args.multi_head_latent_attention:
+        if args.padded_base_length < 1:
+            raise AssertionError('The value of padded_base_length cannot be less than 1.')
         if args.kv_lora_rank is None:
             raise AssertionError('The parameter kv-lora-rank should be set when use multi_head_latent_attention.')
         elif args.v_head_dim is None:
@@ -1008,6 +1016,22 @@ def _validate_recompute_in_advance(args):
             raise AssertionError('recompute_in_advance only support pipelining with interleaving and vpp stage should be 1.')
 
 
+def _validate_long_rope(args):
+    if args.rope_scaling_type == "longrope":
+        if args.rope_scaling_original_max_position_embeddings is None:
+            raise AssertionError('The parameter rope_scaling_original_max_position_embeddings should be set '
+                                 'when use longrope.')
+        if args.long_factor is None:
+            raise AssertionError('The parameter long_factor should be set when use longrope.')
+        else:
+            args.long_factor = list(map(float, args.long_factor.split(',')))
+
+        if args.short_factor is None:
+            raise AssertionError('The parameter short_factor should be set when use longrope.')
+        else:
+            args.short_factor = list(map(float, args.short_factor.split(',')))
+
+
 def validate_args_decorator(megatron_validate_args):
     @wraps(megatron_validate_args)
     def wrapper(args, defaults=None):
@@ -1039,6 +1063,8 @@ def validate_args_decorator(megatron_validate_args):
         _validate_output_layer_slice_num(args)
         _validate_optimizer(args)
         _validate_rl_training(args)
+        _validate_long_rope(args)
+
         _validate_noop_layer(args)
         _add_dummy_args(args)
 

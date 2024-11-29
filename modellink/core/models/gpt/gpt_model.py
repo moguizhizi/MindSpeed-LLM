@@ -69,6 +69,8 @@ def gpt_model_forward(self, input_ids: Tensor,
     # If decoder_input is provided (not None), then input_ids and position_ids are ignored.
     # Otherwise, apply embedding layer on input_ids and position_ids to get decoder_input.
     args = get_args()
+    if not self.training and (hasattr(args, "rope_scaling_type") and args.rope_scaling_type == "longrope"):
+        args.rope_scaling_original_max_position_embeddings = args.max_position_embeddings
     # Decoder embedding.
     if decoder_input is not None:
         pass

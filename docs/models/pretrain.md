@@ -697,6 +697,15 @@
       <td>【NAIE】</td>
       <td>【Test】</td>
     </tr>
+    <tr>
+      <td rowspan="1"><a href="https://huggingface.co/openbmb/MiniCPM3-4B/tree/main">MiniCPM3</a></td>
+      <td> <a href="https://huggingface.co/openbmb/MiniCPM3-4B/tree/main">4B</a> </td>
+      <td> 32K </td>
+      <th> Mcore </th>
+      <td> 1x8 </td>
+      <td>【GTS】</td>
+      <td>【Test】</td>
+    </tr>
   </tbody>
 </table>
 

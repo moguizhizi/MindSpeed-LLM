@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from typing import Union
 
@@ -53,6 +54,8 @@ class MultiHeadLatentAttention(SelfAttention):
 
         query_projection_size = self.config.num_attention_heads * self.v_head_dim
         self.q_head_dim = self.qk_nope_head_dim + self.qk_rope_head_dim
+        max_dim = max(self.v_head_dim, self.q_head_dim)
+        self.fa_padding_length = math.ceil(max_dim / args.padded_base_length) * args.padded_base_length
 
         if self.q_lora_rank is None:
             self.q_rank = self.config.num_attention_heads * self.q_head_dim
@@ -143,11 +146,10 @@ class MultiHeadLatentAttention(SelfAttention):
         Do patch for repeating KV so that GQA+Ulysses is better supported.
         """
         # hidden_states: [sq, b, h]
-
+        args = get_args()
         # For self attention we just duplicate the rotary_pos_emb if it isn't already
         if rotary_pos_emb is not None and not isinstance(rotary_pos_emb, tuple):
             rotary_pos_emb = (rotary_pos_emb,) * 2
-
 
         q_len, bsz, _ = hidden_states.shape
         mixed_x_layer, _ = self.linear_qkv(hidden_states)
@@ -182,10 +184,11 @@ class MultiHeadLatentAttention(SelfAttention):
         if rotary_pos_emb is not None:
             q_pos_emb, k_pos_emb = rotary_pos_emb
 
-            b, h, s, d = q_pe.shape
-            q_pe = q_pe.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
-            b, h, s, d = k_pe.shape
-            k_pe = k_pe.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
+            if hasattr(args, "rope_scaling_type") and args.rope_scaling_type == "yarn":
+                b, h, s, d = q_pe.shape
+                q_pe = q_pe.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
+                b, h, s, d = k_pe.shape
+                k_pe = k_pe.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
 
             if packed_seq_params is not None:
                 cu_seqlens_q = packed_seq_params.cu_seqlens_q
@@ -205,9 +208,9 @@ class MultiHeadLatentAttention(SelfAttention):
             if self.shape_order == "BNSD":
                 value = F.pad(value, [0, self.q_head_dim - self.v_head_dim])
             else:
-                query = F.pad(query, [0, 256 - self.q_head_dim])
-                key = F.pad(key, [0, 256 - self.q_head_dim])
-                value = F.pad(value, [0, 256 - self.v_head_dim])
+                query = F.pad(query, [0, self.fa_padding_length - self.q_head_dim])
+                key = F.pad(key, [0, self.fa_padding_length - self.q_head_dim])
+                value = F.pad(value, [0, self.fa_padding_length - self.v_head_dim])
         
         # Do repeat KV to support GQA+Ulysses
         args = get_args()

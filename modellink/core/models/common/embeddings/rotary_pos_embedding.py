@@ -96,7 +96,19 @@ def rotary_embedding_forward(self, max_seq_len: int, offset: int = 0):
     if self.seq_len_interpolation_factor is not None:
         seq *= 1 / self.seq_len_interpolation_factor
 
-    freqs = torch.outer(seq, self.inv_freq)
+    if hasattr(args, "rope_scaling_type") and args.rope_scaling_type == "longrope":
+        if args.seq_length > args.rope_scaling_original_max_position_embeddings:
+            ext_factors = torch.tensor(args.long_factor, dtype=torch.float32,
+                                       device=self.inv_freq.device)
+        else:
+            ext_factors = torch.tensor(args.short_factor, dtype=torch.float32,
+                                       device=self.inv_freq.device)
+        freqs = torch.mul(
+            torch.outer(seq, 1.0 / ext_factors).to(device=self.inv_freq.device),
+            self.inv_freq.to(device=self.inv_freq.device).to(self.inv_freq.dtype)
+        )
+    else:
+        freqs = torch.outer(seq, self.inv_freq)
     # first part even vector components, second part odd vector components,
     #  2 * dim in dimension size
 
@@ -173,7 +185,11 @@ def apply_rotary_pos_emb_bshd(t: Tensor, freqs: Tensor, rotary_interleaved: bool
             yarn_get_mscale(args.rope_scaling_factor, args.rope_scaling_mscale)
             / yarn_get_mscale(args.rope_scaling_factor, args.rope_scaling_mscale_all_dim)
         )
-    
+    elif args.rope_scaling_type == "longrope":
+        scale = args.max_position_embeddings / args.rope_scaling_original_max_position_embeddings
+        _mscale = math.sqrt(1 + math.log(scale) /
+                            math.log(args.rope_scaling_original_max_position_embeddings))
+
     rot_dim = freqs.shape[-1]
     t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
     cos_ = (torch.cos(freqs) * _mscale).to(t.dtype)
