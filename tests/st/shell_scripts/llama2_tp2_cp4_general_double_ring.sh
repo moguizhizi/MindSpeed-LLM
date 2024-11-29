@@ -105,7 +105,7 @@ DATA_ARGS=(
 OUTPUT_ARGS=(
     --log-interval 1
     --eval-interval 1000
-    --eval-iters 1
+    --eval-iters 0
 )
 
 torchrun ${DISTRIBUTED_ARGS[@]} $basepath/pretrain_gpt.py \
