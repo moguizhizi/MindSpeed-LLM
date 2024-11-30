@@ -248,6 +248,20 @@ def topk_router_routing(self, logits: torch.Tensor):
     else:
         raise ValueError(f"Unsupported MoE routing type: {self.routing_type}")
 
+    # fix router if needed
+    args = get_args()
+    if args.fix_router:
+        def fix_indices(index_tensor, logits_shape):
+            return torch.arange(index_tensor.numel(), device=index_tensor.device,
+                                dtype=torch.int64).view(index_tensor.shape) % logits_shape[-1]
+
+        if isinstance(indices, tuple):
+            indices = list(indices)
+            indices[0] = fix_indices(indices[0], logits.shape)
+            indices = tuple(indices)
+        else:
+            indices = fix_indices(indices, logits.shape)
+
     return scores, indices
 
 

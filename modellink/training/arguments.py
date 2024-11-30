@@ -333,6 +333,7 @@ def _add_moe_args(parser):
     group.add_argument("--shared-expert-gate-output-dimension", type=int, default=1,
                        help="moe model shared expert gate output dimension for qwen2 moe, this parameter can only configured with"
                             "1 or hidden_state")
+    group.add_argument("--fix-router", action='store_true', help="fix router for load balancing.")
     return parser
 
 
