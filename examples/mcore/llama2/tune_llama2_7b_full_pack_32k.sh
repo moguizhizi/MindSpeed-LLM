@@ -15,9 +15,9 @@ DATA_PATH="your data path"
 TOKENIZER_MODEL="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
-TP=8
+TP=2
 PP=1
-CP=1
+CP=4
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -31,11 +31,13 @@ DISTRIBUTED_ARGS="
 GPT_ARGS="
     --no-check-for-nan-in-loss-and-grad \
     --use-mcore-models \
+    --reuse-fp32-param \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --context-parallel-size ${CP} \
     --load ${CKPT_LOAD_DIR} \
-    --context-parallel-algo megatron_cp_algo \
+    --context-parallel-algo ulysses_cp_algo \
+    --ulysses-degree-in-cp 2 \
     --sequence-parallel \
     --cp-attention-mask-type causal \
     --num-workers 16 \
@@ -58,10 +60,10 @@ GPT_ARGS="
     --seq-length 32768 \
     --max-position-embeddings 32768 \
     --micro-batch-size 1 \
-    --global-batch-size 8 \
+    --global-batch-size 64 \
     --make-vocab-size-divisible-by 1 \
     --lr 1.0e-6 \
-    --train-iters 10 \
+    --train-iters 2000 \
     --lr-decay-style cosine \
     --untie-embeddings-and-output-weights \
     --attention-dropout 0.0 \
@@ -79,14 +81,14 @@ GPT_ARGS="
     --initial-loss-scale 1 \
     --adam-beta2 0.999 \
     --adam-eps 1e-5 \
-    --no-gradient-accumulation-fusion \
     --disable-bias-linear \
     --group-query-attention \
     --num-query-groups 8 \
     --bf16 \
     --is-instruction-dataset \
     --finetune \
-    --stage sft
+    --stage sft \
+    --use-mc2
 "
 
 DATA_ARGS="

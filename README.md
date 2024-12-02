@@ -283,91 +283,49 @@ MindSpeed-LLM作为昇腾大模型训练框架，旨在为华为 [昇腾芯片](
     <th>模型</th>
     <th>硬件</th>
     <th>集群</th>
-    <th>框架</th>
     <th>方案</th>
     <th>序列</th>
     <th>性能</th>
+    <th>MFU</th>
   </tr>
   <tr>
-    <td rowspan="7">llama2-7B</td>
-    <td rowspan="7">Atlas 900 A2 PODc</td>
-    <td rowspan="7">1x8</td>
-    <td>MindSpeed-LLM + NPU</td>
-    <td>全参</td>
-    <td>dynamic</td>
-    <th><a href="./examples/mcore/llama2/tune_llama2_7b_full_ptd.sh">45.7 samples/s</a></th>
-  </tr>
-  <tr>
-    <td><a href="https://github.com/hiyouga/LLaMA-Factory/tree/main">DeepSpeed</a> + NPU</td>
-    <td>全参</td>
-    <td>dynamic</td>
-    <td>40.4 samples/s</td>
-  </tr>
-  <tr>
-    <td><a href="https://github.com/hiyouga/LLaMA-Factory/tree/main">DeepSpeed</a> + 参考</td>
-    <td>全参</td>
-    <td>dynamic</td>
-    <td>46.5 samples/s</td>
-  </tr>
-  <tr>
-    <td>MindSpeed-LLM + NPU</td>
-    <td>全参</td>
-    <td>16K</td>
-    <th><a href="./examples/mcore/llama2/tune_llama2_7b_full_pack_16k.sh">1.455 samples/s</a></th>
-  </tr>
-  <tr>
-    <td><a href="https://github.com/hiyouga/LLaMA-Factory/tree/main">DeepSpeed</a> + 参考</td>
-    <td>全参</td>
-    <td>16K</td>
-    <td>1.003 samples/s</td>
-  </tr>
-  <tr>
-    <td>MindSpeed-LLM + NPU</td>
-    <td>全参</td>
-    <td>32K</td>
-    <th><a href="./examples/mcore/llama2/tune_llama2_7b_full_pack_32k.sh">0.727 samples/s</a></th>
-  </tr>
-  <tr>
-    <td><a href="https://github.com/hiyouga/LLaMA-Factory/tree/main">DeepSpeed</a> + 参考</td>
-    <td>全参</td>
-    <td>32K</td>
-    <td>0.4 samples/s</td>
-  </tr>
-  <tr>
-    <td rowspan="3">llama2-13B</td>
+    <td rowspan="3">llama2-7B</td>
     <td rowspan="3">Atlas 900 A2 PODc</td>
     <td rowspan="3">1x8</td>
-    <td>MindSpeed-LLM + NPU</td>
     <td>全参</td>
     <td>dynamic</td>
-    <th><a href="./examples/mcore/llama2/tune_llama2_13b_full_ptd.sh">28.4 samples/s</a></th>
-  </tr>
-    <tr>
-    <td><a href="https://github.com/hiyouga/LLaMA-Factory/tree/main">DeepSpeed</a> + NPU</td>
-    <td>全参</td>
-    <td>dynamic</td>
-    <td>17.8 samples/s</td>
+    <td><a href="./examples/mcore/llama2/tune_llama2_7b_full_ptd.sh">45.7 samples/s</a></td>
+    <td>-</td>
   </tr>
   <tr>
-    <td><a href="https://github.com/hiyouga/LLaMA-Factory/tree/main">DeepSpeed</a> + 参考</td>
     <td>全参</td>
-    <td>dynamic</td>
-    <td>24.9 samples/s</td>
+    <td>16K</td>
+    <td><a href="./examples/mcore/llama2/tune_llama2_7b_full_pack_16k.sh">1.78 samples/s</a></td>
+    <td>56.0%</td>
   </tr>
   <tr>
-    <td rowspan="2">llama2-70B</td>
-    <td rowspan="2">Atlas 900 A2 PODc</td>
-    <td rowspan="2">1x8</td>
-    <td>MindSpeed-LLM + NPU</td>
+    <td>全参</td>
+    <td>32K</td>
+    <td><a href="./examples/mcore/llama2/tune_llama2_7b_full_pack_32k.sh">0.79 samples/s</a></td>
+    <td>61.9%</td>
+  </tr>
+  <tr>
+    <td rowspan="1">llama2-13B</td>
+    <td rowspan="1">Atlas 900 A2 PODc</td>
+    <td rowspan="1">1x8</td>
+    <td>全参</td>
+    <td>dynamic</td>
+    <td><a href="./examples/mcore/llama2/tune_llama2_13b_full_ptd.sh">28.4 samples/s</a></td>
+    <td>-</td>
+  </tr>
+  <tr>
+    <td>llama2-70B</td>
+    <td>Atlas 900 A2 PODc</td>
+    <td>1x8</td>
     <td>LoRA</td>
     <td>dynamic</td>
-    <th><a href="./examples/legacy/llama2/tune_llama2_70b_lora_ptd.sh">11.72 samples/s</a></th>
-  </tr>
-  <tr>
-    <td><a href="https://github.com/hiyouga/LLaMA-Factory/tree/main">DeepSpeed</a> + 参考</td>
-    <td>LoRA</td>
-    <td>dynamic</td>
-    <td>3.489 samples/s</td>
+    <td><a href="./examples/legacy/llama2/tune_llama2_70b_lora_ptd.sh">11.72 samples/s</a></td>
+    <td>-</td>
   </tr>
 </table>
 
