@@ -6,7 +6,7 @@
 
 ```bash
 Instruction: "how are you?"
-ModelLink:   "I'm just a computer program, so I don't have feelings or physical sensations, \
+MindSpeed-LLM:   "I'm just a computer program, so I don't have feelings or physical sensations, \
               but I'm here to help you with any questions you might have. \
               Is there something specific you would like to know?"
 HuggingFace: "I'm just a computer program, so I don't have feelings or physical sensations, \
@@ -18,7 +18,7 @@ HuggingFace: "I'm just a computer program, so I don't have feelings or physical 
 
 ```bash
 Instruction: "how are you?"
-ModelLink:   "I hope you are doing well. I am writing to ask for your help with a project I am working on. \
+MindSpeed-LLM:   "I hope you are doing well. I am writing to ask for your help with a project I am working on. \
               I am a student at [University Name] and I am doing a research project on [Topic]."
 HuggingFace: "I hope you are doing well. I am writing to ask for your help with a project I am working on.\ 
               I am a student at [University Name] and I am doing a research project on [Topic]."

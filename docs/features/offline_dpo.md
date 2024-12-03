@@ -81,7 +81,7 @@ dpo同样支持lora微调，跟普通lora微调一样，加上lora微调相关�
 - **`--lora-load`** 
   lora权重路径
 
-### **ModelLink  与 <a href="https://github.com/hiyouga/LLaMA-Factory/tree/main">DeepSpeed</a> loss 对比**：
+### **MindSpeed-LLM  与 <a href="https://github.com/hiyouga/LLaMA-Factory/tree/main">DeepSpeed</a> loss 对比**：
 
 ![alt text](../../sources/images/dpo/dpo_full_llama3_8b_loss_compare.png)
 

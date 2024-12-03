@@ -105,7 +105,7 @@ RL_ARGS="
     --is-instruction-dataset \
 "
 
-torchrun $DISTRIBUTED_ARGS /workspace/mnt/cmss-wurongrong/ModelLink/trainer.py \
+torchrun $DISTRIBUTED_ARGS /workspace/mnt/cmss-wurongrong/MindSpeed-LLM/trainer.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $OUTPUT_ARGS \

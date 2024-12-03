@@ -14,15 +14,15 @@
 
 ```text
 You >> My sister's birthday is tomorrow and I need a birthday bouquet.
-ModelLink:
+MindSpeed-LLM:
 I'd be happy to help you with that! Do you have any specific preferences or theme in mind for the bouquet? Are there any particular flowers or color scheme that you would like to incorporate?
 
 You >> She likes pink roses. The color is pink.
-ModelLink:
+MindSpeed-LLM:
 Pink roses it is then! Do you have any other preferences or restrictions, such as budget or flower availability in your area?
 
 You >> Here I go again. Remember why I came to buy flowers yesterday?
-ModelLink:
+MindSpeed-LLM:
 Yes, I do remember. You came to buy flowers for your sister's birthday, and you mentioned that she likes pink roses. Is there anything else related to that purchase that I can help you with today?
 ```
 ## 开始多轮对话指令微调
