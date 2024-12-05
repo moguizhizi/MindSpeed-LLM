@@ -1,12 +1,12 @@
 #!/bin/bash
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-export HCCL_DETERMINISTIC=True
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
 GPUS_PER_NODE=8
 MASTER_ADDR=localhost
 MASTER_PORT=6014
-NNODES=1
+NNODES=2
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE * $NNODES))
 
@@ -25,9 +25,9 @@ DATA_PATH="your data path"
 TOKENIZER_MODEL="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
-TP=1
-PP=1
-EP=8
+TP=8
+PP=2
+EP=1
 CP=1
 CP_TYPE='megatron_cp_algo'
 NUM_LAYERS=32
