@@ -389,6 +389,8 @@ def _add_fusion_op_args(parser):
                        help="Use fused ring attention update.")
     group.add_argument("--use-mc2", action='store_true',
                        help="Use mc2 for compute-comm overlap in tp.")
+    group.add_argument("--use-fused-mlp", action='store_true',
+                       help="Use fused mlp.")
     return parser
 
 
@@ -1017,6 +1019,13 @@ def _validate_recompute_in_advance(args):
             raise AssertionError('recompute_in_advance only support pipelining with interleaving and vpp stage should be 1.')
 
 
+def _validate_mlp_fusion(args):
+    if args.use_fused_mlp:
+        if not (args.sequence_parallel and args.swiglu):
+            raise AssertionError(
+                'use_fused_mlp only support sequence_parallel and with activation func swiglu')
+
+
 def _validate_long_rope(args):
     if args.rope_scaling_type == "longrope":
         if args.rope_scaling_original_max_position_embeddings is None:
@@ -1065,6 +1074,7 @@ def validate_args_decorator(megatron_validate_args):
         _validate_optimizer(args)
         _validate_rl_training(args)
         _validate_long_rope(args)
+        _validate_mlp_fusion(args)
 
         _validate_noop_layer(args)
         _add_dummy_args(args)

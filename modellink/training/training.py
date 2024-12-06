@@ -63,6 +63,12 @@ def model_provider_func_wrapper(model_provider_func):
     def wrapper(*args, **kwargs):
         model = model_provider_func(*args, **kwargs)
         args = get_args()
+        if args.use_fused_mlp:
+            from modellink.tasks.models.transformer.fast_mlp import ParallelSwigluMLPForward
+            from megatron.legacy.model.transformer import ParallelMLP
+            from megatron.core.transformer.mlp import MLP
+            ParallelMLP.forward = ParallelSwigluMLPForward
+            MLP.forward = ParallelSwigluMLPForward
 
         if is_enable_lora():
             import peft

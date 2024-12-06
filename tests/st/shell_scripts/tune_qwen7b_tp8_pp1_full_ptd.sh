@@ -78,6 +78,7 @@ GPT_ARGS="
     --use-flash-attn \
     --use-deter-comp \
     --no-gradient-accumulation-fusion \
+    --use-fused-mlp \
     --tokenizer-not-use-fast \
 "
 
