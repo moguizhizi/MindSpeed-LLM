@@ -21,9 +21,8 @@ from megatron.core.tensor_parallel import gather_from_sequence_parallel_region
 from megatron.training import get_args
 from megatron.core.transformer.moe.moe_utils import MoEAuxLossAutoScaler, save_to_aux_losses_tracker
 from megatron.core import parallel_state
-
 from .moe_utils import topk_softmax_with_capacity, switch_load_balancing_loss_func
-
+from modellink.tasks.models.common.pai_megatron import pai_megatron_aux_loss
 
 def group_limited_greedy_topKgating(self, logits: torch.Tensor):
     args = get_args()
@@ -234,6 +233,8 @@ def topk_router_routing(self, logits: torch.Tensor):
         scores, indices = torch.topk(logits_, k=self.topk, dim=1)
     elif self.routing_type == "group_limited_greedy":
         scores, indices = group_limited_greedy_topKgating(self, logits)
+    elif self.routing_type == "pai_megatron_aux_loss":
+        scores, indices = pai_megatron_aux_loss(self, logits)
     elif self.routing_type == "none":
         # A naive top-k routing without load balancing
         # top_logits, indices = torch.topk(logits, k=self.topk, dim=1)

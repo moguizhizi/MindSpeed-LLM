@@ -37,17 +37,20 @@ MLA_ARGS="
 "
 
 MOE_ARGS="
+    --moe-grouped-gemm \
+    --moe-alltoall-overlap-comm \
     --moe-permutation-async-comm \
     --moe-token-dispatcher-type alltoall \
+    --use-fused-moe-token-permute-and-unpermute \
     --first-k-dense-replace 1 \
     --moe-layer-freq 1 \
     --n-shared-experts 2 \
     --num-experts 64 \
     --moe-router-topk 6 \
     --moe-intermediate-size 1408 \
-    --moe-router-load-balancing-type softmax_topk \
+    --moe-router-load-balancing-type aux_loss \
     --topk-group 1 \
-    --moe-aux-loss-coeff 0.001 \
+    --moe-aux-loss-coeff 0.01 \
     --routed-scaling-factor 1.0 \
     --seq-aux
 "
@@ -72,6 +75,7 @@ FITUNE_ARGS="
     "
 
 GPT_ARGS="
+    --shape-order BNSD \
     --load $CKPT_LOAD_DIR \
     --use-distributed-optimizer \
     --use-flash-attn \
@@ -89,18 +93,20 @@ GPT_ARGS="
     --num-attention-heads 16 \
     --tokenizer-type PretrainedFromHF  \
     --tokenizer-name-or-path ${TOKENIZER_MODEL} \
-    --seq-length 8192 \
+    --num-workers 8 \
+    --seq-length 4096 \
     --max-position-embeddings 163840 \
     --micro-batch-size 1 \
     --global-batch-size 8 \
     --make-vocab-size-divisible-by 1 \
-    --lr 5e-5 \
+    --lr 9e-6 \
     --train-iters 2000 \
-    --lr-decay-style constant \
+    --lr-decay-style cosine \
+    --lr-decay-iters 2000 \
     --untie-embeddings-and-output-weights \
     --disable-bias-linear \
     --attention-dropout 0.0 \
-    --init-method-std 0.02 \
+    --init-method-std 0.008 \
     --hidden-dropout 0.0 \
     --position-embedding-type rope \
     --normalization RMSNorm \
@@ -109,12 +115,13 @@ GPT_ARGS="
     --use-fused-swiglu \
     --use-fused-rmsnorm \
     --swiglu \
+    --dataloader-type cyclic \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
-    --weight-decay 0e0 \
+    --weight-decay 0.1 \
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
-    --adam-beta2 0.999 \
+    --adam-beta2 0.95 \
     --initial-loss-scale 1 \
     --vocab-size 102400 \
     --padded-vocab-size 102400 \
@@ -124,7 +131,7 @@ GPT_ARGS="
     --no-load-optim \
     --no-load-rng \
     --bf16 \
-    --reuse-fp32-param
+    --reuse-fp32-param \
 "
 
 DATA_ARGS="
@@ -151,4 +158,4 @@ torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $FITUNE_ARGS \
     --distributed-backend nccl \
     --save $CKPT_SAVE_DIR \
-    | tee ./logs/npu_tune_mcore_deepseek2_lite.log
+    | tee ./logs/tune_deepseek2_lite_ptd_8p.log

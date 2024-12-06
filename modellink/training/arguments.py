@@ -288,13 +288,14 @@ def _add_moe_args(parser):
     group.add_argument('--moe-router-topk', type=int, default=2,
                        help='Number of experts to route to for each token. The default is 2.')
     group.add_argument('--moe-router-load-balancing-type', type=str,
-                       choices=['aux_loss', "group_limited_greedy", "softmax_topk"],
+                       choices=['aux_loss', "group_limited_greedy", "softmax_topk", "pai_megatron_aux_loss"],
                        default='aux_loss',
                        help='Determines the load balancing strategy for the router. "aux_loss" corresponds '
                             'to the load balancing loss used in GShard and SwitchTransformer, "sinkhorn" corresponds '
                             'to the balancing algorithm used in S-BASE, "softmax_topk" implies no load balancing and '
                             'softmax before topk , "None" implies no load balancing, and "group_limited_greedy" corresponds '
-                            'to the Device-Limited Routing method in DeepSeekV2.'
+                            'to the Device-Limited Routing method in DeepSeekV2. and "pai_megatron_aux_loss" corresponds '
+                            ' to the load balancing loss used in pai-megatron loss'
                             'The default is "aux_loss".')
     group.add_argument('--expert-interval', type=int, default=1,
                        help='Use experts in every "expert-interval" layers')
@@ -334,6 +335,8 @@ def _add_moe_args(parser):
                        help="moe model shared expert gate output dimension for qwen2 moe, this parameter can only configured with"
                             "1 or hidden_state")
     group.add_argument("--fix-router", action='store_true', help="fix router for load balancing.")
+    group.add_argument('--moe-alltoall-overlap-comm', action='store_true', default=False,
+                       help='moe_alltoall_overlap_comm')
     return parser
 
 
@@ -589,6 +592,8 @@ def _add_training_args(parser):
                        help='scale embed tokens')
     group.add_argument('--dim-model-base', type=float, default=None,
                        help='dim-model-base')
+    group.add_argument('--no-cut-token', action='store_true', default=False,
+                       help='Used for not cut token in finetune.')
     group.add_argument('--scale-depth', type=float, default=None,
                        help='scale-depth')
     group.add_argument('--swap-attention', action='store_true', default=False,
@@ -771,6 +776,14 @@ def _validate_moe_args(args):
             raise AssertionError('shared expert gate output dimension can only be configured with 1 or hidden_size')
         if hasattr(args, 'use_fused_moe_token_permute_and_unpermute') and args.use_fused_moe_token_permute_and_unpermute:
             raise AssertionError('moe_expert_capacity_factor mode does not support use_fused_moe_token_permute_and_unpermute')
+    if args.moe_alltoall_overlap_comm:
+        if not args.moe_permutation_async_comm or not args.moe_grouped_gemm:
+            raise AssertionError(
+                '`--moe-alltoall-overlap-comm` or `--moe-allgather-overlap-comm` only support with `--moe-permutation-async-comm` and `--moe-grouped-gemm`.')
+    if args.moe_alltoall_overlap_comm and not args.moe_token_dispatcher_type == 'alltoall':
+        raise AssertionError('`--moe-alltoall-overlap-comm` only support with `--moe-token-dispatcher-type alltoall`.')
+    if args.moe_alltoall_overlap_comm and args.tensor_model_parallel_size > 1:
+        raise AssertionError('`--moe-alltoall-overlap-comm` do not support tp for now.')
 
 
 def _validate_mla(args):
@@ -962,11 +975,12 @@ def _add_dummy_args(args):
     args.tp_x = 1
     args.tp_y = 1
     args.use_nd_matmul = False
-    args.moe_alltoall_overlap_comm = False
     args.moe_allgather_overlap_comm = False
     args.moe_without_activation = False
     args.disable_gloo_group = None
     args.ampipe_degree = 0
+    args.moe_zero_memory = 'disable'
+    args.moe_zero_memory_num_layers = None
 
 
 def _validate_noop_layer(args):

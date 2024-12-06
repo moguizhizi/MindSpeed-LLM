@@ -98,7 +98,7 @@ source /usr/local/Ascend/nnal/atb/set_env.sh
 git clone https://gitee.com/ascend/MindSpeed.git
 cd MindSpeed
 # checkout commit from MindSpeed core_r0.7.0 in 2024.11.04
-git checkout f3332571 
+git checkout c9d20b5 
 pip install -r requirements.txt 
 pip3 install -e .
 cd ..

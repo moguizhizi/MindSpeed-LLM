@@ -36,6 +36,7 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS inference.py \
     --task chat \
     --max-new-tokens 256 \
     --use-mcore-models \
+    --moe-grouped-gemm \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --num-layers 27 \
@@ -92,5 +93,5 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS inference.py \
     --rope-scaling-original-max-position-embeddings 4096 \
     --rope-scaling-type yarn \
     --distributed-backend nccl \
-    | tee logs/generate_mcore_deepseek2_lite.log
+    | tee logs/generate_deepseek2_lite.log
 

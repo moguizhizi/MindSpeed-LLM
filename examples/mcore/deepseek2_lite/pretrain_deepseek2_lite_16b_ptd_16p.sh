@@ -2,7 +2,7 @@
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
-GPUS_PER_NODE=8
+GPUS_PER_NODE=16
 MASTER_ADDR=localhost
 MASTER_PORT=6000
 NNODES=1
@@ -48,7 +48,7 @@ MOE_ARGS="
     --num-experts 64 \
     --moe-router-topk 6 \
     --moe-intermediate-size 1408 \
-    --moe-router-load-balancing-type pai_megatron_aux_loss  \
+    --moe-router-load-balancing-type pai_megatron_aux_loss \
     --topk-group 1 \
     --moe-aux-loss-coeff 0.01 \
     --routed-scaling-factor 1.0 \
@@ -77,9 +77,6 @@ GPT_ARGS="
     --expert-model-parallel-size ${EP} \
     --sequence-parallel \
     --num-layers 27 \
-    --recompute-granularity full \
-    --recompute-method uniform \
-    --recompute-num-layers 1 \
     --hidden-size 2048 \
     --ffn-hidden-size 10944 \
     --num-attention-heads 16 \
@@ -90,12 +87,12 @@ GPT_ARGS="
     --seq-length 4096 \
     --max-position-embeddings 163840 \
     --micro-batch-size 1 \
-    --global-batch-size 8 \
+    --global-batch-size 768 \
     --make-vocab-size-divisible-by 1 \
     --lr 2e-5 \
-    --train-iters 462240 \
-    --lr-decay-iters 462240 \
+    --train-iters 2000 \
     --lr-decay-style cosine \
+    --lr-decay-iters 2000 \
     --untie-embeddings-and-output-weights \
     --disable-bias-linear \
     --attention-dropout 0.0 \
@@ -112,7 +109,7 @@ GPT_ARGS="
     --attention-softmax-in-fp32 \
     --min-lr 1.0e-8 \
     --weight-decay 1e-1 \
-    --lr-warmup-iters 1920 \
+    --lr-warmup-iters 100 \
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
     --adam-beta2 0.95 \
@@ -150,4 +147,4 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS pretrain_gpt.py \
     $MOE_ARGS \
     --distributed-backend nccl \
     --save $CKPT_SAVE_DIR \
-    | tee logs/pretrain_deepseek2_lite_ptd_8p.log
+    | tee logs/pretrain_deepseek2_lite_ptd_16p.log

@@ -13,6 +13,7 @@ from megatron.core.transformer.mlp import MLPSubmodules, MLP
 from megatron.core.transformer.moe.experts import GroupedMLP, SequentialMLP
 from megatron.core.transformer.moe.moe_utils import save_to_aux_losses_tracker
 from megatron.training import get_args
+from mindspeed.core.transformer.moe.moe_layer_overlap_all2all import MoELayerOverlapAll2All
 
 
 def moe_layer_init_wrapper(init_func):
@@ -34,8 +35,14 @@ def moe_layer_init_wrapper(init_func):
         if global_args.n_shared_experts:
             config = deepcopy(self.config)
             config.ffn_hidden_size = global_args.n_shared_experts * self.config.ffn_hidden_size
-            self.shared_experts = MLP(config, MLPSubmodules(linear_fc1=ColumnParallelLinear,
-                                                                 linear_fc2=RowParallelLinear,))
+
+            if global_args.moe_allgather_overlap_comm or global_args.moe_alltoall_overlap_comm:
+                from mindspeed.core.transformer.moe.layers import ColumnParallelLinear, RowParallelLinear
+                self.shared_experts = MLP(config, MLPSubmodules(linear_fc1=ColumnParallelLinear,linear_fc2 = RowParallelLinear), shared_expert=True)
+            else:
+                from megatron.core.tensor_parallel import ColumnParallelLinear, RowParallelLinear
+                self.shared_experts = MLP(config, MLPSubmodules(linear_fc1=ColumnParallelLinear,linear_fc2 = RowParallelLinear))
+
             # For using layer_number when recompute activation function is enabled.
             self.shared_experts.layer_number = self.layer_number
             if global_args.shared_expert_gate:
@@ -53,6 +60,10 @@ def moe_layer_init_wrapper(init_func):
 
 
 def moe_layer_forward(self, hidden_states: torch.Tensor):
+    global_args = get_args()
+    if global_args.moe_token_dispatcher_type == 'alltoall' and global_args.moe_alltoall_overlap_comm:
+        return MoELayerOverlapAll2All.apply(hidden_states, self)
+
     # process MoE
     scores, indices = self.router(hidden_states)
     

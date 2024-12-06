@@ -235,14 +235,13 @@ class CoreAdaptation(MegatronAdaptationABC):
             transformer_block_checkpointed_forward_wrapper)
 
     def patch_core_transformers(self):
-        from mindspeed.core.transformer.moe.router import aux_loss_load_balancing
         from mindspeed.core.transformer.moe.token_dispatcher import allgather_token_permutation, \
             allgather_token_unpermutation
         from mindspeed.core.transformer.moe.grouped_gemm_util import Ops, grouped_gemm_is_available, \
             get_device_capability, assert_grouped_gemm_is_available
         from mindspeed.core.transformer.transformer import core_mlp_forward_wrapper
         from mindspeed.core.transformer.moe.moe_utils import permute, unpermute
-
+        from mindspeed.core.transformer.moe.experts import group_mlp_forward
         from ..core.transformer.moe.moe_layer import moe_layer_init_wrapper, moe_layer_forward
         from ..core.transformer.transformer_block import _transformer_block_build_layers
         from ..core.transformer.transformer_layer import transformer_layer_init_wrapper
@@ -286,6 +285,7 @@ class CoreAdaptation(MegatronAdaptationABC):
         args = MegatronAdaptation.get_args()
         if args.moe_permutation_async_comm:
             if args.moe_token_dispatcher_type == 'allgather':
+                from mindspeed.core.transformer.moe.router import aux_loss_load_balancing
                 MegatronAdaptation.register(
                     'megatron.core.transformer.moe.token_dispatcher.MoEAllGatherTokenDispatcher.token_permutation',
                     allgather_token_permutation)
@@ -300,12 +300,25 @@ class CoreAdaptation(MegatronAdaptationABC):
                 MegatronAdaptation.register(
                     'megatron.core.transformer.moe.token_dispatcher.MoEAlltoAllTokenDispatcher.preprocess',
                     preprocess)
-                MegatronAdaptation.register(
-                    'megatron.core.transformer.moe.token_dispatcher.MoEAlltoAllTokenDispatcher.token_permutation',
-                    alltoall_token_permutation)
                 MegatronAdaptation.register('megatron.core.transformer.moe.experts.SequentialMLP.forward', sequential_mlp_forward)
                 MegatronAdaptation.register('megatron.core.transformer.moe.moe_utils.permute', permute)
                 MegatronAdaptation.register('megatron.core.transformer.moe.moe_utils.unpermute', unpermute)
+
+                if args.moe_alltoall_overlap_comm:
+                    from mindspeed.core.transformer.moe.token_dispatcher import alltoall_token_permutation_new, \
+                        alltoall_token_unpermutation_new
+                    MegatronAdaptation.register('megatron.core.transformer.moe.experts.GroupedMLP.forward',
+                                                group_mlp_forward)
+                    MegatronAdaptation.register(
+                        'megatron.core.transformer.moe.token_dispatcher.MoEAlltoAllTokenDispatcher.token_permutation',
+                        alltoall_token_permutation_new)
+                    MegatronAdaptation.register(
+                        'megatron.core.transformer.moe.token_dispatcher.MoEAlltoAllTokenDispatcher.token_unpermutation',
+                        alltoall_token_unpermutation_new)
+                else:
+                    MegatronAdaptation.register(
+                        'megatron.core.transformer.moe.token_dispatcher.MoEAlltoAllTokenDispatcher.token_permutation',
+                        alltoall_token_permutation)
 
                 if hasattr(args, 'use_fused_moe_token_permute_and_unpermute') and args.use_fused_moe_token_permute_and_unpermute and not args.moe_expert_capacity_factor:
                     from mindspeed.core.fusions.npu_moe_token_permute import permute_wrapper
