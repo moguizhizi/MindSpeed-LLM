@@ -19,6 +19,8 @@ TOKENIZER_PATH="your tokenizer path"
 TP=8
 PP=4
 CP=4
+MBS=1
+GBS=32
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -36,7 +38,7 @@ GPT_ARGS="
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \
     --num-layers 80 \
-    --num-layer-list 18,22,21,19 \
+    --num-layer-list 17,20,22,21 \
     --hidden-size 8192 \
     --ffn-hidden-size 29568 \
     --num-attention-heads 64 \
@@ -44,8 +46,8 @@ GPT_ARGS="
     --tokenizer-name-or-path ${TOKENIZER_PATH} \
     --seq-length 32768 \
     --max-position-embeddings 32768 \
-    --micro-batch-size 1 \
-    --global-batch-size 256 \
+    --micro-batch-size ${MBS} \
+    --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
     --padded-vocab-size 152064 \
     --rotary-base 1000000 \
@@ -69,6 +71,7 @@ GPT_ARGS="
     --attention-softmax-in-fp32 \
     --min-lr 1.25e-7 \
     --weight-decay 1e-1 \
+    --norm-epsilon 1e-5 \
     --lr-warmup-fraction 0.01 \
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
@@ -106,6 +109,8 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $OUTPUT_ARGS \
+    $OUTPUT_ARGS  \
+    --log-throughput \
     --load ${CKPT_LOAD_DIR} \
     --save ${CKPT_SAVE_DIR} \
     --distributed-backend nccl \

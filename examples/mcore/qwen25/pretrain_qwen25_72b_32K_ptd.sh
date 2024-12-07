@@ -1,11 +1,12 @@
 #!/bin/bash
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
+export HCCL_CONNECT_TIMEOUT=1800
 
 NPUS_PER_NODE=8
 MASTER_ADDR=localhost
 MASTER_PORT=6001
-NNODES=8
+NNODES=16
 NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
@@ -16,9 +17,10 @@ DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
 
 TP=8
-PP=8
+PP=4
+CP=4
 MBS=1
-GBS=64
+GBS=32
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -30,10 +32,13 @@ DISTRIBUTED_ARGS="
 
 GPT_ARGS="
     --use-mcore-models \
+    --context-parallel-size ${CP} \
+    --context-parallel-algo megatron_cp_algo \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \
     --num-layers 80 \
+    --num-layer-list 17,20,22,21 \
     --hidden-size 8192 \
     --ffn-hidden-size 29568 \
     --num-attention-heads 64 \
@@ -83,9 +88,6 @@ GPT_ARGS="
     --use-distributed-optimizer \
     --overlap-grad-reduce \
     --exit-on-missing-checkpoint \
-    --recompute-granularity full \
-    --recompute-method block \
-    --recompute-num-layers 80 \
     --no-shared-storage
 "
 
