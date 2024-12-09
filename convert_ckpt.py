@@ -78,6 +78,8 @@ def main():
                         choices=['baichuan', 'baichuan2', 'llama2', 'mixtral', 'chatglm3', 'gemma', 'gemma2', 'bloom',
                                  'qwen', 'internlm2', 'deepseek2', 'minicpm', 'minicpm3', 'minicpm-moe', 'deepseek2-lite', 'qwen2-moe'],
                         help='model type of huggingface')
+    parser.add_argument('--ckpt-cfg-path', type=str, default="configs/checkpoint/model_cfg.json",
+                        help="Path to the config directory. If not specified, the default path in the repository will be used.")
     known_args, _ = parser.parse_known_args()
 
     use_saver = known_args.load_model_type is None

@@ -5,6 +5,7 @@ import re
 import json
 from types import SimpleNamespace
 import logging as logger
+from pathlib import Path
 from collections import OrderedDict
 from tqdm import tqdm
 import torch
@@ -42,7 +43,7 @@ class ModelBase(abc.ABC):
         self.args_megatron_checkpoint = None
         self.module = None
         self.module_mapping = None
-        self.model_cfg = self.read_model_cfg()
+        self.model_cfg = self.read_model_cfg(args_cmd)
         self.__register_functions()
         self.kwargs_idx = OrderedDict({
             "vp_rank": 0,
@@ -351,7 +352,7 @@ class ModelBase(abc.ABC):
             return self.args.moe_layer_freq
 
     @staticmethod
-    def read_model_cfg():
+    def read_model_cfg(args_cmd):
         def merge_configs(base_config, specific_config):
             merged_config = base_config.copy()
             for key, value in specific_config.items():
@@ -361,8 +362,12 @@ class ModelBase(abc.ABC):
                     merged_config[key] = value
             return merged_config
 
-        current_directory = os.path.dirname(os.path.abspath(__file__))
-        with open(os.path.join(current_directory, 'model_cfg.json'), 'r') as file:
+        if args_cmd.ckpt_cfg_path == "configs/checkpoint/model_cfg.json":
+            current_directory = os.path.dirname(os.path.abspath(__file__))
+            cfg_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current_directory))), "configs/checkpoint/model_cfg.json")
+        else:
+            cfg_dir = args_cmd.ckpt_cfg_path
+        with open(cfg_dir, 'r') as file:
             config = json.load(file)
         final_configs = {}
 
