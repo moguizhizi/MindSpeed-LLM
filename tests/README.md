@@ -254,14 +254,13 @@
         <td rowspan="6">Checkpoint</td>
         <td rowspan="2"> Mcore </td>
         <td> hf2mcore, tp, pp, ep, dpp, vpp, deepseek2; hf2mcore, tp, deepseek2</td>
-        <td><a href="ut/checkpoint/test_checkpoint.py">test_checkpoint.py</a></td>
+        <td rowspan="6"><a href="ut/checkpoint/test_checkpoint.py">test_checkpoint.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
     </tr>
     <tr>
         <td>hf2mcore, tp, pp, dpp, vpp, chatglm3, qwen2, noop_layers</td>
-        <td><a href="ut/checkpoint/test_convert_ckpt_from_huggingface.py">test_hf2mcore.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
@@ -269,28 +268,24 @@
     <tr>
         <td rowspan="4">Legacy</td>
         <td> legacy2mcore, lora</td>
-        <td><a href="ut/checkpoint/test_convert_ckpt_from_huggingface.py">test_legacy2hf.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
     </tr>
     <tr>
         <td>legacy2legacy, lora</td>
-        <td><a href="ut/checkpoint/test_convert_ckpt_from_megatron.py">test_legacy2legacy.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
     </tr>
     <tr>
         <td>hf2legacy</td>
-        <td><a href="ut/checkpoint/test_checkpoint.py">test_hf2legacy.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
     </tr>
     <tr>
         <td>legacy2hf</td>
-        <td><a href="ut/checkpoint/test_checkpoint.py">test_legacy2hf.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
@@ -388,13 +383,20 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="4"><a href="pipeline/chatglm3-6B">Chatglm3-6B</a></td>
-        <td rowspan="4">Legacy</td>
+        <td rowspan="5"><a href="pipeline/chatglm3-6B">Chatglm3-6B</a></td>
+        <td rowspan="5">Legacy</td>
         <td>pretrain</td>
         <td><a href="pipeline/chatglm3-6B/chatglm3_tp1_pp2_legacy.sh">chatglm3_6B_legacy_tp1_pp2_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
+    </tr>
+    <tr>
+        <td>convert_ckpt</td>
+        <td><a href="pipeline/chatglm3-6B/test_checkpoint.py">test_checkpoint.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
     </tr>
     <tr>
         <td>data_process</td>

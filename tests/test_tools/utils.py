@@ -24,6 +24,7 @@ def judge_expression(expression):
 
 def compare_state_dicts(state_dict1, state_dict2):
     if state_dict1.keys() != state_dict2.keys():
+        print(f"base:{state_dict1.keys()} != save:{state_dict2.keys()}")
         return False
 
     for key in state_dict1.keys():

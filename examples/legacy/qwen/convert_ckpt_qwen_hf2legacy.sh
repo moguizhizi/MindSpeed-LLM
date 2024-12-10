@@ -13,6 +13,6 @@ python convert_ckpt.py \
     --target-tensor-parallel-size 8 \
     --load-dir ./model_from_hf/qwen-7b/ \
     --save-dir ./model_weights/qwen-7b-legacy/ \
-    --tokenizer-model ./model_from_hf/qwen-7b/tokenizer.model \
+    --tokenizer-model ./model_from_hf/qwen-7b/qwen.tiktoken \
 	--model-type-hf qwen \
 	--add-qkv-bias
