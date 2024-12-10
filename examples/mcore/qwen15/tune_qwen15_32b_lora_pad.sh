@@ -29,6 +29,7 @@ DISTRIBUTED_ARGS="
 "
 
 GPT_ARGS="
+    --stage sft \
     --finetune \
     --is-instruction-dataset \
     --num-layers-per-virtual-pipeline-stage 2 \

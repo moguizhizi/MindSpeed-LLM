@@ -26,6 +26,7 @@ DISTRIBUTED_ARGS="
 "
 
 GPT_ARGS="
+    --stage sft \
     --finetune \
     --is-instruction-dataset \
     --use-mcore-models \

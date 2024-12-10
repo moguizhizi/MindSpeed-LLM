@@ -28,6 +28,7 @@ DISTRIBUTED_ARGS="
 "
 
 GPT_ARGS="
+    --stage sft \
     --use-mcore-models \
     --use-mc2 \
     --recompute-activation-function \
