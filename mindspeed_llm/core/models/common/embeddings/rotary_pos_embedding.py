@@ -68,6 +68,7 @@ def rotary_embedding_init_wrapper(fn):
 
         fn(self, *args, **kwargs)
 
+        self.dim = kwargs['kv_channels']
         if hasattr(_args, "rope_scaling_type") and _args.rope_scaling_type == "llama3":
             self.inv_freq = apply_llama3_scaling(self.inv_freq)
         elif hasattr(_args, "rope_scaling_type") and _args.rope_scaling_type == "yarn":
@@ -103,10 +104,16 @@ def rotary_embedding_forward(self, max_seq_len: int, offset: int = 0):
         else:
             ext_factors = torch.tensor(args.short_factor, dtype=torch.float32,
                                        device=self.inv_freq.device)
-        freqs = torch.mul(
-            torch.outer(seq, 1.0 / ext_factors).to(device=self.inv_freq.device),
-            self.inv_freq.to(device=self.inv_freq.device).to(self.inv_freq.dtype)
-        )
+        if args.longrope_freqs_type == "outer":
+            self.inv_freq_shape = torch.arange(0, self.dim, 2, dtype=torch.int64,
+                                           device=torch.cuda.current_device()).float() / self.dim
+            self.inv_freq = 1.0 / (ext_factors * args.rotary_base ** self.inv_freq_shape)
+            freqs = torch.outer(seq, self.inv_freq)
+        else:
+            freqs = torch.mul(
+                torch.outer(seq, 1.0 / ext_factors).to(device=self.inv_freq.device),
+                self.inv_freq.to(device=self.inv_freq.device).to(self.inv_freq.dtype)
+            )
     else:
         freqs = torch.outer(seq, self.inv_freq)
     # first part even vector components, second part odd vector components,
@@ -187,8 +194,8 @@ def apply_rotary_pos_emb_bshd(t: Tensor, freqs: Tensor, rotary_interleaved: bool
         )
     elif args.rope_scaling_type == "longrope":
         scale = args.max_position_embeddings / args.rope_scaling_original_max_position_embeddings
-        _mscale = math.sqrt(1 + math.log(scale) /
-                            math.log(args.rope_scaling_original_max_position_embeddings))
+        _mscale = 1.0 if scale <= 1.0 else math.sqrt(
+            1 + math.log(scale) / math.log(args.rope_scaling_original_max_position_embeddings))
 
     rot_dim = freqs.shape[-1]
     t, t_pass = t[..., :rot_dim], t[..., rot_dim:]

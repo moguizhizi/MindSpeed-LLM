@@ -374,6 +374,16 @@
       "model_hf_key_mapping": {
         "layers_self_attention_linear_qkv_pack": "model.layers[layer_idx].self_attn.W_pack"
       }
+    },
+    "phi3.5": {
+      "__base__": "base",
+      "config_set_value": {
+        "qkv_type": "pack_gqa"
+      },
+      "model_hf_key_mapping": {
+        "layers_self_attention_linear_qkv_pack": "model.layers[layer_idx].self_attn.qkv_proj",
+        "layers_mlp_linear_fc1": "model.layers[layer_idx].mlp.gate_up_proj"
+      }
     }
   }
 }

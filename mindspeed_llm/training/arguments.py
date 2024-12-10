@@ -425,6 +425,8 @@ def _add_algorithm_args(parser):
     group.add_argument('--rotary-base', type=float, help='rotary-base.')
     group.add_argument('--rope-scaling-type', type=str, default=None, choices=["llama3", "yarn", "longrope"],
                        help='The sub-variant of RoPE to use, support type llama3 and yarn and longrope.')
+    group.add_argument('--longrope-freqs-type', type=str, default="mul", choices=["mul", "outer"],
+                       help='Specify the frequency type for long rope. Options are "mul" for multiplication or "outer" for outer product.')
     group.add_argument('--long-factor', type=str, default=None,
                        help='rope factor list for long rope scaling type.')
     group.add_argument('--short-factor', type=str, default=None,
