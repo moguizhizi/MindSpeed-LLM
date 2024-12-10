@@ -8,4 +8,5 @@ python ./preprocess_data.py \
         --output-prefix ./dataset/internlm25/enwiki \
         --workers 4 \
         --log-interval 1000 \
-        --tokenizer-type PretrainedFromHF
+        --tokenizer-type PretrainedFromHF \
+        --tokenizer-not-use-fast

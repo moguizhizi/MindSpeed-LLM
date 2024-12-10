@@ -59,7 +59,7 @@ GPT_ARGS="
     --use-fused-rotary-pos-emb \
     --untie-embeddings-and-output-weights \
     --micro-batch-size 1 \
-    --global-batch-size 8 \
+    --global-batch-size 64 \
     --make-vocab-size-divisible-by 1 \
     --padded-vocab-size 152064 \
     --tokenizer-type PretrainedFromHF \
