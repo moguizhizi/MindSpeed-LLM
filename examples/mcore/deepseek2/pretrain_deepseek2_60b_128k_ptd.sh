@@ -74,7 +74,7 @@ ROPE_ARGS="
 "
 
 GPT_ARGS="
-    --spec modellink.tasks.models.spec.deepseek_spec layer_spec \
+    --spec mindspeed_llm.tasks.models.spec.deepseek_spec layer_spec \
     --recompute-granularity full \
     --recompute-method uniform \
     --recompute-num-layers 1 \

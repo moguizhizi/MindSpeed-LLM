@@ -25,7 +25,7 @@ torchrun $DISTRIBUTED_ARGS inference.py \
     --pipeline-model-parallel-size 2  \
     --use-mcore-models \
     --multi-head-latent-attention \
-    --spec modellink.tasks.models.spec.minicpm_spec layer_spec \
+    --spec mindspeed_llm.tasks.models.spec.minicpm_spec layer_spec \
     --qk-rope-head-dim 32 \
     --qk-nope-head-dim 64 \
     --q-lora-rank 768 \

@@ -13,5 +13,5 @@ python convert_ckpt.py \
     --target-pipeline-parallel-size 1 \
     --load-dir ./model_weights/MiniCPM3-4B_mcore-tp1pp2 \
     --save-dir ./model_from_hf/MiniCPM3-4B-hf/ \
-    --spec modellink.tasks.models.spec.minicpm_spec layer_spec \
+    --spec mindspeed_llm.tasks.models.spec.minicpm_spec layer_spec \
     --tokenizer-model ./model_from_hf/MiniCPM3-4B-hf/tokenizer.model

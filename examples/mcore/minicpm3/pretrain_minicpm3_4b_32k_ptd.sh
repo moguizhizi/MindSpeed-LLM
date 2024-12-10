@@ -107,7 +107,7 @@ GPT_ARGS="
     --no-gradient-accumulation-fusion \
     --norm-epsilon 1e-5 \
     --tokenizer-not-use-fast \
-    --spec modellink.tasks.models.spec.minicpm_spec layer_spec \
+    --spec mindspeed_llm.tasks.models.spec.minicpm_spec layer_spec \
     --no-load-optim \
     --no-load-rng \
     --bf16

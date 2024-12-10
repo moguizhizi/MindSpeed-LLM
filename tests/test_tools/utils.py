@@ -15,7 +15,7 @@ import torch
 import torch_npu
 import megatron.core.parallel_state as mpu
 from mindspeed.core.parallel_state import initialize_model_parallel, initialize_model_parallel_wrapper
-from modellink.core.parallel_state import initialize_model_parallel_decorator
+from mindspeed_llm.core.parallel_state import initialize_model_parallel_decorator
 
 def judge_expression(expression):
     if not expression:

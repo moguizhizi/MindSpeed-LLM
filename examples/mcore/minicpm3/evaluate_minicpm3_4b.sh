@@ -29,7 +29,7 @@ torchrun $DISTRIBUTED_ARGS evaluation.py   \
     --use-flash-attn \
     --multi-head-latent-attention \
     --prompt-type minicpm3 \
-    --spec modellink.tasks.models.spec.minicpm_spec layer_spec \
+    --spec mindspeed_llm.tasks.models.spec.minicpm_spec layer_spec \
     --qk-rope-head-dim 32 \
     --qk-nope-head-dim 64 \
     --q-lora-rank 768 \
