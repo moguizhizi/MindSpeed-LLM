@@ -26,7 +26,7 @@ from megatron.training import print_rank_0, get_args
 from megatron.core import parallel_state
 from megatron.legacy.data.dataset_utils import get_train_valid_test_split_
 from mindspeed_llm.training.tokenizer import build_tokenizer
-from mindspeed_llm.tasks.error_utils import check_equal
+from mindspeed_llm.tasks.utils.error_utils import check_equal
 from mindspeed_llm.tasks.preprocess.mtf_dataset import MTFDataset, get_packed_indexed_dataset
 
 logger = logging.getLogger(__name__)

@@ -25,9 +25,9 @@ from torch import distributed as dist
 from megatron.training import get_args
 from mindspeed_llm.tasks.preprocess.templates import Role
 from .template import BBH_TEMPLATE_DIR, get_eval_template
-from ..eval_api.dataset_eval import DatasetEval
-from ..eval_api.chat import Chat
-from ...error_utils import check_divisible_by_zero
+from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
+from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
+from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
 
 
 logger = logging.getLogger(__name__)

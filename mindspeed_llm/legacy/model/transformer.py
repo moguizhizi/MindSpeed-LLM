@@ -44,9 +44,9 @@ from mindspeed.model.transformer import get_attention_mask
 
 from mindspeed_llm.core.transformer.mlp import should_recompute_activation
 from mindspeed_llm.core.models.common.embeddings.rotary_pos_embedding import apply_rotary_pos_emb
-from mindspeed_llm.tasks.error_utils import ensure_valid
+from mindspeed_llm.tasks.utils.error_utils import ensure_valid
 from mindspeed_llm.tasks.models.common.alibi import Alibi
-from mindspeed_llm.tasks.finetune.lora.utils import is_enable_lora
+from mindspeed_llm.tasks.posttrain.lora.utils import is_enable_lora
 
 
 def state_dict_for_save_checkpoint(state_dict):

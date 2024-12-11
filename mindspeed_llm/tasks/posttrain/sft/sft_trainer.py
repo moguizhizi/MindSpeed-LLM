@@ -11,7 +11,7 @@ from megatron.training.utils import (
 )
 from megatron.training import get_timers
 from mindspeed_llm.training.utils import get_tune_attention_mask, get_finetune_data_on_this_tp_rank, generate_actual_seq_len
-from mindspeed_llm.tasks.post_train.base import BaseTrainer
+from mindspeed_llm.tasks.posttrain.base import BaseTrainer
 
 
 class SFTTrainer(BaseTrainer):

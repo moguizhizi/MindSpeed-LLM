@@ -4,7 +4,7 @@ import torch
 from megatron.training import get_args
 from megatron.core import mpu
 from megatron.core.pipeline_parallel.schedules import get_attr_wrapped_model
-from mindspeed_llm.tasks.post_train.utils import get_attr_from_wrapped_model
+from mindspeed_llm.tasks.posttrain.utils import get_attr_from_wrapped_model
 
 
 class HyperModelABC(abc.ABC):

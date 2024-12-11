@@ -18,8 +18,8 @@ from functools import wraps
 from megatron.training import get_args
 from megatron.training.utils import print_rank_0
 from megatron.training.checkpointing import _load_base_checkpoint
-from mindspeed_llm.tasks.finetune.lora.utils import is_enable_lora, merge_dicts, modify_keys_with_dict
-from mindspeed_llm.tasks.post_train.utils import load_checkpoint_loosely
+from mindspeed_llm.tasks.posttrain.lora.utils import is_enable_lora, merge_dicts, modify_keys_with_dict
+from mindspeed_llm.tasks.posttrain.utils import load_checkpoint_loosely
 
 
 def _load_base_checkpoint_wrapper(fn):

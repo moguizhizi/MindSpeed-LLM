@@ -1,10 +1,10 @@
 # Copyright (c) 2024, HUAWEI CORPORATION.  All rights reserved.
 from megatron.training import get_args
 from megatron.training.initialize import initialize_megatron
-from mindspeed_llm.tasks.post_train.sft import SFTTrainer
-from mindspeed_llm.tasks.post_train.dpo import DPOTrainer
-from mindspeed_llm.tasks.post_train.rm import RMTrainer
-from mindspeed_llm.tasks.post_train.dpo import SimPOTrainer
+from mindspeed_llm.tasks.posttrain.sft import SFTTrainer
+from mindspeed_llm.tasks.posttrain.dpo import DPOTrainer
+from mindspeed_llm.tasks.posttrain.rm import RMTrainer
+from mindspeed_llm.tasks.posttrain.dpo import SimPOTrainer
 
 
 def get_trainer(stage):

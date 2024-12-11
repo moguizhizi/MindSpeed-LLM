@@ -55,7 +55,7 @@ from megatron.training.utils import (
 from megatron.core.distributed import DistributedDataParallel as DDP
 from megatron.core.distributed import finalize_model_grads
 from mindspeed_llm.training.initialize import set_jit_fusion_options
-from mindspeed_llm.tasks.finetune.lora.utils import is_enable_lora
+from mindspeed_llm.tasks.posttrain.lora.utils import is_enable_lora
 
 
 def model_provider_func_wrapper(model_provider_func):
@@ -79,12 +79,12 @@ def model_provider_func_wrapper(model_provider_func):
                 setattr(peft.tuners.lora.LoraLayer, 'unmerge', peft.tuners.lora.Linear.unmerge)
                 setattr(peft.tuners.lora.LoraLayer, 'get_delta_weight', peft.tuners.lora.Linear.get_delta_weight)
             from peft.tuners.lora import tp_layer
-            from mindspeed_llm.tasks.finetune.lora.lora_moe import LoraParallelLinearMoE
+            from mindspeed_llm.tasks.posttrain.lora.lora_moe import LoraParallelLinearMoE
             tp_layer.LoraParallelLinear = LoraParallelLinearMoE
 
             if hasattr(args, 'lora_fusion') and args.lora_fusion:
                 from peft.tuners.lora.tp_layer import LoraParallelLinear
-                from mindspeed_llm.tasks.finetune.lora.cc_lora_forward import CCLoraParallelLinearForward
+                from mindspeed_llm.tasks.posttrain.lora.cc_lora_forward import CCLoraParallelLinearForward
                 LoraParallelLinear.forward = CCLoraParallelLinearForward
 
             config = core_transformer_config_from_args(args)

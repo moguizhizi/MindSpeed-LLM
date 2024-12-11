@@ -23,7 +23,7 @@ from megatron.training.checkpointing import save_checkpoint
 from mindspeed_llm.training import build_train_args
 from mindspeed_llm.training import train
 from mindspeed_llm.training.initialize import set_jit_fusion_options
-from mindspeed_llm.tasks.post_train.utils import train_valid_test_datasets_provider
+from mindspeed_llm.tasks.posttrain.utils import train_valid_test_datasets_provider
 
 
 _TRAIN_START_TIME = time.time()

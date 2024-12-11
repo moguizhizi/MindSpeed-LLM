@@ -7,8 +7,8 @@ import torch.nn.functional as F
 from megatron.training import get_args
 from megatron.core import mpu
 from megatron.training.utils import average_losses_across_data_parallel_group
-from mindspeed_llm.tasks.post_train.base import BaseTrainer
-from mindspeed_llm.tasks.post_train.dpo import DPOTrainer
+from mindspeed_llm.tasks.posttrain.base import BaseTrainer
+from mindspeed_llm.tasks.posttrain.dpo import DPOTrainer
 
 
 class SimPOTrainer(BaseTrainer):

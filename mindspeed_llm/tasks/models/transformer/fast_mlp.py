@@ -4,7 +4,7 @@ try:
     import fused_weight_gradient_mlp_cuda
 except ImportError:
     fused_weight_gradient_mlp_cuda = None
-from mindspeed_llm.tasks.finetune.lora.cc_lora_forward import get_tensor_model_parallel_group, \
+from mindspeed_llm.tasks.posttrain.lora.cc_lora_forward import get_tensor_model_parallel_group, \
     _gather_along_first_dim_async, _reduce_scatter_along_first_dim_async, get_tensor_model_parallel_world_size
 
 

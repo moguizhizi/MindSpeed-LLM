@@ -13,10 +13,9 @@ from megatron.training.yaml_arguments import core_transformer_config_from_yaml
 from megatron.core.transformer.spec_utils import import_module
 from megatron.training.utils import average_losses_across_data_parallel_group
 from megatron.core.models.gpt import GPTModel
-from mindspeed_llm.tasks.post_train.base import BaseTrainer
+from mindspeed_llm.tasks.posttrain.base import BaseTrainer
+from mindspeed_llm.tasks.posttrain.rm.rm_model import GPTRewardModel
 from mindspeed_llm.training.utils import get_tune_attention_mask, get_finetune_data_on_this_tp_rank
-from mindspeed_llm.tasks.post_train.rm.rm_model import GPTRewardModel
-
 
 class RMTrainer(BaseTrainer):
     """

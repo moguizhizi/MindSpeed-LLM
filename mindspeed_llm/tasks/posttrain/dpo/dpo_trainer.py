@@ -10,8 +10,8 @@ from megatron.core.enums import ModelType
 from megatron.training.checkpointing import load_checkpoint
 from megatron.training.utils import average_losses_across_data_parallel_group
 from megatron.training.global_vars import set_args
-from mindspeed_llm.tasks.post_train.base import BaseTrainer
-from mindspeed_llm.tasks.post_train.dpo.dpo_model import DPOModel
+from mindspeed_llm.tasks.posttrain.base import BaseTrainer
+from mindspeed_llm.tasks.posttrain.dpo.dpo_model import DPOModel
 from mindspeed_llm.training.utils import get_tune_attention_mask, get_finetune_data_on_this_tp_rank
 from mindspeed_llm.training.utils import get_batch_on_this_cp_rank, generate_actual_seq_len
 

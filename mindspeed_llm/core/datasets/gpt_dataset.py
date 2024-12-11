@@ -12,7 +12,7 @@ from megatron.core.datasets.utils import Split, log_single_rank
 from megatron.core.datasets.gpt_dataset import (_build_document_index,
                                                 _build_shuffle_index
                                                 )
-from mindspeed_llm.tasks.error_utils import GPTDatasetSampleIndexError
+from mindspeed_llm.tasks.utils.error_utils import GPTDatasetSampleIndexError
 from .blended_megatron_dataset_builder import need_to_build_dataset
 
 logger = logging.getLogger(__name__)
