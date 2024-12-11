@@ -137,7 +137,7 @@ cd ../../
 ```
 
 #### <span id="jump2.2"> 2. 权重转换
-
+在`example`目录下每个模型都已经预置好权重转换脚本，可以根据需要来进行修改
 ##### 2.1 Huggingface权重转换到Megatron-LM格式
 
 ```shell
@@ -145,9 +145,9 @@ python convert_ckpt.py \
     --model-type GPT \
     --load-model-type hf \
     --save-model-type mg \
-    --target-tensor-parallel-size 2 \
-    --target-pipeline-parallel-size 4 \
-    --num-layer-list 8,8,8,8 \
+    --target-tensor-parallel-size 1 \
+    --target-pipeline-parallel-size 2 \
+    --num-layer-list 16,16 \
     --model-type-hf llama2 \
     --load-dir ./model_from_hf/llama-2-7b-hf/ \
     --save-dir ./model_weights/llama-2-7b-legacy/ \
@@ -210,7 +210,9 @@ bash examples/mcore/llama2/ckpt_convert_llama2_hf2mcore.sh
 
 ##### 2.2 Megatron-LM权重转换到Huggingface格式
 
+
 ```shell
+# 转换到Huggingface格式时，`target-tensor-parallel-size`与`target-pipeline-parallel-size`均需设为1
 python convert_ckpt.py \
     --model-type GPT \
     --load-model-type mg \
@@ -409,7 +411,7 @@ cd ..
 ```
 
 #### <span id="jump3.2"> 2. 数据集处理
-
+在`example`目录下每个模型都已经预置好数据预处理脚本，可以根据需要来进行修改
 ##### 2.1 预训练数据集处理方法
 
 ```shell
