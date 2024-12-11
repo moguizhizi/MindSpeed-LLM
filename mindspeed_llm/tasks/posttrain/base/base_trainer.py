@@ -43,13 +43,9 @@ class BaseTrainer(ABC):
     - `train`: The main training loop, controlling the entire training process.
 
     """
-    def __init__(self, model_provider, get_batch_func, loss_func, forward_step_func, process_non_loss_data_func=None):
+    def __init__(self, process_non_loss_data_func=None):
         self.args = get_args()
         self.timers = get_timers()
-        self.model_provider = model_provider
-        self.get_batch_func = get_batch_func
-        self.loss_func = loss_func
-        self.forward_step_func = forward_step_func
         self.process_non_loss_data_func = process_non_loss_data_func
         self.train_args = None
         self.model_type = None
@@ -72,7 +68,7 @@ class BaseTrainer(ABC):
             self.train_valid_test_datasets_provider,
             self.model_provider,
             self.model_type,
-            self.forward_step_func,
+            self.forward_step,
             self.process_non_loss_data_func
         )
 

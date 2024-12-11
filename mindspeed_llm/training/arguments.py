@@ -477,7 +477,7 @@ def _add_network_args(parser):
     group.add_argument(
         '--stage',
         default=None,
-        choices=["sft", "dpo", "rm", "simpo"],
+        choices=["sft", "dpo", "rm", "prm", "simpo"],
         help='Determine training mode'
     )
 
@@ -552,6 +552,18 @@ def _add_rl_args(parser):
         "--is-pairwise-dataset", action='store_true',
         help="Whether the dataset is pairwise format that has a chosen sequence and rejected "
              "sequence, which usually used in reinforce learning.")
+    group.add_argument(
+        '--placeholder-token',
+        default='ки',
+        help="A special placeholder token marking the end of each step where the PRM can make predictions.",
+    )
+    group.add_argument(
+        '--reward-tokens',
+        nargs='+',
+        type=str,
+        default=[],
+        help="The labels represent the correctness of each reasoning step in the entire reasoning process.",
+    )
     return parser
 
 

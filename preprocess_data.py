@@ -172,6 +172,18 @@ def add_tokenizer_args(parser):
                             'This value must be greater than the initial size of the tokenizer.'
                             ' If this argument is used the value of `make-vocab-size-divisible-by` '
                             'will be ignored.')
+    group.add_argument(
+        '--placeholder-token',
+        default='ки',
+        help="A special placeholder token marking the end of each step where the PRM can make predictions.",
+    )
+    group.add_argument(
+        '--reward-tokens',
+        nargs='+',
+        type=str,
+        default=[],
+        help="The labels represent the correctness of each reasoning step in the entire reasoning process.",
+    )
 
 
 def add_output_args(parser):
@@ -225,7 +237,8 @@ def validate_args(args):
         "AlpacaStyleInstructionHandler",
         "SharegptStyleInstructionHandler",
         "AlpacaStylePairwiseHandler",
-        "SharegptStylePairwiseHandler"
+        "SharegptStylePairwiseHandler",
+        "AlpacaStyleProcessRewardHandler"
     ]
     if args.prompt_type is not None and args.handler_name not in support_prompt_type_handler:
         raise AssertionError(f'If specify prompt_type , handler name must be in:\n{support_prompt_type_handler}.')

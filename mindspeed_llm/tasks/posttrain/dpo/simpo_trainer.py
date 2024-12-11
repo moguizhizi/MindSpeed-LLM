@@ -25,11 +25,7 @@ class SimPOTrainer(BaseTrainer):
 
         Sets up the instance variables for the model provider and initializes the SimPO model.
         """
-        super().__init__(
-            model_provider=self.model_provider,
-            get_batch_func=self.get_batch,
-            loss_func=self.loss_func,
-            forward_step_func=self.forward_step)
+        super().__init__()
 
         self.args.actual_micro_batch_size = self.args.micro_batch_size * 2
 

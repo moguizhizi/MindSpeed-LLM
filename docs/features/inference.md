@@ -14,7 +14,7 @@ HuggingFace: "I'm just a computer program, so I don't have feelings or physical 
               Is there something specific you would like to know?"
 ```
 
-【Lama3.1-8b-Instruct流式推理效果对】
+【Lama3.1-8b-Instruct流式推理效果】
 
 ```bash
 Instruction: "how are you?"

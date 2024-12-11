@@ -461,11 +461,17 @@ MindSpeed-LLM，原仓名ModelLink，作为昇腾大模型训练框架，旨在�
   </tr></thead>
 <tbody>
   <tr>
-    <td rowspan="1">数据预处理</td>
+    <td rowspan="2">数据预处理</td>
     <td><a href="./docs/features/pairwise_dataset.md">Pairwise数据集处理</a></td>
     <td>✅</td>
     <td>✅</td>
     <td>【NAIE】</td>
+  </tr>
+  <tr>
+    <td><a href="./docs/features/process_reward_dataset.md">PRM数据集处理</a></td>
+    <td>✅</td>
+    <td>✅</td>
+    <td>【昇腾】</td>
   </tr>
   <tr>
     <td rowspan="2">偏好对齐</td>
@@ -481,8 +487,15 @@ MindSpeed-LLM，原仓名ModelLink，作为昇腾大模型训练框架，旨在�
     <td>【China Mobile Cloud】</td>
   </tr>
   <tr>
-    <td>奖励模型</td>
+    <td rowspan="2">奖励模型</td>
     <td><a href="./docs/features/outcome_reward_model.md">ORM</a></td>
+    <td>✅</td>
+    <td>❌</td>
+    <td>【昇腾】</td>
+  </tr>
+
+  <tr>
+    <td><a href="./docs/features/process_reward_model.md">PRM</a></td>
     <td>✅</td>
     <td>❌</td>
     <td>【昇腾】</td>

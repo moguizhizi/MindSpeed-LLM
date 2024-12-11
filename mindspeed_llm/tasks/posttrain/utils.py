@@ -120,3 +120,12 @@ def get_tensor_shapes_decorator(get_tensor_shapes):
 def load_checkpoint_loosely():
     args = get_args()
     return args.load_checkpoint_loosely
+
+
+def convert_token_to_id(token, tokenizer):
+    if isinstance(token, str):
+        token = tokenizer.encode(token, add_special_tokens=False)
+        assert len(token) == 1
+        return token[0]
+    else:
+        raise ValueError("token should be int or str")

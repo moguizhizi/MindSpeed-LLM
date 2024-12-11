@@ -31,11 +31,7 @@ class RMTrainer(BaseTrainer):
         Sets up the instance variables for the model provider, actual micro batch size,
         and initializes the RM model.
         """
-        super().__init__(
-            model_provider=self.model_provider,
-            get_batch_func=self.get_batch,
-            loss_func=self.loss_func,
-            forward_step_func=self.forward_step)
+        super().__init__()
 
         self.model = self.train_args[1][0]
 

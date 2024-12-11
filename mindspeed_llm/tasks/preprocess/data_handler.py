@@ -27,6 +27,7 @@ from datasets import load_dataset
 from megatron.core.datasets import indexed_dataset
 
 from mindspeed_llm.tasks.preprocess.templates import Prompter, AlpacaTemplate, get_model_template
+from mindspeed_llm.tasks.posttrain.utils import convert_token_to_id 
 from .utils import get_dataset_list, get_handler_dataset_attr, load_single_dataset, merge_dataset, align_dataset
 from .utils import greedy_knapsack
 
@@ -443,6 +444,56 @@ class SharegptStylePairwiseHandler(AlpacaStylePairwiseHandler):
 
     def __init__(self, args, raw_datasets, tokenizer, splitter):
         super().__init__(args, raw_datasets, tokenizer, splitter)
+
+
+class AlpacaStyleProcessRewardHandler(BaseDatasetHandler):
+    """
+    Handle alpaca style dataset format in process reward dataset used in PRM training
+    """
+
+    def __init__(self, args, raw_datasets, tokenizer, splitter):
+        super().__init__(args, raw_datasets, tokenizer, splitter)
+        self.train_on_inputs = False
+        self.args.json_keys = ["input_ids", "labels", 'attention_mask']
+        self.args.output_prefix = self.args.output_prefix + "_packed"
+
+        # set placeholder token
+        self.placeholder_token_id = convert_token_to_id(args.placeholder_token, \
+                                                        self._unwrapped_tokenizer)
+        self.reward_tokens = args.reward_tokens
+
+    def _filter(self, sample):
+        inputs = self._unwrapped_tokenizer(sample["input"], padding=False, add_special_tokens=False)
+
+        input_ids = inputs["input_ids"]
+        label_values = sample["value"]
+
+        assert isinstance(label_values, list), "labels should be a list of strings or numbers"
+        label_tokens = []
+        for label in label_values:
+            assert (
+                self.reward_tokens is None or label in self.reward_tokens
+            ), f"label should be in reward tokens {self.reward_tokens}, got {label}"
+            label_tokens.append(convert_token_to_id(label, self._unwrapped_tokenizer))
+
+        labels = [-100] * len(input_ids)
+        indices = [index for index, item in enumerate(input_ids) if item == self.placeholder_token_id]
+        for index, indice in enumerate(indices):
+            labels[indice] = label_tokens[index]
+
+        input_token = inputs['input_ids']
+        attention_mask = inputs['attention_mask']
+        label_token = labels
+
+        concatenated_ids = {
+            "input_ids": [input_token],
+            "attention_mask":[attention_mask],
+            "labels": [label_token]
+        }
+
+        assert len(input_token) == len(label_token)
+
+        return concatenated_ids
 
 
 class GeneralInstructionHandler(BaseDatasetHandler):

@@ -16,11 +16,7 @@ from mindspeed_llm.tasks.posttrain.base import BaseTrainer
 
 class SFTTrainer(BaseTrainer):
     def __init__(self):
-        super().__init__(
-            model_provider=self.model_provider,
-            get_batch_func=self.get_batch,
-            loss_func=self.loss_func,
-            forward_step_func=self.forward_step)
+        super().__init__()
     
     @staticmethod
     def get_batch(data_iterator):

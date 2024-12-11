@@ -4,6 +4,7 @@ from megatron.training.initialize import initialize_megatron
 from mindspeed_llm.tasks.posttrain.sft import SFTTrainer
 from mindspeed_llm.tasks.posttrain.dpo import DPOTrainer
 from mindspeed_llm.tasks.posttrain.rm import RMTrainer
+from mindspeed_llm.tasks.posttrain.prm import PRMTrainer
 from mindspeed_llm.tasks.posttrain.dpo import SimPOTrainer
 
 
@@ -20,6 +21,8 @@ def get_trainer(stage):
         return DPOTrainer()
     elif stage == "rm":
         return RMTrainer()
+    elif stage == "prm":
+        return PRMTrainer()
     elif stage == "simpo":
         return SimPOTrainer()
 
