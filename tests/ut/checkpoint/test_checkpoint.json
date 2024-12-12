@@ -281,6 +281,26 @@
                 "params-dtype": "bf16"
             }
         }
+    ],
+
+    "test_llama2_lora2mcore_tp1pp1":[
+        {
+            "param":{
+                "model-type":"GPT",
+                "load-model-type":"mg",
+                "save-model-type":"mg",
+                "load-dir":"/data/llama2_ckpt_lora_UT/Llama2-mcore/",
+                "save-dir":"/data/llama2_ckpt_lora_UT/llama2-7b-lora2mcore-test/",
+                "lora-load":"/data/llama2_ckpt_lora_UT/llama-7b-lora-mcore-tp1pp1/",
+                "lora-r":"16",
+                "lora-alpha":"32",
+                "lora-target-modules":"linear_qkv linear_proj linear_fc1 linear_fc2",
+                "target-tensor-parallel-size": "1",
+                "target-pipeline-parallel-size": "1",
+                "use-mcore-models": null,
+                "model-type-hf": "llama2"
+            }
+        }
     ]
 }
 

@@ -172,3 +172,12 @@ class TestCheckpoint(object):
         save_dir = self.test_config['test_qwen2_hf2mcore_tp1pp1'][0]['save-dir']
         assert weight_compare(base_dir, save_dir)
         shutil.rmtree(save_dir)
+
+    def test_llama2_lora2mcore_tp1pp1(self):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_llama2_lora2mcore_tp1pp1'])
+        assert exit_code == 0
+        base_dir = '/data/llama2_ckpt_lora_UT/llama2-7b-lora2mcore'
+        save_dir = self.test_config['test_llama2_lora2mcore_tp1pp1'][0]['save-dir']
+        assert weight_compare(base_dir, save_dir)
+        shutil.rmtree(save_dir)
