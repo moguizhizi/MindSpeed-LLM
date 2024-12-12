@@ -86,7 +86,7 @@ MindSpeed-LLM当前已支持和预置大模型列表：
       <td>LLAMA2-13B</td>
       <td>Atlas 900 A2 PODc</td>
       <td>1x8</td>
-      <td><a href="./examples/mcore/llama2/pretrain_llama2_13b_pack_ptd.sh">57.4%</a></td>
+      <td><a href="./examples/mcore/llama2/pretrain_llama2_13b_pack_ptd.sh">62.23%</a></td>
     </tr>
     <tr>
       <td>LLAMA2-70B</td>

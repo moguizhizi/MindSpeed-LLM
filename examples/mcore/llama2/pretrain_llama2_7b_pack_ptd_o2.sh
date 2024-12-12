@@ -13,9 +13,8 @@ CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
 TOKENIZER_MODEL="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
-
 TP=1
-PP=4
+PP=1
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -26,27 +25,24 @@ DISTRIBUTED_ARGS="
 "
 
 GPT_ARGS="
+    --o2-gradient \
     --use-mcore-models \
-    --reuse-fp32-param \
-    --recompute-activation-function \
-    --recompute-granularity full \
-    --recompute-method block \
-    --recompute-num-layers 1 \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
-    --sequence-parallel \
-    --num-layers 40 \
-    --hidden-size 5120 \
-    --ffn-hidden-size 13824 \
-    --num-attention-heads 40 \
+    --num-layers 32 \
+    --no-gradient-accumulation-fusion \
+    --hidden-size 4096 \
+    --ffn-hidden-size 11008 \
+    --num-attention-heads 32 \
     --tokenizer-type Llama2Tokenizer \
+    --reset-position-ids \
     --tokenizer-model ${TOKENIZER_MODEL} \
     --seq-length 4096 \
     --max-position-embeddings 4096 \
     --micro-batch-size 1 \
     --global-batch-size 128 \
     --make-vocab-size-divisible-by 1 \
-    --lr 1e-6 \
+    --lr 1.25e-6 \
     --train-iters 5000 \
     --lr-decay-style cosine \
     --untie-embeddings-and-output-weights \
@@ -59,22 +55,23 @@ GPT_ARGS="
     --use-fused-rmsnorm \
     --swiglu \
     --use-flash-attn \
-    --reset-position-ids \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
-    --min-lr 1e-8 \
+    --min-lr 1.25e-7 \
     --weight-decay 1e-1 \
     --lr-warmup-fraction 0.01 \
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
-    --initial-loss-scale 4096 \
+    --initial-loss-scale 65536 \
     --adam-beta2 0.95 \
-    --load ${CKPT_LOAD_DIR}  \
     --no-load-optim \
     --no-load-rng \
+    --use-distributed-optimizer \
     --use-fused-swiglu \
     --use-fused-rotary-pos-emb \
-    --use-distributed-optimizer \
+    --overlap-grad-reduce \
+    --overlap-param-gather \
+    --log-throughput \
     --bf16
 "
 
@@ -90,11 +87,11 @@ OUTPUT_ARGS="
     --eval-iters 10 \
 "
 
-python -m torch.distributed.launch $DISTRIBUTED_ARGS pretrain_gpt.py \
+torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
+    --load $CKPT_LOAD_DIR \
     --save $CKPT_SAVE_DIR \
-    --log-throughput \
-    | tee logs/train_llama2_13b_pack.log
+    | tee logs/train_llama2_7b_pack_o2.log

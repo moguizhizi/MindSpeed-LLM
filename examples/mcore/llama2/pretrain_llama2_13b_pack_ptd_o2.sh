@@ -27,11 +27,11 @@ DISTRIBUTED_ARGS="
 
 GPT_ARGS="
     --use-mcore-models \
+    --o2-optimizer \
+    --o2-gradient \
     --reuse-fp32-param \
     --recompute-activation-function \
-    --recompute-granularity full \
-    --recompute-method block \
-    --recompute-num-layers 1 \
+    --num-layers-per-virtual-pipeline-stage 5 \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \
@@ -69,12 +69,14 @@ GPT_ARGS="
     --adam-beta1 0.9 \
     --initial-loss-scale 4096 \
     --adam-beta2 0.95 \
-    --load ${CKPT_LOAD_DIR}  \
+    --no-gradient-accumulation-fusion \
     --no-load-optim \
     --no-load-rng \
     --use-fused-swiglu \
     --use-fused-rotary-pos-emb \
     --use-distributed-optimizer \
+    --overlap-grad-reduce \
+    --overlap-param-gather \
     --bf16
 "
 
@@ -90,11 +92,12 @@ OUTPUT_ARGS="
     --eval-iters 10 \
 "
 
-python -m torch.distributed.launch $DISTRIBUTED_ARGS pretrain_gpt.py \
+torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
-    --save $CKPT_SAVE_DIR \
+    --save ${CKPT_SAVE_DIR} \
+    --load ${CKPT_LOAD_DIR}  \
     --log-throughput \
-    | tee logs/train_llama2_13b_pack.log
+    | tee logs/train_llama2_13b_pack_o2.log
