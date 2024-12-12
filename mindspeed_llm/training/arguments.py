@@ -449,6 +449,11 @@ def _add_algorithm_args(parser):
                             'and "--recompute-num-layers". ')
     group.add_argument('--recompute-in-advance', action='store_true',
                        help='recompute early to reduce bubble and improve training.')
+    group.add_argument('--o2-optimizer', action='store_true',
+                       help='use bf16 exponential moving average to greatly save up memory.')
+    group.add_argument('--o2-gradient', action='store_true',
+                       help='use bf16 gradient accumulation to greatly save up memory.')
+
     return parser
 
 
@@ -949,9 +954,12 @@ def _store_variables(args):
         args.num_layers_per_virtual_pipeline_stage = None
         args.overlap_p2p_comm = None
 
+    # Bypass megatron validation for gradient reduce in fp32
+    if args.o2_gradient:
+        args.accumulate_allreduce_grads_in_fp32 = True
+
     if not args.data_path:
         args.data_path = True
-
     args.mock_data = 0
 
     return variable_dict
@@ -969,6 +977,10 @@ def _restore_variables(args, variable_dict):
     # which conflicted with the behavior of turning it off by default during inference and evaluation.
     if args.num_experts is not None and hasattr(args, "temperature") and args.temperature is not None:
         args.sequence_parallel = variable_dict["origin_sequence_parallel"]
+
+    # Bypass megatron validation for gradient reduce in fp32
+    if args.o2_gradient:
+        args.accumulate_allreduce_grads_in_fp32 = False
 
     # to bypass megatron assertion of moe+spec
     args.spec = variable_dict["spec"]
@@ -1070,6 +1082,16 @@ def _validate_long_rope(args):
             args.short_factor = list(map(float, args.short_factor.split(',')))
 
 
+def _validate_o2(args):
+    if args.o2_gradient or args.o2_optimizer:
+        print_rank0_by_args(args, "[WARNING] Using half precision gradient or optimizer would definitely impact precision.")
+        if not args.bf16:
+            raise ValueError("[ERROR] Should only use o2 feature during bf16 mix-precision training.")
+    if args.o2_gradient:
+        if args.gradient_accumulation_fusion:
+            raise ValueError("gradient_accumulation_fusion only works with fp32 gradient.")
+
+
 def validate_args_decorator(megatron_validate_args):
     @wraps(megatron_validate_args)
     def wrapper(args, defaults=None):
@@ -1082,6 +1104,7 @@ def validate_args_decorator(megatron_validate_args):
 
         args.use_mc2 = False
 
+        _validate_o2(args)
         _validate_varlen_fa_args(args)
         _validate_cp_args(args)
         _validate_vpp(args)

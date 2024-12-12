@@ -16,8 +16,8 @@
         <td rowspan="22">ST</td>
         <td rowspan="14">Pretrain</td>
         <td>Mcore</td>
-        <td>TP，PP，VPP，重计算，enable_recompute_layers_per_pp_rank，FA_TND</td>
-        <td><a href="st/shell_scripts/llama2_tp2_pp4_vpp2_ptd.sh">llama2_tp2_pp4_vpp2.sh</a></td>
+        <td>TP，PP，VPP，distributed_optimizer，o2_gradient，o2_optimizer，重计算，enable_recompute_layers_per_pp_rank，FA_TND</td>
+        <td><a href="st/shell_scripts/llama2_tp2_pp4_vpp2_ptd.sh">llama2_tp2_pp4_vpp2_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>

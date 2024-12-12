@@ -191,7 +191,7 @@ MindSpeed-LLM当前已支持和预置大模型列表：
     <td>【计算研究部】</td>
   </tr>
   <tr>
-    <td rowspan="4">显存优化</td>
+    <td rowspan="5">显存优化</td>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/reuse-fp32-param.md">参数副本复用</a></td>
     <td>✅</td>
     <td>✅</td>
@@ -214,6 +214,12 @@ MindSpeed-LLM当前已支持和预置大模型列表：
     <td>✅</td>
     <td>✅</td>
     <td>【计算研究部】</td>
+  </tr>
+  <tr>
+    <td><a href="./docs/features/o2.md">O2 BF16 Optimizer</a></td>
+    <td>✅</td>
+    <td>❌</td>
+    <td>【昇腾】</td>
   </tr>
   <tr>
     <td rowspan="7">融合算子</td>

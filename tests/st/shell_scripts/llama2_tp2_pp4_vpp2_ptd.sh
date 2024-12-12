@@ -37,10 +37,13 @@ DIST_ALGO=(
 )
 
 ACCELERATE_ARGS=(
-    --enable-recompute-layers-per-pp-rank \
-    --recompute-granularity full \
-    --recompute-method block \
-    --recompute-num-layers 1 \
+    --enable-recompute-layers-per-pp-rank
+    --recompute-granularity full
+    --recompute-method block
+    --recompute-num-layers 1
+    --use-distributed-optimizer
+    --o2-gradient
+    --o2-optimizer
 )
 
 MODEL_ARGS=(

@@ -76,7 +76,14 @@ class MegatronAdaptation:
             parser.conflict_handler = 'resolve'
             group = parser.add_argument_group(title='dummy')
             group.add_argument('--optimization-level', type=int, default=-1)
+            group.add_argument('--o2-optimizer', action='store_true',
+                               help='use bf16 exponential moving average to greatly save up memory.')
             return parser
+
+        def _get_dummy_args():
+            parser = argparse.ArgumentParser(description='MindSpeed-LLM Arguments', allow_abbrev=False)
+            _args, _ = _process_args_dummy(parser).parse_known_args()
+            return _args
 
         def _by_pass_ms_core():
             MegatronAdaptation.register('mindspeed.arguments.process_args', _process_args_dummy)
@@ -93,8 +100,14 @@ class MegatronAdaptation:
         # For torch >= 2.2.0
         torch.compile = torch.jit.script
 
-        args = namedtuple("variables", ['optimizer_selection'])
-        optimizer_selection(MindSpeedPatchesManager, args(optimizer_selection="fused_adamw"))
+        if not _get_dummy_args().o2_optimizer:
+            # vanilla optimizer
+            args = namedtuple("variables", ['optimizer_selection'])
+            optimizer_selection(MindSpeedPatchesManager, args(optimizer_selection="fused_adamw"))
+        else:
+            # O2 optimizer
+            from mindspeed_llm.tasks.models.common.adamw import O2AdamW
+            MindSpeedPatchesManager.register_patch('apex.optimizers.FusedAdam', O2AdamW, create_dummy=True)
 
         te_adaptation(MindSpeedPatchesManager)
         apex_adaptation(MindSpeedPatchesManager)
@@ -381,7 +394,6 @@ class CoreAdaptation(MegatronAdaptationABC):
         from mindspeed.core.parallel_state import (initialize_model_parallel, destroy_model_parallel_wrapper, \
                                                    get_context_parallel_group_for_send_recv_overlap,
                                                    initialize_model_parallel_wrapper)
-        from ..core import initialize_model_parallel_decorator
         from ..core import destroy_model_parallel_decorator
         from ..core.transformer.transformer_block import get_layer_offset_wrapper
 
@@ -390,8 +402,6 @@ class CoreAdaptation(MegatronAdaptationABC):
                                     initialize_model_parallel_wrapper)
         MegatronAdaptation.register('megatron.core.parallel_state.initialize_model_parallel',
                                     initialize_model_parallel)
-        # MegatronAdaptation.register('megatron.core.parallel_state.initialize_model_parallel',
-        #                             initialize_model_parallel_decorator)
 
         # For MoE
         MegatronAdaptation.register('megatron.core.parallel_state.destroy_model_parallel',
