@@ -8,7 +8,6 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 CHECKPOINT="your model directory path"
 CHECKPOINT_LORA="your lora model directory path"
 TOKENIZER_PATH="your tokenizer directory path"
-TOKENIZER_MODEL="your tokenizer.model file path"
 
 # Change for multinode config
 MASTER_ADDR=localhost
@@ -26,7 +25,7 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS inference.py \
        --pipeline-model-parallel-size 8  \
        --num-layers 32 \
        --hidden-size 4096  \
-       --ffn-hidden-size 14436 \
+       --ffn-hidden-size 14336 \
        --position-embedding-type rope \
        --seq-length 8192 \
        --max-new-tokens 256 \
@@ -38,7 +37,6 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS inference.py \
        --load "${CHECKPOINT}"  \
        --tokenizer-type PretrainedFromHF  \
        --tokenizer-name-or-path "${TOKENIZER_PATH}" \
-       --tokenizer-model "${TOKENIZER_MODEL}"  \
        --tokenizer-not-use-fast \
        --bf16 \
        --normalization RMSNorm \
@@ -56,7 +54,6 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS inference.py \
        --lora-fusion \
        --lora-target-modules linear_qkv linear_proj linear_fc1 linear_fc2 \
        --make-vocab-size-divisible-by 1 \
-       --vocab-size 128256 \
        --padded-vocab-size 128256 \
        --rotary-base 500000.0 \
        --group-query-attention \
