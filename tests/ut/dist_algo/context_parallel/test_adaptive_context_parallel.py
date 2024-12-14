@@ -22,7 +22,7 @@ from mindspeed.core.parallel_state import (get_context_parallel_group_for_send_r
 from mindspeed.core.context_parallel.utils import (set_scheduling_info,
                                                    get_scheduling_info,
                                                    clear_global_info,
-                                                   adaptive_cp_ops,
+                                                   AdaptiveCpOps,
                                                    set_remapped_seq_order)
 
 from tests.test_tools.dist_test import DistributedTest
@@ -127,6 +127,7 @@ def run_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
     cp_group = torch.distributed.new_group(
         cp_global_ranks, pg_options=megatron.core.parallel_state.get_nccl_options('cp2', {})
     )
+    adaptive_cp_ops = AdaptiveCpOps()
     remapped_seq_order, scheduling = adaptive_cp_ops.get_adaptive_cp_info(attn_mask, cp_size)
     set_scheduling_info(torch.distributed.get_rank(), scheduling)
     set_remapped_seq_order(remapped_seq_order)
@@ -140,6 +141,7 @@ def run_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
 
     cp_para = dict()
     cp_para['causal'] = args.cp_attention_mask_type == 'causal'
+    args.attention_mask_type = args.cp_attention_mask_type
     cp_para['cp_group'] = cp_group
     cp_para['cp_size'] = cp_size
     cp_para['rank'] = rank
@@ -180,6 +182,7 @@ def run_hybrid_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
     args = parse_args(None, True)
     args.seq_length = seq_len
     args.cp_attention_mask_type = 'general'
+    args.attention_mask_type = args.cp_attention_mask_type
     args.context_parallel_algo = 'hybrid_adaptive_cp_algo'
     args.ulysses_degree_in_cp = 2
     args.use_flash_attn = True
@@ -227,6 +230,7 @@ def run_hybrid_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
     initialize_context_parallel_group_for_hybrid_cp(1, 1, cp_size, {})
     adap_size = get_context_parallel_for_hybrid_ring_world_size()
     adap_rank = get_context_parallel_for_hybrid_ring_rank()
+    adaptive_cp_ops = AdaptiveCpOps()
     remapped_seq_order, scheduling = adaptive_cp_ops.get_adaptive_cp_info(attn_mask, adap_size)
     set_scheduling_info(torch.distributed.get_rank(), scheduling)
     set_remapped_seq_order(remapped_seq_order)
@@ -240,6 +244,7 @@ def run_hybrid_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
 
     cp_para = dict()
     cp_para['causal'] = args.cp_attention_mask_type == 'causal'
+    args.attention_mask_type = args.cp_attention_mask_type
     cp_para['cp_group'] = get_context_parallel_group_for_hybrid_ring()
     cp_para['cp_size'] = get_context_parallel_for_hybrid_ring_world_size()
     cp_para['rank'] = get_context_parallel_for_hybrid_ring_rank()

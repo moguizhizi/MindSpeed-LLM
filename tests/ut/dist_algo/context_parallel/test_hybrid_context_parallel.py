@@ -54,6 +54,7 @@ def run_hybridattn_cp(test_args, cp_size, u_size, cp_args):
     args = parse_args(None, True)
     args.use_cp_send_recv_overlap = send_recv_overlap
     args.cp_attention_mask_type = 'causal' if causal else 'general'
+    args.attention_mask_type = args.cp_attention_mask_type
     # currently we always use FA in context parallel.
     args.use_flash_attn = True
     if u_size == 1:

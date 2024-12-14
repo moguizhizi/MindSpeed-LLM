@@ -65,6 +65,7 @@ def process_args(parser):
     parser = _add_yarn_args(parser)
     parser = _add_deepseek_moe_args(parser)
     parser = _add_rl_args(parser)
+    parser = _add_hccl_group_buffer_args(parser)
 
     return parser
 
@@ -142,6 +143,8 @@ def _add_cp_args(parser):
                        choices=['ulysses_cp_algo', 'megatron_cp_algo', 'hybrid_cp_algo', 'adaptive_cp_algo',
                                 'hybrid_adaptive_cp_algo'], help='context parallel algorithm')
     group.add_argument('--ulysses-degree-in-cp', type=int, default=None)
+    group.add_argument('--attention-mask-type', type=str, default='causal',
+                       choices=['causal', 'general'], help='context parallel attention mask type')
     group.add_argument('--cp-attention-mask-type', type=str, default='causal',
                        choices=['causal', 'general'], help='context parallel attention mask type')
     group.add_argument('--use-cp-send-recv-overlap', action='store_true',
@@ -307,6 +310,8 @@ def _add_moe_args(parser):
                        help='The capacity of the MoE expert at training time used in legacy moe layer called SwitchMLP.')
     group.add_argument("--use-fused-moe-token-permute-and-unpermute", action='store_true',
                        help="Use fused moe permute and unpermute.")
+    group.add_argument("--gemm-gradient-accumulation-fusion", action='store_true',
+                       help="Use gradient-accumulation-fusion in gemm.")
 
     # For megatron_moe drop
     group.add_argument('--moe-expert-capacity-factor', type=float, default=None,
@@ -690,6 +695,13 @@ def _add_dataset_args(parser):
     return parser
 
 
+def _add_hccl_group_buffer_args(parser):
+    group = parser.add_argument_group(title='hccl-group-buffer')
+    group.add_argument('--hccl-group-buffer', type=str, default=None,
+                       help='the hccl buffer for group')
+    return parser
+
+
 def _validate_create_attention_mask_in_dataloader(args):
     args.create_attention_mask_in_dataloader = False
     reset_data = args.reset_attention_mask
@@ -1007,6 +1019,7 @@ def _add_dummy_args(args):
     args.ampipe_degree = 0
     args.moe_zero_memory = 'disable'
     args.moe_zero_memory_num_layers = None
+    args.attention_mask_type = args.cp_attention_mask_type
 
 
 def _validate_noop_layer(args):
