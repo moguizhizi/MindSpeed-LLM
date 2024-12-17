@@ -23,6 +23,7 @@ DISTRIBUTED_ARGS="
 torchrun $DISTRIBUTED_ARGS inference.py \
        --tensor-model-parallel-size 8  \
        --pipeline-model-parallel-size 1  \
+       --spec mindspeed_llm.tasks.models.spec.gemma2_spec layer_spec \
        --use-mcore-models \
        --gelu-tanh \
        --post-norm \

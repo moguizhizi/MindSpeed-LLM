@@ -10,6 +10,7 @@ python convert_ckpt.py \
    --save-model-type mg \
    --params-dtype bf16 \
    --post-norm \
+   --spec mindspeed_llm.tasks.models.spec.gemma2_spec layer_spec \
    --target-tensor-parallel-size 8 \
    --target-pipeline-parallel-size 1 \
    --load-dir ./model_from_hf/gemma2_hf/ \

@@ -257,21 +257,14 @@ class CoreAdaptation(MegatronAdaptationABC):
         from mindspeed.core.transformer.moe.experts import group_mlp_forward
         from ..core.transformer.moe.moe_layer import moe_layer_init_wrapper, moe_layer_forward
         from ..core.transformer.transformer_block import _transformer_block_build_layers
-        from ..core.transformer.transformer_layer import transformer_layer_init_wrapper
+
         from ..core import (PTNorm, topk_router_forward, topk_router_routing, z_loss_func,
-                            TransformerLayerSubmodules,
-                            transformer_layer_forward, get_num_layers_to_build_wrapper,
+                            get_num_layers_to_build_wrapper, TransformerLayer,
                             transformer_block_init_wrapper, transformer_block_forward, core_mlp_init)
         MegatronAdaptation.register('torch.cuda.get_device_capability', get_device_capability)
         MegatronAdaptation.register('megatron.core.transformer.transformer_block.TENorm', PTNorm)
         MegatronAdaptation.register('megatron.core.transformer.moe.router.TopKRouter.routing', topk_router_routing)
         MegatronAdaptation.register('megatron.core.transformer.moe.router.TopKRouter.forward', topk_router_forward)
-        MegatronAdaptation.register('megatron.core.transformer.transformer_layer.TransformerLayerSubmodules',
-                                    TransformerLayerSubmodules)
-        MegatronAdaptation.register('megatron.core.transformer.transformer_layer.TransformerLayer.__init__',
-                                    transformer_layer_init_wrapper)
-        MegatronAdaptation.register('megatron.core.transformer.transformer_layer.TransformerLayer.forward',
-                                    transformer_layer_forward)
         MegatronAdaptation.register('megatron.core.transformer.moe.router.z_loss_func', z_loss_func)
         MegatronAdaptation.register('megatron.core.transformer.transformer_block.get_num_layers_to_build',
                                     get_num_layers_to_build_wrapper)
@@ -287,6 +280,7 @@ class CoreAdaptation(MegatronAdaptationABC):
                                     transformer_block_forward)
         MegatronAdaptation.register('megatron.core.transformer.transformer_block.TransformerBlock._build_layers',
                                     _transformer_block_build_layers)
+        MegatronAdaptation.register('megatron.core.transformer.transformer_layer.TransformerLayer', TransformerLayer)
         MegatronAdaptation.register('megatron.core.transformer.mlp.MLP.__init__', core_mlp_init)
         MegatronAdaptation.register('megatron.core.transformer.mlp.MLP.forward', core_mlp_forward_wrapper)
 

@@ -9,6 +9,7 @@ python convert_ckpt.py \
     --load-model-type mg \
     --save-model-type hf \
     --post-norm \
+    --spec mindspeed_llm.tasks.models.spec.gemma2_spec layer_spec \
     --target-tensor-parallel-size 1 \
     --target-pipeline-parallel-size 1 \
     --load-dir ./model_weights/gemma2_mcore/ \

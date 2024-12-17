@@ -28,14 +28,11 @@ def get_gpt_layer_local_spec_wrapper(fn):
         res = fn(num_experts, moe_grouped_gemm, qk_layernorm)
 
         res.submodules.input_layernorm = PTNorm
+        res.submodules.pre_mlp_layernorm = PTNorm
 
         if qk_layernorm:
             res.submodules.self_attention.submodules.q_layernorm = PTNorm
             res.submodules.self_attention.submodules.k_layernorm = PTNorm
-        res.submodules.pre_mlp_layernorm = PTNorm
-        if get_args().post_norm:
-            res.submodules.post_attn_norm = PTNorm
-            res.submodules.post_mlp_layernorm = PTNorm
         return res
 
     return wrapper

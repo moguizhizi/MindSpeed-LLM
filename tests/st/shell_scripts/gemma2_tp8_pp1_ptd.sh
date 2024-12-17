@@ -28,6 +28,7 @@ DISTRIBUTED_ARGS="
 "
 
 GPT_ARGS="
+    --spec mindspeed_llm.tasks.models.spec.gemma2_spec layer_spec \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \

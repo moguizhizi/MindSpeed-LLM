@@ -28,6 +28,7 @@ torchrun $DISTRIBUTED_ARGS evaluation.py   \
        --task-data-path ${DATA_PATH} \
        --task ${TASK}\
        --load ${CHECKPOINT}  \
+       --spec mindspeed_llm.tasks.models.spec.gemma2_spec layer_spec \
        --use-mcore-models \
        --tensor-model-parallel-size 8  \
        --pipeline-model-parallel-size 1  \

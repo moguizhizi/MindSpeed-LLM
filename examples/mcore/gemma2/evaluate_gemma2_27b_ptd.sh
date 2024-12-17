@@ -33,6 +33,7 @@ torchrun $DISTRIBUTED_ARGS evaluation.py   \
        --pipeline-model-parallel-size 1 \
        --gelu-tanh \
        --post-norm \
+       --spec mindspeed_llm.tasks.models.spec.gemma2_spec layer_spec \
        --query-pre-attn-scalar 144 \
        --output-logit-softcapping 30.0 \
        --attn-logit-softcapping 50.0 \
