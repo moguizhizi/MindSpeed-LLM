@@ -561,8 +561,16 @@
       <td>【China Mobile Cloud】</td>    
       <td>【Test】</td>
     </tr>
+	<tr>
+      <td rowspan="2"><a href="https://huggingface.co/01-ai">Yi</a></td>
+      <td><a href="https://huggingface.co/01-ai/Yi-9B/tree/main">9B</a></td>
+      <td> 4K</td>
+      <th>Legacy</th>
+      <td>1x4</td>
+      <td>【OpenMind】</td>
+      <td>【Test】</td>
+    </tr>
     <tr>
-      <td rowspan="1"><a href="https://huggingface.co/01-ai">Yi</a></td>
       <td><a href="https://huggingface.co/01-ai/Yi-34B/tree/main">34B</a></td>
       <td> 4K</td>
       <th>Mcore</th>
@@ -717,6 +725,7 @@
     </tr>
   </tbody>
 </table>
+
 
 
 ## 社区BUG列表
