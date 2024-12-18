@@ -194,7 +194,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="18">UT</td>
+        <td rowspan="16">UT</td>
         <td>Inference</td>
         <td>Legacy</td>
         <td>greedy_search, lora_inference, deterministic_computation, chatglm3_inference, baichuan2_inference</td>
@@ -260,41 +260,29 @@
         <td></td>
     </tr>
     <tr>
-        <td rowspan="6">Checkpoint</td>
+        <td rowspan="4">Checkpoint</td>
         <td rowspan="2"> Mcore </td>
-        <td> hf2mcore, tp, pp, ep, dpp, vpp, deepseek2; hf2mcore, tp, deepseek2</td>
-        <td rowspan="6"><a href="ut/checkpoint/test_checkpoint.py">test_checkpoint.py</a></td>
+        <td>hf2mcore, mcore2hf, TP, PP, EP, DPP, VPP, moe, noop_layers, lora</td>
+        <td rowspan="4"><a href="ut/checkpoint/test_checkpoint.py">test_checkpoint.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
     </tr>
     <tr>
-        <td>hf2mcore, tp, pp, dpp, vpp, chatglm3, qwen2, noop_layers</td>
+        <td>mixtral, deepseek2, deepseek2_lite, gemma2, llama3, qwen2, llama2</td>
         <td>Y</td>
         <td></td>
         <td></td>
     </tr>
     <tr>
-        <td rowspan="4">Legacy</td>
-        <td> legacy2mcore, lora</td>
+        <td rowspan="2">Legacy</td>
+        <td>hf2legacy, legacy2hf, legacy2mcore, TP, PP, DPP</td>
         <td>Y</td>
         <td></td>
         <td></td>
     </tr>
     <tr>
-        <td>legacy2legacy, lora</td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>hf2legacy</td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>legacy2hf</td>
+        <td>llama2</td>
         <td>Y</td>
         <td></td>
         <td></td>
