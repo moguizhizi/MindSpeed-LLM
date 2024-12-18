@@ -34,7 +34,9 @@ from mindspeed.utils import (set_actual_seq_len, set_position_ids,
                              _get_batch_on_this_cp_rank_in_hybrid_cp,
                              _get_batch_on_this_cp_rank_in_adaptive_cp,
                              _get_batch_on_this_cp_rank_in_hybrid_adaptive_cp)
+from mindspeed.core.tensor_parallel_y_union_cp import TensorParallelYUnionCP
 from mindspeed.model.transformer import set_attention_mask
+from mindspeed.utils import _get_batch_on_this_tp_y_cp_rank_in_megatron_cp
 
 WRITE_FILE_DEFAULT_FLAGS = os.O_WRONLY | os.O_CREAT
 WRITE_FILE_DEFAULT_MODES = stat.S_IWUSR | stat.S_IRUSR
@@ -334,16 +336,19 @@ def get_batch_on_this_cp_rank(batch):
     # and chunk_3 are assigned to GPU0, chunk_1 and chunk_2 are assigned to GPU1, so
     # that we can get balanced workload among GPUs in a context parallel group.
     args = get_args()
-    cp_size = args.context_parallel_size
-    if not cp_size > 1:
+    tp_y_cp_size = TensorParallelYUnionCP().get_parallel_group_world_size() if args.tp_2d else args.context_parallel_size
+    if not tp_y_cp_size > 1:
         return batch
 
     if args.cp_attention_mask_type == 'general' and batch.get("attention_mask", None) is not None:
         set_attention_mask(batch['attention_mask'].squeeze())
 
+    cp_expanded_by_2d_tp = args.tp_y > 1
     if args.context_parallel_algo == 'megatron_cp_algo':
         if args.cp_attention_mask_type == 'general':
             batch = _get_batch_on_this_cp_rank_in_megatron_cp_general(batch)
+        elif cp_expanded_by_2d_tp:
+            batch = _get_batch_on_this_tp_y_cp_rank_in_megatron_cp(batch)
         else:
             batch = _get_batch_on_this_cp_rank_in_megatron_cp(batch)
     elif args.context_parallel_algo == 'ulysses_cp_algo':

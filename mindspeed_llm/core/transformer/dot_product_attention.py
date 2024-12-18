@@ -5,10 +5,16 @@ import math
 from functools import wraps
 
 import torch
-from torch import Tensor
 import torch_npu
+from torch import Tensor
+from megatron.core.fusions.fused_softmax import FusedScaleMaskSoftmax
 from megatron.training import get_args
 from megatron.core import mpu, parallel_state, tensor_parallel
+from megatron.core.transformer import TransformerConfig
+from megatron.core.transformer.dot_product_attention import DotProductAttention
+from megatron.core.transformer.enums import AttnMaskType
+from megatron.core.transformer.utils import attention_mask_func
+from megatron.core.utils import divide
 from mindspeed.core.context_parallel.ring_context_parallel import ringattn_context_parallel
 from mindspeed.core.parallel_state import (get_context_parallel_group_for_hybrid_ring,
                                            get_context_parallel_for_hybrid_ring_world_size,
@@ -76,38 +82,83 @@ def do_ring_context_parallel(q, k, v, head_num, softmax_scale, attn_mask, dropou
     return output
 
 
-def dot_product_attention_init_wrapper(fn):
-    @wraps(fn)
-    def wrapper(self, *args, **kwargs):
-        config = args[1] if len(args) > 1 else kwargs['config']
-        cp_size = config.context_parallel_size
-        config.context_parallel_size = 1
-        fn(self, *args, **kwargs)
-        config.context_parallel_size = cp_size
+def dot_product_attention_init(
+        self,
+        config: TransformerConfig,
+        layer_number: int,
+        attn_mask_type: AttnMaskType,
+        attention_type: str,
+        attention_dropout: float = None,
+):
+    cp_size = config.context_parallel_size
+    config.context_parallel_size = 1
 
-        args = get_args()
-        self.pse = None
-        self.pse_type = None
-        self.attn_logit_softcapping = args.attn_logit_softcapping
-        self.square_alibi_mask = args.square_alibi_mask
-        self.fill_neg_inf = args.fill_neg_inf
-        self.beta = 1.0
-        self.apply_query_key_layer_scaling = args.apply_query_key_layer_scaling
-        if self.apply_query_key_layer_scaling:
-            self.beta = 1.0 / self.layer_number
+    super(DotProductAttention, self).__init__(config=config)
+    assert (
+            self.config.context_parallel_size == 1
+    ), "Context parallelism is only supported by TEDotProductAttention!"
 
-        if args.position_embedding_type == 'alibi':
-            get_alibi(self, args.seq_length)
-            self.alibi_output_size = None
-        else:
-            self.alibi = None
+    assert (
+            self.config.window_size is None
+    ), "Sliding Window Attention is only supported by TEDotProductAttention!"
 
-        if args.query_pre_attn_scalar:
-            self.norm_factor = args.query_pre_attn_scalar ** 0.5
-            self.scale_mask_softmax.scale = 1.0
-            self.softmax_scale = 1.0 / self.norm_factor
+    self.layer_number = max(1, layer_number)
+    self.attn_mask_type = attn_mask_type
+    self.attention_type = attention_type  # unused for now
 
-    return wrapper
+    projection_size = self.config.kv_channels * self.config.num_attention_heads
+    args = get_args()
+    # Per attention head and per partition values.
+    world_size = args.tp_x if args.tp_2d else parallel_state.get_tensor_model_parallel_world_size()
+    self.hidden_size_per_partition = divide(projection_size, world_size)
+    self.hidden_size_per_attention_head = divide(projection_size, config.num_attention_heads)
+    self.num_attention_heads_per_partition = divide(self.config.num_attention_heads, world_size)
+    self.num_query_groups_per_partition = divide(self.config.num_query_groups, world_size)
+
+    coeff = None
+    self.norm_factor = math.sqrt(self.hidden_size_per_attention_head)
+    if self.config.apply_query_key_layer_scaling:
+        coeff = self.layer_number
+        self.norm_factor *= coeff
+
+    self.scale_mask_softmax = FusedScaleMaskSoftmax(
+        input_in_fp16=self.config.fp16,
+        input_in_bf16=self.config.bf16,
+        attn_mask_type=self.attn_mask_type,
+        scaled_masked_softmax_fusion=self.config.masked_softmax_fusion,
+        mask_func=attention_mask_func,
+        softmax_in_fp32=self.config.attention_softmax_in_fp32,
+        scale=coeff,
+    )
+
+    # Dropout. Note that for a single iteration, this layer will generate
+    # different outputs on different number of parallel partitions but
+    # on average it should not be partition dependent.
+    self.attention_dropout = torch.nn.Dropout(
+        self.config.attention_dropout if attention_dropout is None else attention_dropout
+    )
+
+    config.context_parallel_size = cp_size
+    self.pse = None
+    self.pse_type = None
+    self.attn_logit_softcapping = args.attn_logit_softcapping
+    self.square_alibi_mask = args.square_alibi_mask
+    self.fill_neg_inf = args.fill_neg_inf
+    self.beta = 1.0
+    self.apply_query_key_layer_scaling = args.apply_query_key_layer_scaling
+    if self.apply_query_key_layer_scaling:
+        self.beta = 1.0 / self.layer_number
+
+    if args.position_embedding_type == 'alibi':
+        get_alibi(self, args.seq_length)
+        self.alibi_output_size = None
+    else:
+        self.alibi = None
+
+    if args.query_pre_attn_scalar:
+        self.norm_factor = args.query_pre_attn_scalar ** 0.5
+        self.scale_mask_softmax.scale = 1.0
+        self.softmax_scale = 1.0 / self.norm_factor
 
 
 def get_alibi(self, seq_length):
@@ -154,6 +205,10 @@ def dot_product_attention_forward_wrapper(fn):
             "Packed sequence is not supported by DotProductAttention."
             "Please use TEDotProductAttention instead."
         )
+        args = get_args()
+        if args.use_flash_attn and args.tp_2d:
+            from mindspeed.core.transformer.dot_product_attention import dot_product_attention_forward
+            return dot_product_attention_forward(self, query, key, value, attention_mask, attn_mask_type, packed_seq_params)
 
         # ===================================
         # Raw attention scores. [b, n/p, s, s]
@@ -164,7 +219,6 @@ def dot_product_attention_forward_wrapper(fn):
         # creates a view that has the keys and values virtually repeated along their dimension to
         # match the number of queries.
 
-        args = get_args()
         heads_per_gqa_group = self.num_attention_heads_per_partition // self.num_query_groups_per_partition
         if not args.use_flash_attn:
             if heads_per_gqa_group > 1:

@@ -144,6 +144,7 @@ class CoreAdaptation(MegatronAdaptationABC):
     Adaptations for models in Megatron-LM Core structure.
     """
     def execute(self):
+        self.patch_core_distributed()
         self.patch_fusions()
         self.patch_core_models()
         self.patch_core_transformers()
@@ -153,7 +154,12 @@ class CoreAdaptation(MegatronAdaptationABC):
         self.patch_datasets()
         self.patch_utils()
         self.mcore_tensor_parallel_adaptation()
-        self.patch_schedules()
+        self.patch_pipeline_parallel_schedules()
+
+    def patch_core_distributed(self):
+        from mindspeed.core.tensor_parallel.tp_2d.norm_factory import _allreduce_layernorm_grads_wrapper
+        MegatronAdaptation.register('megatron.core.distributed.finalize_model_grads._allreduce_layernorm_grads',
+                                    _allreduce_layernorm_grads_wrapper)
 
     def patch_fusions(self):
         from mindspeed.core.fusions.fused_layer_norm import (FusedLayerNormAffineFunction, FastLayerNormFN)
@@ -185,12 +191,14 @@ class CoreAdaptation(MegatronAdaptationABC):
     def patch_core_models(self):
         from megatron.core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
         from mindspeed.core.models.common.embeddings.rotary_pos_embedding import get_pos_emb_on_this_cp_rank
+        from mindspeed.core.models.common.embeddings.rotary_pos_embedding import rotary_embedding_get_rotary_seq_len_wrapper
+        from mindspeed.core.models.common.embeddings.language_model_embedding import language_model_embedding_forward_wrapper
+        from mindspeed.core.transformer.attention import attention_init, self_attention_init_wrapper
         from ..training.utils import get_batch_on_this_cp_rank, get_batch_on_this_tp_rank, get_device_wrapper
         from ..core import rotary_embedding_forward, apply_rotary_pos_emb_bshd
         from ..core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec_wrapper
-        from ..core.transformer.dot_product_attention import dot_product_attention_init_wrapper, \
+        from ..core.transformer.dot_product_attention import dot_product_attention_init, \
             dot_product_attention_forward_wrapper, ulysses_context_parallel_forward_wrapper
-        from ..core.transformer.attention import attention_init_wrapper
         from ..core.models.gpt.gpt_model import gpt_model_init_wrapper
         from ..core import rotary_embedding_init_wrapper, gpt_model_forward
 
@@ -208,17 +216,25 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register(
             'megatron.core.models.common.embeddings.rotary_pos_embedding.RotaryEmbedding.__init__',
             rotary_embedding_init_wrapper)
+        MegatronAdaptation.register(
+            'megatron.core.models.common.embeddings.rotary_pos_embedding.RotaryEmbedding.get_rotary_seq_len',
+            rotary_embedding_get_rotary_seq_len_wrapper)
+        MegatronAdaptation.register(
+            'megatron.core.models.common.embeddings.language_model_embedding.LanguageModelEmbedding.forward',
+            language_model_embedding_forward_wrapper)
 
         # Attention
         MegatronAdaptation.register('megatron.core.transformer.attention.Attention.__init__',
-                                    attention_init_wrapper)
+                                    attention_init)
+        MegatronAdaptation.register('megatron.core.transformer.attention.SelfAttention.__init__',
+                                          self_attention_init_wrapper)
         MegatronAdaptation.register('megatron.core.transformer.dot_product_attention.DotProductAttention.__init__',
-                                    dot_product_attention_init_wrapper)
+                                    dot_product_attention_init)
         MegatronAdaptation.register('megatron.core.transformer.dot_product_attention.DotProductAttention.forward',
                                     dot_product_attention_forward_wrapper)
         MegatronAdaptation.register(
             'megatron.core.transformer.custom_layers.transformer_engine.TEDotProductAttention.__init__',
-            dot_product_attention_init_wrapper)
+            dot_product_attention_init)
         MegatronAdaptation.register(
             'megatron.core.transformer.custom_layers.transformer_engine.TEDotProductAttention.forward',
             dot_product_attention_forward_wrapper)
@@ -261,6 +277,11 @@ class CoreAdaptation(MegatronAdaptationABC):
         from ..core import (PTNorm, topk_router_forward, topk_router_routing, z_loss_func,
                             get_num_layers_to_build_wrapper, TransformerLayer,
                             transformer_block_init_wrapper, transformer_block_forward, core_mlp_init)
+        args = MegatronAdaptation.get_args()
+        if args.tp_2d:
+            from mindspeed.core.transformer.transformer_config import transformer_config_post_init
+            MegatronAdaptation.register('megatron.core.transformer.transformer_config.TransformerConfig.__post_init__',
+                                              transformer_config_post_init)
         MegatronAdaptation.register('torch.cuda.get_device_capability', get_device_capability)
         MegatronAdaptation.register('megatron.core.transformer.transformer_block.TENorm', PTNorm)
         MegatronAdaptation.register('megatron.core.transformer.moe.router.TopKRouter.routing', topk_router_routing)
@@ -385,7 +406,7 @@ class CoreAdaptation(MegatronAdaptationABC):
 
     def patch_parallel_state(self):
         import megatron
-        from mindspeed.core.parallel_state import (initialize_model_parallel, destroy_model_parallel_wrapper, \
+        from mindspeed.core.parallel_state import (destroy_model_parallel_wrapper, \
                                                    get_context_parallel_group_for_send_recv_overlap,
                                                    initialize_model_parallel_wrapper)
         from ..core import destroy_model_parallel_decorator
@@ -394,8 +415,6 @@ class CoreAdaptation(MegatronAdaptationABC):
         # Bugfix for Megatron-LM core 0.6.0, to be removed for next version.
         MegatronAdaptation.register('megatron.core.parallel_state.initialize_model_parallel',
                                     initialize_model_parallel_wrapper)
-        MegatronAdaptation.register('megatron.core.parallel_state.initialize_model_parallel',
-                                    initialize_model_parallel)
 
         # For MoE
         MegatronAdaptation.register('megatron.core.parallel_state.destroy_model_parallel',
@@ -449,10 +468,20 @@ class CoreAdaptation(MegatronAdaptationABC):
             MegatronAdaptation.register('megatron.core.tensor_parallel.layers.LinearWithGradAccumulationAndAsyncCommunication.backward',
                                 linear_backward_main_grad_wrapper)
 
-    def patch_schedules(self):
+    def patch_pipeline_parallel_schedules(self):
         from ..core import forward_backward_pipelining_with_interleaving_wrapper
+        args = MegatronAdaptation.get_args()
         MegatronAdaptation.register('megatron.core.pipeline_parallel.schedules.forward_backward_pipelining_with_interleaving',
                                     forward_backward_pipelining_with_interleaving_wrapper)
+
+        if args.tp_2d:
+            from mindspeed.core.pipeline_parallel.flexible_schedules import \
+                forward_backward_pipelining_with_interleaving_patch
+            MegatronAdaptation.register(
+                'megatron.core.pipeline_parallel.schedules.forward_backward_pipelining_with_interleaving',
+                forward_backward_pipelining_with_interleaving_patch)
+
+
 
 
 class LegacyAdaptation(MegatronAdaptationABC):

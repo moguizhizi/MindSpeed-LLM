@@ -204,6 +204,35 @@ def initialize_model_parallel_decorator(initialize_model_parallel):
                 world_size
             )
 
+        nd1_dim1_sz = args.nd1_dim1_size if args.use_nd_matmul else args.tp_x
+        nd2_dim1_sz = args.nd2_dim1_size if args.use_nd_matmul else args.tp_y
+        from mindspeed.core.parallel_state import initialize_ndmm_parallel_group
+        initialize_ndmm_parallel_group(
+            nccl_comm_cfgs,
+            tensor_model_parallel_size=tensor_model_parallel_size,
+            nd1_dim1_size=nd1_dim1_sz,
+            nd2_dim1_size=nd2_dim1_sz,
+        )
+        if args.tp_2d:
+            from mindspeed.core.simple_parallel_cfg import SimpleParallelCfg
+            from mindspeed.core.tensor_parallel_y_union_cp import TensorParallelYUnionCP
+            tp_y_cp_group = TensorParallelYUnionCP(
+                parallel_cfg=SimpleParallelCfg(
+                    dp=data_parallel_size,
+                    pp=pipeline_model_parallel_size,
+                    tp=tensor_model_parallel_size,
+                    cp=context_parallel_size,
+                    ep=expert_model_parallel_size,
+                    tp_x=args.tp_x,
+                    tp_y=args.tp_y,
+                ),
+                pg_name="tp-y-cp",
+                overlap_gp_name="tp-y-cp-overlap",
+                nccl_comm_cfgs=nccl_comm_cfgs
+            )
+            print(f'tp_y_cp_group.global_ranks={tp_y_cp_group.global_ranks} for rank {rank}')
+
+
     return wrapper
 
 

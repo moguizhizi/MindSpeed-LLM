@@ -26,6 +26,9 @@ from megatron.core.transformer import build_module
 from megatron.core.transformer.custom_layers.transformer_engine import TENorm
 from megatron.core.utils import make_sharded_tensor_for_checkpoint, make_viewless_tensor
 from mindspeed.core.transformer.transformer_block import NoopTransformerLayer, _get_layer_offset
+from mindspeed.core.tensor_parallel.comm_autograd_function import auto_grad_sync_gather_along_last_dim, \
+    auto_grad_sync_gather_along_first_dim
+from mindspeed.core.tensor_parallel.comm_group_api import TPXCollectiveComm, TPYCollectiveComm
 
 
 def get_num_layers_to_build_wrapper(fn):
@@ -226,6 +229,10 @@ def transformer_block_forward(
     # Final layer norm.
     if self.post_process and self.post_layer_norm:
         hidden_states = self.final_layernorm(hidden_states)
+
+    if get_args().tp_2d and parallel_state.is_pipeline_last_stage():
+        hidden_states = auto_grad_sync_gather_along_first_dim(hidden_states, TPXCollectiveComm)
+        hidden_states = auto_grad_sync_gather_along_last_dim(hidden_states, TPYCollectiveComm)
 
     return hidden_states
 

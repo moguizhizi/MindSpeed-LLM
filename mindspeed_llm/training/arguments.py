@@ -65,6 +65,8 @@ def process_args(parser):
     parser = _add_yarn_args(parser)
     parser = _add_deepseek_moe_args(parser)
     parser = _add_rl_args(parser)
+    parser = _add_ndmm_args(parser)
+    parser = _add_2d_tp_args(parser)
     parser = _add_hccl_group_buffer_args(parser)
 
     return parser
@@ -642,6 +644,34 @@ def _add_distributed_args(parser):
     return parser
 
 
+def _add_ndmm_args(parser):
+    group = parser.add_argument_group(title='ndmm')
+    group.add_argument('--use-nd-matmul', action='store_true', default=False,
+                       help='use use-nd-matmul to replace megatron-style tensor parallel')
+    group.add_argument('--nd1-dim1-size', type=int, default=1,
+                       help='Dim1 of the first nd matmul when use-3d-matmul is True')
+    group.add_argument('--nd2-dim1-size', type=int, default=1,
+                       help='Dim1 of the second nd matmul when use-3d-matmul is True')
+    return parser
+
+
+def _add_2d_tp_args(parser):
+    group = parser.add_argument_group(title='2d-tp')
+    group.add_argument('--tp-2d', action='store_true', default=False,
+                       help='use use-2d-tp to replace megatron-style tensor parallel')
+    group.add_argument('--tp-x', type=int, default=1,
+                       help='the fist dim tensor parallel size for Linear')
+    group.add_argument('--tp-y', type=int, default=1,
+                       help='the second dim tensor parallel size for Linear')
+    group.add_argument('--enable-overlap-ag-with-matmul', action='store_true', default=False,
+                       help='use enable-overlap-ag-with-matmul to overlap all-gather with matmul')
+    group.add_argument('--enable-overlap-matmul-with-rs', action='store_true', default=False,
+                       help='use enable-overlap-matmul-with-rs to overlap matmul with reduce-scatter')
+    group.add_argument('--enable-backward-overlap-ag-with-matmul', action='store_true', default=False,
+                       help='use enable-backward-overlap-ag-with-matmul to overlap all-gather  with matmul in backward')
+    return parser
+
+
 def add_parser_argument_choices_value(parser, argument_name, value):
     if parser._actions:
         for action in parser._actions:
@@ -1009,10 +1039,6 @@ def _add_dummy_args(args):
     args.moe_tp_extend_ep = False
     args.recompute_in_bubble = False
     args.use_nanopipe = False
-    args.tp_2d = None
-    args.tp_x = 1
-    args.tp_y = 1
-    args.use_nd_matmul = False
     args.moe_allgather_overlap_comm = False
     args.moe_without_activation = False
     args.disable_gloo_group = None
@@ -1034,6 +1060,26 @@ def _validate_noop_layer(args):
         if args.num_layer_list:
             print_rank0_by_args("num layer list would be disabled when noop-layer is activated.")
             args.num_layer_list = None
+
+
+def _valid_tp_2d_args(args):
+    if args.tp_2d:
+        if args.sequence_parallel:
+            raise AssertionError('2d tp does not support sequence parallel')
+        if args.use_fused_rmsnorm:
+            raise AssertionError('2d tp does not support fused rmsnorm')
+        if hasattr(args, "use_nanopipe") and args.use_nanopipe:
+            raise AssertionError('tp-2d does not support nano-pipe')
+        if hasattr(args, "ampipe_degree") and args.ampipe_degree > 1:
+            raise AssertionError('tp-2d does not support ampipe')
+        if hasattr(args, "context_parallel_algo") and args.context_parallel_algo not in ['megatron_cp_algo', 'ulysses_cp_algo']:
+            raise AssertionError('tp-2d now only support megatron_cp_algo or ulysses_cp_algo')
+        if hasattr(args, "use_ascend_coc") and args.use_ascend_coc:
+            raise AssertionError('tp-2d does not support ascend coc')
+        if args.tensor_model_parallel_size // args.tp_x != args.tp_y:
+            raise AssertionError('need satisfy tp = tp_x * tp_y')
+        if args.expert_model_parallel_size > 1:
+            raise AssertionError('2d tp does not support moe')
 
 
 def _validate_vpp(args):
@@ -1141,6 +1187,7 @@ def validate_args_decorator(megatron_validate_args):
         _validate_mlp_fusion(args)
 
         _validate_noop_layer(args)
+        _valid_tp_2d_args(args)
         _add_dummy_args(args)
 
         from mindspeed_llm.training.utils import print_args

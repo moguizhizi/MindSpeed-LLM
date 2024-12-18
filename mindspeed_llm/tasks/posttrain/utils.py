@@ -112,6 +112,10 @@ def get_tensor_shapes_decorator(get_tensor_shapes):
             config=config
          )
 
+        if args.tp_2d:
+            tensor_shape = [[tensor_shape[0] // args.tp_x, tensor_shape[1], tensor_shape[2] // args.tp_y]
+                            for tensor_shape in tensor_shape]
+
         return tensor_shape
 
     return wrapper

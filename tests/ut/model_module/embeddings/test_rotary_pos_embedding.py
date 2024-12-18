@@ -33,6 +33,9 @@ class TestRotaryPosEmbedding:
             test_name_space.use_glm_rope = request.getfixturevalue("chatglm")
             test_name_space.rope_scaling_type = None
             test_name_space.rotary_base = request.getfixturevalue("rotary_base")
+            test_name_space.tp_2d = False
+            test_name_space.tp_x = 1
+            test_name_space.tp_y = 1
             return test_name_space
         # set up name space function
         import mindspeed_llm
