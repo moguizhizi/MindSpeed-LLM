@@ -124,7 +124,7 @@ class BaseDatasetHandler(object):
                 logger.info("Processed %s documents (%s docs/s).", k, self.args.log_interval / elapsed)
 
             pad_length = self.args.seq_length - len(packed_data_dict['input_ids'])
-            pad_token_id = torch.pad_token_id if hasattr(self.tokenizer, "pad_token_id") else 0
+            pad_token_id = self.tokenizer.pad_token_id if hasattr(self.tokenizer, "pad_token_id") else 0
             packed_data_dict['input_ids'] += [pad_token_id] * pad_length
             packed_data_dict['attention_mask'] += [1] * pad_length
             packed_data_dict['labels'] += [self.ignored_label] * pad_length

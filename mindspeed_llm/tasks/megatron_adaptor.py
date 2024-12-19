@@ -354,13 +354,13 @@ class CoreAdaptation(MegatronAdaptationABC):
                     MegatronAdaptation.register('megatron.core.transformer.moe.moe_utils.permute', permute_wrapper)
                     MegatronAdaptation.register('megatron.core.transformer.moe.moe_utils.unpermute', unpermute_wrapper)
 
-
-        # For groupMLP especially deepseek
-        from mindspeed.core.transformer.moe.experts import groupedmlp_init_wrapper, groupedmlp_forward
-        MegatronAdaptation.register('megatron.core.transformer.moe.experts.GroupedMLP.__init__',
-                                    groupedmlp_init_wrapper)
-        MegatronAdaptation.register('megatron.core.transformer.moe.experts.GroupedMLP.forward',
-                                    groupedmlp_forward)
+        if not args.moe_alltoall_overlap_comm:
+            # For groupMLP especially deepseek
+            from mindspeed.core.transformer.moe.experts import groupedmlp_init_wrapper, groupedmlp_forward
+            MegatronAdaptation.register('megatron.core.transformer.moe.experts.GroupedMLP.__init__',
+                                        groupedmlp_init_wrapper)
+            MegatronAdaptation.register('megatron.core.transformer.moe.experts.GroupedMLP.forward',
+                                        groupedmlp_forward)
 
     def patch_pipeline_parallel(self):
         from ..core.pipeline_parallel.p2p_communication import _batched_p2p_ops
