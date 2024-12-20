@@ -1,3 +1,29 @@
+# Setting
+# source ascend-toolkit 环境变量
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+
+# source atb库 环境变量
+source /usr/local/Ascend/nnal/atb/set_env.sh
+
+# 安装加速库
+git clone -b core_r0.7.0 https://gitee.com/ascend/MindSpeed.git
+cd MindSpeed
+
+# checkout commit from MindSpeed core_r0.7.0 in 2024.12.13
+git checkout 4045864e6df
+pip install -r requirements.txt
+pip3 install -e .
+cd ..
+
+git clone -b master https://gitee.com/ascend/MindSpeed-LLM.git
+cd MindSpeed-LLM
+
+pip install -r requirements.txt
+
+# megatron core_r0.7.0
+cp -rf /home/master_branch/Megatron-LM/megatron ./
+
+# Main
 # step 1: define dir
 BASE_DIR=$(dirname "$(readlink -f "$0")")
 BASELINE_DIR="$BASE_DIR/baseline"
