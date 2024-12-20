@@ -1,3 +1,4 @@
+# Copyright (c) 2024, HUAWEI CORPORATION.  All rights reserved.
 from megatron.core.fusions.fused_bias_dropout import get_bias_dropout_add
 from megatron.training import get_args
 from megatron.core.tensor_parallel import ColumnParallelLinear, RowParallelLinear

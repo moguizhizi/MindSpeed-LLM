@@ -1,3 +1,4 @@
+# Copyright (c) 2024, HUAWEI CORPORATION.  All rights reserved.
 from typing import List, Union
 from functools import wraps
 

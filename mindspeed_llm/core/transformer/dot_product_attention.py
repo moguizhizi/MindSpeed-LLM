@@ -234,7 +234,6 @@ def dot_product_attention_forward_wrapper(fn):
             return flash_attention_forward(self, query, key, value, attention_mask, attn_mask_type,
                                            packed_seq_params)
 
-        # [b, np, sq, sk]
         output_size = (
             query.size(1),
             query.size(2),

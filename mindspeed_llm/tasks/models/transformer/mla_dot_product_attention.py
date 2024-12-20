@@ -1,3 +1,4 @@
+# Copyright (c) 2024, HUAWEI CORPORATION.  All rights reserved.
 import math
 from megatron.training import get_args
 from megatron.core.transformer.enums import AttnMaskType

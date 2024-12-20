@@ -1,3 +1,4 @@
+# Copyright (c) 2024, HUAWEI CORPORATION.  All rights reserved.
 from typing import Callable, Literal, Optional
 from copy import deepcopy
 from unittest.mock import patch
