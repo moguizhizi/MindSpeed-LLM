@@ -17,6 +17,7 @@ import time
 import torch
 import torch_npu
 import megatron
+from functools import wraps
 from megatron.core import mpu
 from megatron.training import get_args, print_rank_0
 from megatron.training.arguments import validate_args
@@ -147,3 +148,15 @@ def set_jit_fusion_options():
     args = get_args()
     if args.jit_compile:
         torch_npu.npu.set_compile_mode(jit_compile=True)
+
+
+def coc_registration_wrapper(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        res = fn(*args, **kwargs)
+        from mindspeed.core.tensor_parallel.lcal_coc.user_config import initialize_coc_from_cfg
+        args = get_args()
+        initialize_coc_from_cfg(args)
+        return res
+
+    return wrapper

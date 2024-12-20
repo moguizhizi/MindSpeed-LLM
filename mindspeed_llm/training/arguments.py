@@ -68,6 +68,7 @@ def process_args(parser):
     parser = _add_ndmm_args(parser)
     parser = _add_2d_tp_args(parser)
     parser = _add_hccl_group_buffer_args(parser)
+    parser = _add_coc_args(parser)
 
     return parser
 
@@ -166,6 +167,21 @@ def _add_cp_args(parser):
                        help='manually set pre-cooked attention mask list')
     group.add_argument('--kv-head-repeat-before-uly-alltoall', action='store_true', default=True,
                        help='use it to expand key and value for ulysses when GQA/MQA is used.')
+    return parser
+
+
+def _add_coc_args(parser):
+    group = parser.add_argument_group(title='coc')
+
+    # ascend coc arguments
+    group.add_argument("--use-ascend-coc", action='store_true',
+                       help="Use ascend coc")
+    group.add_argument('--coc-mode', type=int, default=-1,
+                       help='coc-mode: 0=original, 1=rewrite, 2=coc default')
+    group.add_argument('--coc-parallel-num', type=int, default=1,
+                       help='coc parallel num')
+    group.add_argument('--coc-fused-kernel', action='store_true',
+                       help='use coc fused kernel')
     return parser
 
 
@@ -888,6 +904,9 @@ def _validate_transformer_block_build_layers(args):
             raise ValueError("Dynamic pipeline model should work with pipeline parallel.")
         if args.num_layers_per_virtual_pipeline_stage:
             raise ValueError("Dynamic pipeline model and virtual pipeline cannot be enabled at the same time.")
+
+    if args.use_mc2 and args.use_ascend_coc:
+        raise AssertionError('--mc2 and coc can not be used together')
 
 
 def _validate_group_limited_greedy(args):
