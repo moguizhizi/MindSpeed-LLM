@@ -16,7 +16,7 @@
         <td rowspan="22">ST</td>
         <td rowspan="14">Pretrain</td>
         <td>Mcore</td>
-        <td>TP，PP，VPP，distributed_optimizer，o2_gradient，o2_optimizer，重计算，enable_recompute_layers_per_pp_rank，FA_TND</td>
+        <td>TP，PP，VPP，distributed_optimizer，o2_gradient，o2_optimizer，重计算，enable_recompute_layers_per_pp_rank，FA_TND，use_fused_rotary_pos_emb_new</td>
         <td><a href="st/shell_scripts/llama2_tp2_pp4_vpp2_ptd.sh">llama2_tp2_pp4_vpp2_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
@@ -80,7 +80,7 @@
     </tr>
     <tr>
         <td>Mcore</td>
-        <td>mla_attention，moe_grouped_gemm，EP，allgather_dispatcher</td>
+        <td>mla_attention，moe_grouped_gemm，EP，allgather_dispatcher，use_fused_rotary_pos_emb_new</td>
         <td><a href="st/shell_scripts/deepseek_v2_mcore_tp1_pp1_ep8.sh">deepseek_v2_mcore_tp1_pp1_ep8.sh</a></td>
         <td>Y</td>
         <td>Y</td>

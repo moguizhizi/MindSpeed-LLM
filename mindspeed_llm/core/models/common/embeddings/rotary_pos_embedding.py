@@ -11,6 +11,7 @@ import torch_npu
 from megatron.training import get_args
 from megatron.core import parallel_state
 from megatron.core.models.common.embeddings.rotary_pos_embedding import _rotate_half, get_pos_emb_on_this_cp_rank
+from mindspeed.ops.npu_rotary_position_embedding import npu_rotary_position_embedding
 
 
 def apply_llama3_scaling(freqs: torch.Tensor):
@@ -209,6 +210,9 @@ def apply_rotary_pos_emb_bshd(t: Tensor, freqs: Tensor, rotary_interleaved: bool
     
     if args.use_fused_rotary_pos_emb:
         t = torch_npu.npu_rotary_mul(t, cos_, sin_).to(t.dtype)
+    elif args.use_fused_rotary_pos_emb_new:
+        mode = 1 if rotary_interleaved else 0
+        t = npu_rotary_position_embedding(t.contiguous(), cos_, sin_, mode).to(t.dtype)
     else:
         t = (t * cos_) + (_rotate_half(t, rotary_interleaved) * sin_)
     

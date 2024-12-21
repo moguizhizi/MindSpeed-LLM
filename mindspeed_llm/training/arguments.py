@@ -411,6 +411,8 @@ def _add_fusion_op_args(parser):
                        help="Use fused swiglu.")
     group.add_argument("--use-fused-rotary-pos-emb", action='store_true',
                        help="Use fused rotary-pos-emb.")
+    group.add_argument("--use-fused-rotary-pos-emb-new", action='store_true',
+                       help="Use new fused rotary-pos-emb.")
     group.add_argument("--use-fused-ring-attention-update", action='store_true',
                        help="Use fused ring attention update.")
     group.add_argument("--use-mc2", action='store_true',
@@ -769,6 +771,8 @@ def _validate_position_embedding(args):
         raise AssertionError('Sliding Window Attention is forbidden when use alibi.')
     if args.tokenizer_padding_side == 'left' and args.position_embedding_type == 'alibi':
         raise AssertionError('Alibi is not support tokenizer-padding-side left now.')
+    if args.use_fused_rotary_pos_emb_new and args.stage is not None:
+        raise AssertionError('The new fused_rotary_pos_emb supports only pre-trained models.')
 
 
 def _validate_recompute_args(args):
