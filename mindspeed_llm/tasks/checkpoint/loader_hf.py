@@ -89,6 +89,7 @@ def build_metadata(args, margs):
     md.position_embedding_type = margs.position_embedding_type
     md.linear_bias = margs.add_bias_linear
     md.norm_has_bias = False
+    md.add_output_layer_bias = getattr(margs, "add_output_layer_bias", False)
     md.swiglu = margs.swiglu
     md.previous_tensor_parallel_size = margs.tensor_model_parallel_size
     md.previous_pipeline_parallel_size = margs.pipeline_model_parallel_size
@@ -290,6 +291,8 @@ def get_message_output_layer(model, md):
         message = {
             "weight": model.get_output_layer_weight()
         }
+        if md.add_output_layer_bias:
+            message["bias"] = model.get_output_layer_bias()
 
     return message
 

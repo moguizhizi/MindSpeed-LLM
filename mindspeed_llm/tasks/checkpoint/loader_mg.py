@@ -53,6 +53,8 @@ def add_arguments(parser):
                         help='Specify the <module_location function_name> pair '
                              'that returns a spec to customize transformer layer, depending on the use case.')
     group.add_argument("--noop-layers", type=str, default=None, help='Specity the noop layers.')
+    group.add_argument("--add-output-layer-bias", action="store_true", default=False,
+                       help='Configuration for the output layer bias.')
 
 
 def build_metadata(args, margs):
@@ -81,6 +83,7 @@ def build_metadata(args, margs):
     md.position_embedding_type = margs.position_embedding_type
     md.linear_bias = margs.add_bias_linear
     md.norm_has_bias = norm_has_bias
+    md.add_output_layer_bias = getattr(margs, "add_output_layer_bias", False)
     md.swiglu = margs.swiglu
     md.previous_tensor_parallel_size = margs.tensor_model_parallel_size
     md.previous_pipeline_parallel_size = margs.pipeline_model_parallel_size
@@ -131,8 +134,6 @@ def get_message_layer_norm(message, model, md, **kwargs):
     # Get non-parallel tensors from tp_rank 0.
     mg_args = model.get_args()
     message["input norm weight"] = model.get_layers_input_layernorm_weight(**kwargs)
-    if md.norm_has_bias:
-        message["input norm bias"] = model.get_layers_input_layernorm_bias(**kwargs)
 
     if mg_args.post_norm:
         message["post norm weight"] = model.get_layers_self_attention_post_attention_layernorm_weight(**kwargs)
@@ -142,7 +143,8 @@ def get_message_layer_norm(message, model, md, **kwargs):
         message["post norm weight"] = model.get_layers_self_attention_pre_mlp_layernorm_weight(**kwargs)
 
     if md.norm_has_bias:
-        message["post norm bias"] = model.get_layers_self_attention_post_attention_layernorm_bias(**kwargs)
+        message["input norm bias"] = model.get_layers_input_layernorm_bias(**kwargs)
+        message["post norm bias"] = model.get_layers_self_attention_pre_mlp_layernorm_bias(**kwargs)
 
     return message
 
@@ -298,12 +300,19 @@ def get_message_output_layer(model, md, **kwargs):
     message = {}
     if md.output_layer:
         get_output_layer_weight_list = []
+        get_output_layer_bias_list = []
         for tp_rank in range(tp_size):
             kwargs["tp_rank"] = tp_rank
             get_output_layer_weight_list.append(
                 model.get_output_layer_weight(**kwargs)
             )
+            if md.add_output_layer_bias:
+                get_output_layer_bias_list.append(
+                    model.get_output_layer_bias(**kwargs)
+                )
         message[f"weight"] = torch.cat(get_output_layer_weight_list, dim=0)
+        if md.add_output_layer_bias:
+            message[f"bias"] = torch.cat(get_output_layer_bias_list, dim=0)
 
     return message
 
@@ -340,6 +349,7 @@ def _load_checkpoint(model_provider, queue, args):
     model_mg.set_pipeline_model_parallel_rank(0)
 
     margs = model_mg.get_args()
+    margs.add_output_layer_bias = getattr(args, "add_output_layer_bias", False)
     margs.moe_grouped_gemm = args.moe_grouped_gemm
     margs.spec = args.spec
 

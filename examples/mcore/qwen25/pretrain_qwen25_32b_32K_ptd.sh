@@ -35,7 +35,7 @@ GPT_ARGS="
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --use-distributed-optimizer \
-    --num-layer-list 11, 13, 19, 21 \
+    --num-layer-list 11,13,19,21 \
     --micro-batch-size ${MBS} \
     --global-batch-size ${GBS} \
     --sequence-parallel \

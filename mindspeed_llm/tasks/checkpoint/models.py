@@ -193,6 +193,9 @@ class ModelBase(abc.ABC):
         if self.has_final_layernorm_bias():
             final_layernorm_bias = src_model.get_final_layernorm_bias()
             self.set_final_layernorm_bias(data=final_layernorm_bias)
+        if self.has_output_layer_bias():
+            output_layer_bias = src_model.get_output_layer_bias()
+            self.set_output_layer_bias(data=output_layer_bias)
 
     def set_layer_state(self, src_model, layer_idx):
         """
@@ -791,6 +794,7 @@ class MegatronModel(ModelBase):
             self.args.tokenizer_type = hf_args.tokenizer_type
             self.args.normalization = hf_args.normalization
             self.args.add_bias_linear = hf_args.add_bias_linear
+            self.args.add_output_layer_bias = getattr(hf_args, "add_output_layer_bias", False)
             self.args.untie_embeddings_and_output_weights = not getattr(hf_args, "tie_word_embeddings", False)
             self.args.vocab_size = hf_args.vocab_size
             self.args.padded_vocab_size = hf_args.vocab_size

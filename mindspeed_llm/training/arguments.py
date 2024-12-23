@@ -309,7 +309,8 @@ def _add_moe_args(parser):
     group.add_argument('--moe-router-topk', type=int, default=2,
                        help='Number of experts to route to for each token. The default is 2.')
     group.add_argument('--moe-router-load-balancing-type', type=str,
-                       choices=['aux_loss', "group_limited_greedy", "softmax_topk", "pai_megatron_aux_loss"],
+                       choices=['aux_loss', "group_limited_greedy", "softmax_topk", "pai_megatron_aux_loss",
+                                "sparsemixer_topk"],
                        default='aux_loss',
                        help='Determines the load balancing strategy for the router. "aux_loss" corresponds '
                             'to the load balancing loss used in GShard and SwitchTransformer, "sinkhorn" corresponds '
@@ -460,6 +461,8 @@ def _add_algorithm_args(parser):
                        help='rope low freq factory for rope scaling type.')
     group.add_argument('--high-freq-factor', type=float,
                        help='rope high freq factor for rope scaling type.')
+    group.add_argument('--long-mscale', type=float, default=None, help='long mscale for rope scaling.')
+    group.add_argument('--short-mscale', type=float, default=None, help='short mscale for rope scaling.')
     group.add_argument('--original-max-position-embeddings', type=float,
                        help='original max position embeddings for rope scaling type')
 
@@ -489,6 +492,8 @@ def _add_network_args(parser):
                        help='Configuration for the qkv bias.')
     group.add_argument("--add-dense-bias", action="store_true", default=False,
                        help='Configuration for the dense bias.')
+    group.add_argument("--add-output-layer-bias", action="store_true", default=False,
+                       help='Configuration for the output layer bias.')
     group.add_argument("--skip-bias-add", action="store_false", default=True,
                        help='Configuration for the skip bias.')
     group.add_argument('--add-rmsnorm-offset', action='store_true', default=False,
@@ -1163,6 +1168,9 @@ def _validate_long_rope(args):
         else:
             args.short_factor = list(map(float, args.short_factor.split(',')))
 
+        if not ((args.short_mscale and args.long_mscale) or not (args.short_mscale and args.long_mscale)):
+            raise AssertionError('The parameter short_mscale and long_mscale must be set at the same time')
+
 
 def _validate_o2(args):
     if args.o2_gradient or args.o2_optimizer:
@@ -1172,6 +1180,25 @@ def _validate_o2(args):
     if args.o2_gradient:
         if args.gradient_accumulation_fusion:
             raise ValueError("gradient_accumulation_fusion only works with fp32 gradient.")
+
+
+def _validate_fused_opts(args):
+    if args.use_fused_rmsnorm:
+        if args.normalization != "RMSNorm":
+            raise AssertionError(
+                '--use-fused-rmsnorm must enable with '
+                '--normalization=RMSNorm, but got normalization'
+                '={}.'.format(args.normalization))
+    if args.use_fused_swiglu:
+        if not args.swiglu:
+            raise AssertionError(
+                '--use-fused-swiglu must enable with --swiglu, '
+                'but --swiglu={}.'.format(args.swiglu))
+    if args.use_fused_rotary_pos_emb:
+        if args.position_embedding_type != 'rope':
+            raise AssertionError(
+                '--use-fused-rotary-pos-emb must enable with'
+                '--position-embedding-type=rope')
 
 
 def validate_args_decorator(megatron_validate_args):
@@ -1208,6 +1235,7 @@ def validate_args_decorator(megatron_validate_args):
         _validate_rl_training(args)
         _validate_long_rope(args)
         _validate_mlp_fusion(args)
+        _validate_fused_opts(args)
 
         _validate_noop_layer(args)
         _valid_tp_2d_args(args)

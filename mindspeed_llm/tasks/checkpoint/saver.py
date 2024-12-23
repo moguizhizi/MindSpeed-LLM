@@ -373,6 +373,8 @@ def set_model_output_layer(model_mg, msg, md, **kwargs):
     tp_size = margs.tensor_model_parallel_size
     ep_size = margs.expert_model_parallel_size
     output_layer = msg.pop(f"weight")
+    if md.add_output_layer_bias:
+        output_layer_bias = msg.pop(f"bias")
     for ep_rank in range(ep_size):
         kwargs["ep_rank"] = ep_rank
         if md.true_vocab_size is not None:
@@ -381,9 +383,14 @@ def set_model_output_layer(model_mg, msg, md, **kwargs):
         else:
             full_word_embed = output_layer
         output_layer_weight = torch.chunk(full_word_embed, margs.tensor_model_parallel_size, dim=0)
+        if md.add_output_layer_bias:
+            full_layer_bias = output_layer_bias.clone()
+            output_layer_bs = torch.chunk(full_layer_bias, margs.tensor_model_parallel_size, dim=0)
         for tp_rank in range(tp_size):
             kwargs["tp_rank"] = tp_rank
             model_mg.set_output_layer_weight(**kwargs, data=output_layer_weight[tp_rank])
+            if md.add_output_layer_bias:
+                model_mg.set_output_layer_bias(**kwargs, data=output_layer_bs[tp_rank])
 
 
 def save_model(model_mg, md, **kwargs):

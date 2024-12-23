@@ -17,7 +17,7 @@ from functools import wraps
 import torch
 from torch import Tensor
 
-from megatron.core import InferenceParams
+from megatron.core import InferenceParams, tensor_parallel
 from megatron.core.packed_seq_params import PackedSeqParams
 from megatron.training import get_args
 
@@ -31,6 +31,21 @@ def gpt_model_init_wrapper(fn):
         post_layer_norm = kwargs.pop('post_layer_norm', True)
         fn(self, *args, **kwargs)
         config = args[1] if len(args) > 1 else kwargs['config']
+        if self.post_process and get_args().add_output_layer_bias:
+            self.output_layer = tensor_parallel.ColumnParallelLinear(
+                config.hidden_size,
+                self.vocab_size,
+                config=config,
+                init_method=config.init_method,
+                bias=True,
+                skip_bias_add=False,
+                gather_output=not self.parallel_output,
+                skip_weight_param_allocation=self.pre_process
+                and self.share_embeddings_and_output_weights,
+                embedding_activation_buffer=self.embedding_activation_buffer,
+                grad_output_buffer=self.grad_output_buffer,
+            )
+
         if self.post_process and get_args().output_layer_slice_num > 1:
             self.output_layer = SegmentedColumnParallelLinear(
                 config.hidden_size,

@@ -4,8 +4,8 @@ mkdir ./dataset
 
 python ./preprocess_data.py \
    --input ./dataset/train-00000-of-00001-a09b74b3ef9c3b56.parquet \
-   --tokenizer-name-or-path ./model_from_hf/Phi-3.5-mini-instruct \
-   --output-prefix ./dataset/alpaca_Phi35/alpaca \
+   --tokenizer-name-or-path ./model_from_hf/Phi-3.5-hf \
+   --output-prefix ./dataset/alpaca \
    --workers 4 \
    --log-interval 1000  \
    --tokenizer-type PretrainedFromHF

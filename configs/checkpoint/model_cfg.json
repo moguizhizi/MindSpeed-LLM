@@ -384,6 +384,24 @@
         "layers_self_attention_linear_qkv_pack": "model.layers[layer_idx].self_attn.qkv_proj",
         "layers_mlp_linear_fc1": "model.layers[layer_idx].mlp.gate_up_proj"
       }
+    },
+    "phi3.5-moe": {
+      "__base__": "base",
+      "config_set_value": {
+        "normalization": "LayerNorm",
+        "moe_flag": true,
+        "add_output_layer_bias": true
+      },
+      "config_hf_key_mapping": {
+        "num_experts": "num_local_experts"
+      },
+      "model_hf_key_mapping": {
+        "layers_self_attention_linear_proj": "model.layers[layer_idx].self_attn.o_proj",
+        "layers_mlp_router": "model.layers[layer_idx].block_sparse_moe.gate",
+        "layers_mlp_experts_gate_proj": "model.layers[layer_idx].block_sparse_moe.experts[expert_idx].w1",
+        "layers_mlp_experts_up_proj": "model.layers[layer_idx].block_sparse_moe.experts[expert_idx].w3",
+        "layers_mlp_experts_linear_fc2": "model.layers[layer_idx].block_sparse_moe.experts[expert_idx].w2"
+      }
     }
   }
 }

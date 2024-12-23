@@ -716,10 +716,18 @@
     </tr>
     <tr>
       <td rowspan="2"><a href="https://huggingface.co/microsoft">Phi3.5</a></td>
-      <td> <a href="https://huggingface.co/microsoft/Phi-3.5-mini-instruct/tree/main">mini</a> </td>
+      <td> <a href="https://huggingface.co/microsoft/Phi-3.5-mini-instruct/tree/main">mini-instruct</a> </td>
       <td> 4K </td>
       <th>Mcore</th>
       <td> 1x8 </td>
+      <td>【GTS】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
+      <td> <a href="https://huggingface.co/microsoft/Phi-3.5-MoE-instruct">MoE-instruct</a> </td>
+      <td> 4K </td>
+      <th> Mcore </th>
+      <td> 2x8 </td>
       <td>【GTS】</td>
       <td>【Test】</td>
     </tr>

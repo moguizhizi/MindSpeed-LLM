@@ -199,9 +199,13 @@ def apply_rotary_pos_emb_bshd(t: Tensor, freqs: Tensor, rotary_interleaved: bool
             / yarn_get_mscale(args.rope_scaling_factor, args.rope_scaling_mscale_all_dim)
         )
     elif args.rope_scaling_type == "longrope":
-        scale = args.max_position_embeddings / args.rope_scaling_original_max_position_embeddings
-        _mscale = 1.0 if scale <= 1.0 else math.sqrt(
-            1 + math.log(scale) / math.log(args.rope_scaling_original_max_position_embeddings))
+        if args.long_mscale and args.short_mscale:
+            scale = args.seq_length / args.rope_scaling_original_max_position_embeddings
+            _mscale = args.long_mscale if scale > 1 else args.short_mscale
+        else:
+            scale = args.max_position_embeddings / args.rope_scaling_original_max_position_embeddings
+            _mscale = 1.0 if scale <= 1.0 else math.sqrt(
+                1 + math.log(scale) / math.log(args.rope_scaling_original_max_position_embeddings))
 
     rot_dim = freqs.shape[-1]
     t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
