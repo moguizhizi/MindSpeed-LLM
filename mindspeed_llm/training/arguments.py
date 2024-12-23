@@ -1148,9 +1148,12 @@ def _validate_recompute_in_advance(args):
 
 def _validate_mlp_fusion(args):
     if args.use_fused_mlp:
-        if not (args.sequence_parallel and args.swiglu):
+        if not args.swiglu:
             raise AssertionError(
-                'use_fused_mlp only support sequence_parallel and with activation func swiglu')
+                'use_fused_mlp only support activation func swiglu')
+        if not args.sequence_parallel and not args.lora_fusion:
+            raise AssertionError(
+                'use_fused_mlp only support sequence_parallel with cclora')
 
 
 def _validate_long_rope(args):

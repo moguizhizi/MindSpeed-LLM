@@ -82,6 +82,7 @@ TRAINING_ARGS=(
     --lora-r 16
     --lora-alpha 32
     --lora-fusion
+    --use-fused-mlp
     --lora-target-modules query_key_value dense dense_h_to_4h dense_4h_to_h
     --variable-seq-lengths
     --recompute-num-layers 32
