@@ -13,8 +13,8 @@
         <th>Mem.</th>
     </tr>
     <tr>
-        <td rowspan="22">ST</td>
-        <td rowspan="14">Pretrain</td>
+        <td rowspan="23">ST</td>
+        <td rowspan="15">Pretrain</td>
         <td>Mcore</td>
         <td>TP，PP，VPP，distributed_optimizer，o2_gradient，o2_optimizer，重计算，enable_recompute_layers_per_pp_rank，FA_TND，use_fused_rotary_pos_emb_new</td>
         <td><a href="st/shell_scripts/llama2_tp2_pp4_vpp2_ptd.sh">llama2_tp2_pp4_vpp2_ptd.sh</a></td>
@@ -26,6 +26,14 @@
         <td>Mcore</td>
         <td>cp_ring，分布式优化器，reuse_fp32_param，recompute_activation_function，fused_rmsnorm，fused_swiglu，fused_rope，overlap_grad_reduce, overlap_param_gather</td>
         <td><a href="st/shell_scripts/llama2_tp2_cp4_mem_recompute.sh">llama2_tp2_cp4_mem_recompute.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>Mcore</td>
+        <td>moe_alltoall_overlap_comm，swap-attention，reuse_fp32_param，fused_rmsnorm，fused_swiglu</td>
+        <td><a href="st/shell_scripts/deepseek_500b_tp1_pp2_ep2_cp2_overlap.sh">deepseek_500b_tp1_pp2_ep2_cp2_overlap.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
