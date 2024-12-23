@@ -311,6 +311,11 @@ class CoreAdaptation(MegatronAdaptationABC):
                                     moe_layer_init_wrapper)
         MegatronAdaptation.register('megatron.core.transformer.moe.moe_layer.MoELayer.forward', moe_layer_forward)
 
+        # For groupMLP
+        from mindspeed.core.transformer.moe.experts import groupedmlp_init_wrapper, groupedmlp_forward
+        MegatronAdaptation.register('megatron.core.transformer.moe.experts.GroupedMLP.__init__',
+                                    groupedmlp_init_wrapper)
+
         args = MegatronAdaptation.get_args()
         if args.moe_permutation_async_comm:
             if args.moe_token_dispatcher_type == 'allgather':
@@ -356,10 +361,6 @@ class CoreAdaptation(MegatronAdaptationABC):
                     MegatronAdaptation.register('megatron.core.transformer.moe.moe_utils.unpermute', unpermute_wrapper)
 
         if not args.moe_alltoall_overlap_comm:
-            # For groupMLP especially deepseek
-            from mindspeed.core.transformer.moe.experts import groupedmlp_init_wrapper, groupedmlp_forward
-            MegatronAdaptation.register('megatron.core.transformer.moe.experts.GroupedMLP.__init__',
-                                        groupedmlp_init_wrapper)
             MegatronAdaptation.register('megatron.core.transformer.moe.experts.GroupedMLP.forward',
                                         groupedmlp_forward)
 
