@@ -6,7 +6,7 @@ from megatron.core.transformer import ModuleSpec, TransformerLayer, TransformerL
 from megatron.core.models.gpt.gpt_layer_specs import _get_mlp_module_spec
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.identity_op import IdentityOp
-from mindspeed_llm.core.transformer.multi_head_latent_attention import MLASelfAttentionSubmodules, MultiHeadLatentAttention
+from mindspeed_llm.tasks.models.transformer.multi_head_latent_attention import MLASelfAttentionSubmodules, MultiHeadLatentAttention
 from mindspeed_llm.tasks.models.transformer.mla_dot_product_attention import MlaDotProductAttention
 from mindspeed_llm.core import PTNorm
 
