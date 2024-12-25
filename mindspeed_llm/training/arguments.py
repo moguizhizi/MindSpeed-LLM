@@ -69,6 +69,7 @@ def process_args(parser):
     parser = _add_2d_tp_args(parser)
     parser = _add_hccl_group_buffer_args(parser)
     parser = _add_coc_args(parser)
+    parser = _add_megatron2_args(parser)
 
     return parser
 
@@ -512,7 +513,7 @@ def _add_network_args(parser):
     group.add_argument(
         '--stage',
         default=None,
-        choices=["sft", "dpo", "rm", "prm", "simpo"],
+        choices=["sft", "dpo", "rm", "prm", "simpo", "ray_ppo"],
         help='Determine training mode'
     )
 
@@ -599,6 +600,65 @@ def _add_rl_args(parser):
         default=[],
         help="The labels represent the correctness of each reasoning step in the entire reasoning process.",
     )
+    group.add_argument(
+        "--md5-validate", action='store_true',
+        help="Enable md5 validate."
+    )
+    group.add_argument(
+        "--max-prompt-length", default=512, type=int,
+        help="Max prompt length in ppo."
+    )
+    group.add_argument(
+        "--num-samples-per-step", default=1, type=int,
+        help="Number of samples per step in generation."
+    )
+    group.add_argument(
+        "--cliprange-value", default=3.0, type=float,
+        help="Clip range value."
+    )
+    group.add_argument(
+        "--critic-mini-batch-size", default=1, type=int,
+        help="critic mini batch size."
+    )
+    group.add_argument(
+        "--critic-update-epochs", default=1, type=int,
+        help="critic update epochs."
+    )
+    group.add_argument(
+        "--ppo-mini-batch-size", default=1, type=int,
+        help="ppo mini batch size."
+    )
+    group.add_argument(
+        "--clip-ratio", default=0.2, type=float,
+        help="ppo loss clip ratio."
+    )
+    group.add_argument(
+        "--entropy-coeff", default=0.001, type=float,
+        help="entropy coefficient."
+    )
+    group.add_argument(
+        "--ppo-epochs", default=1, type=int,
+        help="ppo epochs."
+    )
+    group.add_argument(
+        "--shuffle-minibatch", action='store_true',
+        help="Enable shuffle minibatches in PPO."
+    )
+    group.add_argument(
+        "--do-sample", action='store_true',
+        help="Enable doing sample in actor generations."
+    )
+    return parser
+
+
+def _add_megatron2_args(parser):
+    group = parser.add_argument_group(title='run two megatrons at once')
+    group.add_argument('--num-gpus-for-train', type=int, default=None,
+                       help='num of GPUs for train in two megatrons, training is set to the first group.')
+    group.add_argument('--num-gpus-for-infer', type=int, default=None,
+                       help='num of GPUs for inference in two megatrons, inference is set to the first group.')
+    group.add_argument('--inference-tensor-model-parallel-size', type=int, default=1,
+                       help='TP size for inference group in two megatron')
     return parser
 
 
@@ -1028,6 +1088,11 @@ def _store_variables(args):
     if args.o2_gradient:
         args.accumulate_allreduce_grads_in_fp32 = True
 
+    # for 2 megatron
+    if hasattr(args, "role") and args.role == "actor_rollout":
+        variable_dict["true_world_size"] = args.world_size
+        args.world_size = args.num_gpus_for_train
+
     if not args.data_path:
         args.data_path = True
     args.mock_data = 0
@@ -1051,6 +1116,13 @@ def _restore_variables(args, variable_dict):
     # Bypass megatron validation for gradient reduce in fp32
     if args.o2_gradient:
         args.accumulate_allreduce_grads_in_fp32 = False
+
+    # for 2 megatron
+    if hasattr(args, "role") and args.role == "actor_rollout":
+        args.world_size = variable_dict["true_world_size"]
+        if args.rank >= args.num_gpus_for_train:  # inference groups, different data_parallel_size
+            args.data_parallel_size = args.num_gpus_for_infer // args.tensor_model_parallel_size
+            args.micro_batch_size = args.num_samples_per_step  # for passing num_microbatches_calculator check
 
     # to bypass megatron assertion of moe+spec
     args.spec = variable_dict["spec"]
