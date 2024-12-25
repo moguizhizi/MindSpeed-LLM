@@ -49,12 +49,12 @@ def check_dataset_info_map(data_args, column_names, raw_datasets, tag_names=None
         if key not in column_names:
             raise ValueError(f' {key} is unvalid, Please check map_keys')
 
-    if data_args.handler_name in ["AlpacaStyleInstructionHandler", "AlpacaStylePairwiseHandler"]:
+    if "AlpacaStyle" in data_args.handler_name:
         for value in data_args.map_keys.values():
             if value and value not in raw_datasets.format['columns']:
                 raise ValueError(f' {value} is unvalid, Please check map_keys')
 
-    if data_args.handler_name in ["SharegptStyleInstructionHandler", "SharegptStylePairwiseHandler"]:
+    if "SharegptStyle" in data_args.handler_name:
         if "tags" in data_args.map_keys.keys():
             for tag_name in data_args.map_keys["tags"].keys():
                 if tag_name not in tag_names:
@@ -66,8 +66,7 @@ def get_handler_dataset_attr(data_args, raw_datasets):
     if "Pairwise" in data_args.handler_name:
         setattr(dataset_attr, "ranking", True)
 
-    if data_args.handler_name in ["AlpacaStyleInstructionHandler", "AlpacaStylePairwiseHandler"]:
-        
+    if "AlpacaStyle" in data_args.handler_name:
         dataset_attr.formatting = "alpaca"
         column_names = ["prompt", "query", "response", "history", "system", "chosen", "rejected"]
         if data_args.map_keys is not None:
@@ -75,7 +74,7 @@ def get_handler_dataset_attr(data_args, raw_datasets):
             for column_name, target_name in data_args.map_keys.items():
                 setattr(dataset_attr, column_name, target_name)
 
-    elif data_args.handler_name in ["SharegptStyleInstructionHandler", "SharegptStylePairwiseHandler"]:
+    elif "SharegptStyle" in data_args.handler_name:
         dataset_attr.formatting = "sharegpt"
         tag_names = ["role_tag", "content_tag", "user_tag", "assistant_tag", "observation_tag", "function_tag", "system_tag"]
         column_names = ["messages", "tags", "system", "tools", "chosen", "rejected", "kto_tag"]

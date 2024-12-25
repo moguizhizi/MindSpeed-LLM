@@ -198,21 +198,32 @@ class DecoderPackedMTFDataset(torch.utils.data.Dataset):
 
     def _cut_instruction_token(self, item, dtype):
         IGNORE_INDEX = -100
-        prompt_length = (item["labels"] != IGNORE_INDEX).nonzero()[0][0]
-        prompt_ids = item["input_ids"][:prompt_length]
-        label_ids = item["labels"][prompt_length:]
-        source_len, target_len = _infer_seqlen(
-            len(prompt_ids), len(label_ids), self.seq_length
-        )
-        prompt_ids = prompt_ids[:source_len]
-        label_ids = label_ids[:target_len]
-        input_ids = np.append(prompt_ids, label_ids)
-        labels = np.append(IGNORE_INDEX * np.ones(source_len), label_ids)
-        res = {
-            "input_ids": input_ids.astype(dtype),
-            "attention_mask": np.ones_like(input_ids).astype(dtype),
-            "labels": labels.astype(dtype)
-        }
+        if "labels" in item.keys():
+            prompt_length = (item["labels"] != IGNORE_INDEX).nonzero()[0][0]
+            prompt_ids = item["input_ids"][:prompt_length]
+            label_ids = item["labels"][prompt_length:]
+            source_len, target_len = _infer_seqlen(
+                len(prompt_ids), len(label_ids), self.seq_length
+            )
+            prompt_ids = prompt_ids[:source_len]
+            label_ids = label_ids[:target_len]
+            input_ids = np.append(prompt_ids, label_ids)
+            labels = np.append(IGNORE_INDEX * np.ones(source_len), label_ids)
+
+            res = {
+                "input_ids": input_ids.astype(dtype),
+                "attention_mask": np.ones_like(input_ids).astype(dtype),
+                "labels": labels.astype(dtype)
+            }
+
+        else:
+            prompt_ids = item["input_ids"]
+            input_ids = prompt_ids[:self.seq_length]
+
+            res = {
+                "input_ids": input_ids.astype(dtype),
+                "attention_mask": np.ones_like(input_ids).astype(dtype)
+            }
 
         return res
 
@@ -294,7 +305,7 @@ def _build_index_mappings(
     shuffle_idx_filename = _filename + '_decoder_packed_shuffle_idx.npy'
 
     # Build the indexed mapping if not exist.
-    if torch.distributed.get_rank() % torch.cuda.device_count() == 0:
+    if torch.distributed.get_rank() % torch.cuda.device_count() == 0 or args.stage == "ray_ppo":
         if not os.path.isfile(shuffle_idx_filename):
 
             print_rank_0(' > WARNING: could not find index map files, building '

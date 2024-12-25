@@ -284,7 +284,8 @@ def task_chat(args, model):
             top_p=args.top_p,
             temperature=args.temperature,
             max_new_tokens=args.max_new_tokens,
-            stream=True
+            stream=True,
+            broadcast=True
         )
 
         chat_print_and_update_histories(args, responses, histories_no_template, histories_template, prompt)

@@ -143,6 +143,10 @@ class _AutoTokenizer(MegatronTokenizer):
         return self.tokenizer.eos_token_id
 
     @property
+    def pad_token_id(self):
+        return self.tokenizer.pad_token_id
+
+    @property
     def cls(self):
         candidate = self.tokenizer.cls_token_id
         return self._check_token_candidate(candidate)

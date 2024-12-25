@@ -163,7 +163,8 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
     def __init__(self, *args, **kwargs):
         super(MegatronModuleForCausalLM, self).__init__()
         from megatron.training import get_tokenizer
-        from megatron.inference.text_generation.generation import generate_tokens_probs_and_return_on_first_stage, beam_search_and_return_on_first_stage
+        from megatron.inference.text_generation.generation import generate_tokens_probs_and_return_on_first_stage, \
+            beam_search_and_return_on_first_stage
         from megatron.inference.text_generation.tokenization import tokenize_prompts
         from megatron.inference.text_generation.communication import broadcast_float_list
 
@@ -223,10 +224,11 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
 
         return unwrap_model(args.model, unwrap_classes)[0]
 
-    def generate(self, input_ids=None, **kwargs):
+    def generate(self, input_ids=None, broadcast=False, **kwargs):
         args = get_args()
 
-        if parallel_state.get_data_parallel_world_size() // parallel_state.get_expert_model_parallel_world_size() > 1:
+        if broadcast and parallel_state.get_data_parallel_world_size() // \
+                parallel_state.get_expert_model_parallel_world_size() > 1:
             raise ValueError("In this inference mode data parallel is forbidden.")
 
         super(MegatronModuleForCausalLM, self).generate(input_ids=input_ids, **kwargs)
@@ -247,11 +249,15 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
         # =======================================
         # Tokenize the prompts
         # =======================================
-        context_tokens_tensor, context_length_tensor = self.tokenize_prompts(tokenizer=self.tokenizer, 
-        prompts=input_ids, tokens_to_generate=self.max_new_tokens, max_generate_length=self.max_length, add_BOS=False)
-
-        args.seq_length = context_tokens_tensor.shape[1]
-        args.max_position_embeddings = args.seq_length
+        context_tokens_tensor, context_length_tensor = self.tokenize_prompts(tokenizer=self.tokenizer,
+                                                                             prompts=input_ids,
+                                                                             tokens_to_generate=self.max_new_tokens,
+                                                                             max_generate_length=self.max_length,
+                                                                             add_BOS=False,
+                                                                             broadcast=broadcast)
+        if not args.use_mcore_models:
+            args.seq_length = context_tokens_tensor.shape[1]
+            args.max_position_embeddings = args.seq_length
 
         # =======================================
         # Get the streaming tokens generator
@@ -259,9 +265,9 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
         if self.num_beams > 1:
             token_stream = self.beam_search_or_sampling(
                 args.model[0],
-                tokens=context_tokens_tensor, 
-                lengths=context_length_tensor, 
-                beam_size=self.num_beams, 
+                tokens=context_tokens_tensor,
+                lengths=context_length_tensor,
+                beam_size=self.num_beams,
                 do_sample=self.do_sample,
                 top_k=self.top_k,
                 top_p=self.top_p,
@@ -272,7 +278,7 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
         else:
             token_stream = self.greedy_search_or_sampling(
                 args.model[0],
-                tokens=context_tokens_tensor, 
+                tokens=context_tokens_tensor,
                 lengths=context_length_tensor,
                 do_sample=self.do_sample,
                 top_k=self.top_k,
@@ -340,6 +346,7 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
     def _truncate_in_multi_batch(self, output):
         if len(output) > 1:
             for idx, batch in enumerate(output):
+                output[idx] = output[idx][:self.max_new_tokens] if self.max_new_tokens else output[idx]
                 trunc_index = torch.nonzero(batch == self.tokenizer.eos_token_id)
 
                 if min(trunc_index.shape):
@@ -364,8 +371,8 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
             return full_output
         else:
             return token_stream
-        
-        
+
+
 class GPTModelInfer(GPTModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

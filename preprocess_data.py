@@ -238,7 +238,9 @@ def validate_args(args):
         "SharegptStyleInstructionHandler",
         "AlpacaStylePairwiseHandler",
         "SharegptStylePairwiseHandler",
-        "AlpacaStyleProcessRewardHandler"
+        "AlpacaStyleProcessRewardHandler",
+        "PPOAlpacaStyleInstructionHandler",
+        "PPOTRLAlpacaStyleInstructionHandler"
     ]
     if args.prompt_type is not None and args.handler_name not in support_prompt_type_handler:
         raise AssertionError(f'If specify prompt_type , handler name must be in:\n{support_prompt_type_handler}.')

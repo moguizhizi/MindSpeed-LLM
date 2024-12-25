@@ -102,7 +102,10 @@ class BaseDatasetHandler(object):
                     lengths.append(length)
                     length2indexes[length].append(valid_num)
                     for key in self.args.json_keys:
-                        key_data_dict[key].append(sample)
+                        if key == "attention_mask":
+                            key_data_dict[key].append([1] * len(sample))
+                        else:
+                            key_data_dict[key].append(sample)
                     valid_num += 1
 
         logger.info(f"valid_num = {valid_num}, total_num = {len(self.tokenized_dataset)}, "
@@ -496,6 +499,91 @@ class AlpacaStyleProcessRewardHandler(BaseDatasetHandler):
         return concatenated_ids
 
 
+class PPOAlpacaStyleInstructionHandler(BaseDatasetHandler):
+    """
+    Handle LlamaFactory supported dataset format
+    a Llama-factory Alpaca instruction dataset handler
+    """
+
+    def __init__(self, args, raw_datasets, tokenizer, splitter):
+        super().__init__(args, raw_datasets, tokenizer, splitter)
+        # self.prompter is unused in LlamaFactoryInstructionHandler
+        self.prompter = None
+        self.train_on_inputs = False
+        self.args.json_keys = ["input_ids", "attention_mask"]
+        # use '_packed' string to mark that this is a _packed dataset
+        self.args.output_prefix = self.args.output_prefix + "_packed"
+        self.ignored_label = -100
+        self.is_multi_turn = True
+        self.llama_factory_template = get_model_template(args.prompt_type.strip(), args.prompt_type_path.strip())
+
+    def _format_msg(self, sample):
+        return sample
+
+    def _tokenize_prompt(
+            self,
+            example,
+            template,
+            tokenizer,
+    ) -> Dict[str, List[List[int]]]:
+        model_inputs = {"input_ids": [], "attention_mask": []}
+        input_ids = []
+        if len(example["prompt"]) % 2 != 1 or len(example["response"]) != 1:
+            # this message is invalid
+            messages = [{'role': 'user', 'content': ''}, {'role': 'assistant', 'content': ''}]
+        else:
+            messages = example["prompt"] + example["response"]
+
+        for source_ids, target_ids in self.llama_factory_template.encode_multiturn(
+                tokenizer, messages, example["system"][0], example["tools"][0]
+        ):
+            input_ids += source_ids
+
+        model_inputs["input_ids"] = input_ids
+        model_inputs["attention_mask"] = [1] * len(input_ids)
+
+        return model_inputs
+
+    def _filter(self, sample):
+        messages = self._format_msg(sample)
+        tokenized_full_prompt = self._tokenize_prompt(
+            messages,
+            self.llama_factory_template,
+            self.tokenizer.tokenizer
+        )
+
+        for key in self.args.json_keys:
+            tokenized_full_prompt[key] = [tokenized_full_prompt[key]]
+
+        return tokenized_full_prompt
+
+
+class PPOTRLAlpacaStyleInstructionHandler(BaseDatasetHandler):
+    """
+    Handle TRL supported dataset format
+    an Alpaca instruction dataset handler
+    """
+
+    def __init__(self, args, raw_datasets, tokenizer, splitter):
+        super().__init__(args, raw_datasets, tokenizer, splitter)
+        # self.prompter is unused in LlamaFactoryInstructionHandler
+        self.prompter = None
+        self.train_on_inputs = False
+        self.args.json_keys = ["input_ids", "attention_mask"]
+        # use '_packed' string to mark that this is a _packed dataset
+        self.args.output_prefix = self.args.output_prefix + "_packed"
+        self.ignored_label = -100
+        self.is_multi_turn = True
+
+    def _filter(self, sample):
+        messages = sample["prompt"][0]["content"]
+        tokenized_full_prompt = self.tokenizer.tokenizer(messages)
+
+        for key in self.args.json_keys:
+            tokenized_full_prompt[key] = [tokenized_full_prompt[key]]
+        return tokenized_full_prompt
+
+
 class GeneralInstructionHandler(BaseDatasetHandler):
     """
     a general instruction dataset handler
@@ -841,7 +929,9 @@ def build_dataset(args):
             "AlpacaStyleInstructionHandler",
             "SharegptStyleInstructionHandler",
             "AlpacaStylePairwiseHandler",
-            "SharegptStylePairwiseHandler"
+            "SharegptStylePairwiseHandler",
+            "PPOAlpacaStyleInstructionHandler",
+            "PPOTRLAlpacaStyleInstructionHandler"
         ]:
             handler_dataset_attr = get_handler_dataset_attr(args, raw_datasets)
 
