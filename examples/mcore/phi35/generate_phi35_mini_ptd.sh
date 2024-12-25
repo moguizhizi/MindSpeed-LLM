@@ -2,7 +2,7 @@
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 # Change for multinode config
-NPUS_PER_NODE=8
+NPUS_PER_NODE=1
 MASTER_ADDR=localhost
 MASTER_PORT=6001
 NNODES=1
@@ -25,7 +25,7 @@ SHORT_FACTOR="1.0,1.0199999809265137,1.0299999713897705,1.0299999713897705,1.049
 
 torchrun $DISTRIBUTED_ARGS inference.py \
        --tensor-model-parallel-size 1 \
-       --pipeline-model-parallel-size 8 \
+       --pipeline-model-parallel-size 1 \
        --use-mcore-models \
        --use-flash-attn \
        --rope-scaling-type longrope \

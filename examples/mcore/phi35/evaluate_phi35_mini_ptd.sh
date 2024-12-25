@@ -6,7 +6,7 @@ MASTER_ADDR=localhost
 MASTER_PORT=6001
 NNODES=1
 NODE_RANK=0
-NPUS_PER_NODE=8
+NPUS_PER_NODE=1
 
 # modify script model path and tokenizer path
 TOKENIZER_PATH="your tokenizer directory path"
@@ -36,7 +36,7 @@ torchrun $DISTRIBUTED_ARGS evaluation.py \
       --attention-dropout 0.0 \
       --no-chat-template \
       --tensor-model-parallel-size 1 \
-      --pipeline-model-parallel-size 8 \
+      --pipeline-model-parallel-size 1 \
       --evaluation-batch-size 1 \
       --exit-on-missing-checkpoint \
       --rope-scaling-type longrope \
