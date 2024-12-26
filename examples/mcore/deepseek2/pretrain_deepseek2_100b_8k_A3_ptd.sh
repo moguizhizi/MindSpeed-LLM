@@ -1,7 +1,7 @@
 #!/bin/bash
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-export HCCL_CONNECT_TIMEOUT=1200
+export HCCL_CONNECT_TIMEOUT=3600
 
 GPUS_PER_NODE=16
 MASTER_ADDR=localhost #主节点IP
@@ -43,7 +43,8 @@ MLA_ARGS="
 MOE_ARGS="
     --moe-grouped-gemm \
     --moe-permutation-async-comm \
-    --moe-token-dispatcher-type allgather \
+    --moe-token-dispatcher-type alltoall \
+    --use-fused-moe-token-permute-and-unpermute \
     --first-k-dense-replace 1 \
     --moe-layer-freq 1 \
     --n-shared-experts 2 \
@@ -70,11 +71,13 @@ ROPE_ARGS="
 "
 
 GPT_ARGS="
-    --swap-attention \
-    --recompute-num-layers 3 \
+    --recompute-granularity full \
+    --recompute-method uniform \
+    --recompute-num-layers 1 \
     --no-shared-storage \
     --use-distributed-optimizer \
     --use-flash-attn \
+    --shape-order BNSD \
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
