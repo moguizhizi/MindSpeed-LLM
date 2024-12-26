@@ -9,6 +9,7 @@ from megatron.core import mpu
 from megatron.training.utils import average_losses_across_data_parallel_group
 from mindspeed_llm.tasks.posttrain.base import BaseTrainer
 from mindspeed_llm.tasks.posttrain.dpo import DPOTrainer
+from mindspeed_llm.tasks.posttrain.utils import vocab_parallel_log_softmax
 
 
 class SimPOTrainer(BaseTrainer):
@@ -261,7 +262,7 @@ class SimPOTrainer(BaseTrainer):
             loss_mask = labels != 0
 
             per_token_log_probs = torch.gather(
-                DPOTrainer.vocab_parallel_log_softmax(logits), dim=2, index=labels.unsqueeze(2)).squeeze(2)
+                vocab_parallel_log_softmax(logits), dim=2, index=labels.unsqueeze(2)).squeeze(2)
 
             all_log_probs = (per_token_log_probs * loss_mask).sum(-1)
             valid_length = loss_mask.sum(-1)

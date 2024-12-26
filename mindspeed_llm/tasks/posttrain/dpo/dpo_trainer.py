@@ -12,6 +12,7 @@ from megatron.training.utils import average_losses_across_data_parallel_group
 from megatron.training.global_vars import set_args
 from mindspeed_llm.tasks.posttrain.base import BaseTrainer
 from mindspeed_llm.tasks.posttrain.dpo.dpo_model import DPOModel
+from mindspeed_llm.tasks.posttrain.utils import compute_log_probs
 from mindspeed_llm.training.utils import get_tune_attention_mask, get_finetune_data_on_this_tp_rank
 from mindspeed_llm.training.utils import get_batch_on_this_cp_rank, generate_actual_seq_len
 
@@ -37,7 +38,7 @@ class DPOTrainer(BaseTrainer):
         self.hyper_model = DPOModel(
             self.train_args[1],
             self._init_reference_model()
-        )   
+        )
 
     @staticmethod
     def get_batch(data_iterator):
@@ -78,13 +79,13 @@ class DPOTrainer(BaseTrainer):
 
         attention_mask_1d = data_b.get('attention_mask').long()
         attention_mask = get_tune_attention_mask(attention_mask_1d)
-        
+
         batch = {
-                'tokens': tokens,
-                'labels': labels,
-                'attention_mask': attention_mask,
-                'position_ids': position_ids
-            }
+            'tokens': tokens,
+            'labels': labels,
+            'attention_mask': attention_mask,
+            'position_ids': position_ids
+        }
         batch = get_batch_on_this_cp_rank(batch)
         return batch.values()
 
@@ -137,52 +138,12 @@ class DPOTrainer(BaseTrainer):
 
         return output_tensor, partial(self.loss_func, labels)
 
-    @staticmethod
-    def vocab_parallel_log_softmax(logits):
-        """
-        Compute log softmax values for each sets of scores in vocab parallel.
-
-        Args:
-            logits (Tensor): Input logits.
-
-        Returns:
-            Tensor: Log softmax values.
-        """
-        # Step 1: Compute the local max value for numerical stability
-        z_max = logits.max(dim=-1, keepdim=True).values
-
-        # Step 2: Perform all-reduce to get the global max across all processes
-        torch.distributed.all_reduce(
-            z_max,
-            op=torch.distributed.ReduceOp.MAX,
-            group=mpu.get_tensor_model_parallel_group()
-        )
-
-        # Step 3: Compute the log(exp(x - z_max)) for local logits
-        local_exp = torch.exp(logits - z_max)
-
-        # Step 4: Compute local sum of exp(x - z_max)
-        local_sum_exp = local_exp.sum(dim=-1, keepdim=True)
-
-        # Step 5: Perform all-reduce to get the global sum of exp(x - z_max) across all processes
-        torch.distributed.all_reduce(
-            local_sum_exp,
-            op=torch.distributed.ReduceOp.SUM,
-            group=mpu.get_tensor_model_parallel_group()
-        )
-
-        # Step 6: Compute the log of the global sum of exp(x - z_max)
-        log_sum_exp = local_sum_exp.log()
-
-        # Step 7: Compute and return the log softmax values
-        return logits - z_max - log_sum_exp
-
     def dpo_loss(
-        self,
-        policy_chosen_log_probs: torch.Tensor,
-        policy_rejected_log_probs: torch.Tensor,
-        reference_chosen_log_probs: torch.Tensor,
-        reference_rejected_log_probs: torch.Tensor,
+            self,
+            policy_chosen_log_probs: torch.Tensor,
+            policy_rejected_log_probs: torch.Tensor,
+            reference_chosen_log_probs: torch.Tensor,
+            reference_rejected_log_probs: torch.Tensor,
     ) -> Tuple[torch.Tensor, ...]:
         """
         Compute the DPO loss for a batch of policy and reference model log probabilities.
@@ -212,8 +173,8 @@ class DPOTrainer(BaseTrainer):
         # The label_smoothing parameter encodes our uncertainty about the labels and calculates a conservative DPO loss.
         if self.args.dpo_loss_type == "sigmoid":
             losses = (
-                -F.logsigmoid(self.args.dpo_beta * logits) * (1 - self.args.dpo_label_smoothing)
-                - F.logsigmoid(-self.args.dpo_beta * logits) * self.args.dpo_label_smoothing
+                    -F.logsigmoid(self.args.dpo_beta * logits) * (1 - self.args.dpo_label_smoothing)
+                    - F.logsigmoid(-self.args.dpo_beta * logits) * self.args.dpo_label_smoothing
             )
         elif self.args.dpo_loss_type == "hinge":
             losses = torch.relu(1 - self.args.dpo_beta * logits)
@@ -244,26 +205,26 @@ class DPOTrainer(BaseTrainer):
             )
 
         chosen_rewards = (
-            self.args.dpo_beta
-            * (
-                    policy_chosen_log_probs - reference_chosen_log_probs
-            ).detach()
+                self.args.dpo_beta
+                * (
+                        policy_chosen_log_probs - reference_chosen_log_probs
+                ).detach()
         )
         rejected_rewards = (
-            self.args.dpo_beta
-            * (
-                    policy_rejected_log_probs - reference_rejected_log_probs
-            ).detach()
+                self.args.dpo_beta
+                * (
+                        policy_rejected_log_probs - reference_rejected_log_probs
+                ).detach()
         )
 
         return losses, chosen_rewards, rejected_rewards
 
     def compute_preference_loss(
-        self,
-        policy_chosen_log_probs: torch.Tensor,
-        policy_rejected_log_probs: torch.Tensor,
-        reference_chosen_log_probs: torch.Tensor,
-        reference_rejected_log_probs: torch.Tensor,
+            self,
+            policy_chosen_log_probs: torch.Tensor,
+            policy_rejected_log_probs: torch.Tensor,
+            reference_chosen_log_probs: torch.Tensor,
+            reference_rejected_log_probs: torch.Tensor,
     ) -> Tuple[torch.Tensor, ...]:
         """
         Computes the preference loss for a batch of policy and reference model log probabilities.
@@ -385,7 +346,7 @@ class DPOTrainer(BaseTrainer):
         all_logits = all_logits[:, :-1, :]
         batch_size = all_logits.size(0) // 2
 
-        all_log_probs, valid_length = self._get_batch_log_probs(
+        all_log_probs, valid_length, _ = compute_log_probs(
             all_logits,
             label
         )
@@ -398,69 +359,3 @@ class DPOTrainer(BaseTrainer):
         all_results = (chosen_log_probs, rejected_log_probs, chosen_log_probs / chosen_length)
 
         return all_results
-
-    def _get_batch_log_probs(
-            self,
-            logits: torch.Tensor,
-            labels: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Computes the log probabilities of the given labels under the given logits.
-
-        In the tensor parallelism case, it takes into account the vocab parallelism and
-        performs the necessary adjustments to the labels and logits.
-
-        Args:
-            logits: The logits tensor.
-            labels: The label tensor.
-
-        Returns:
-            A tuple containing the log probabilities and the valid length.
-        """
-        if mpu.get_tensor_model_parallel_world_size() > 1:
-            tp_vocab_size = logits.size(2)
-
-            labels -= mpu.get_tensor_model_parallel_rank() * tp_vocab_size
-            labels = labels.masked_fill(torch.logical_or(labels < 0, labels >= tp_vocab_size), 0)
-            loss_mask = labels != 0
-
-            per_token_log_probs = torch.gather(
-                self.vocab_parallel_log_softmax(logits), dim=2, index=labels.unsqueeze(2)).squeeze(2)
-
-            all_log_probs = (per_token_log_probs * loss_mask).sum(-1)
-            valid_length = loss_mask.sum(-1)
-
-            torch.distributed.all_reduce(
-                all_log_probs,
-                op=torch.distributed.ReduceOp.SUM,
-                group=mpu.get_tensor_model_parallel_group()
-            )
-
-            torch.distributed.all_reduce(
-                valid_length,
-                op=torch.distributed.ReduceOp.SUM,
-                group=mpu.get_tensor_model_parallel_group()
-            )
-
-        else:
-            label_pad_token_id = self.IGNORE_INDEX
-            loss_mask = labels != label_pad_token_id
-            labels[labels == label_pad_token_id] = 0  # dummy token
-            per_token_log_probs = torch.gather(logits.log_softmax(-1), dim=2, index=labels.unsqueeze(2)).squeeze(2)
-            all_log_probs = (per_token_log_probs * loss_mask).sum(-1)
-            valid_length = loss_mask.sum(-1)
-            
-        if mpu.get_context_parallel_world_size() > 1:
-            torch.distributed.all_reduce(
-                valid_length,
-                op=torch.distributed.ReduceOp.SUM,
-                group=mpu.get_context_parallel_group()
-            )
-
-            torch.distributed.all_reduce(
-                all_log_probs,
-                op=torch.distributed.ReduceOp.SUM,
-                group=mpu.get_context_parallel_group()
-            )
-
-        return all_log_probs, valid_length
