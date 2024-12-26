@@ -265,7 +265,7 @@ MindSpeed-LLM当前已支持和预置大模型列表：
     <td>【昇腾】</td>
   </tr>
   <tr>
-    <td rowspan="4">通信掩盖</td>
+    <td rowspan="5">通信掩盖</td>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/async-ddp-param-gather.md">梯度reduce通算掩盖</a></td>
     <td>✅</td>
     <td>✅</td>
@@ -285,6 +285,12 @@ MindSpeed-LLM当前已支持和预置大模型列表：
   </tr>
   <tr>
     <td><a href="./docs/features/mc2.md">MC2</a></td>
+    <td>✅</td>
+    <td>✅</td>
+    <td>【昇腾】</td>
+  </tr>
+  <tr>
+    <td><a href="./docs/features/communication-over-computation.md">CoC</a></td>
     <td>✅</td>
     <td>✅</td>
     <td>【昇腾】</td>
