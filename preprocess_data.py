@@ -111,7 +111,7 @@ def add_data_args(parser):
                        help='Keep newlines between sentences when splitting.')
     # LlamaFactory
     group.add_argument('--prompt-type', type=str, default=None,
-                       choices=['default', 'empty', 'chatglm2', 'chatglm3', 'chatglm3_system', 'glm4', 'chatml',
+                       choices=['default', 'empty', 'trl', 'chatglm2', 'chatglm3', 'chatglm3_system', 'glm4', 'chatml',
                                 'chatml_de', 'qwen', 'llama3', 'llama2', 'mistral', 'mixtral', 'gemma', 'alpaca',
                                 'deepseek2', 'deepseek2-lite', 'cpm', 'baichuan2'],
                        help='Which template to use for constructing prompts in training.'
@@ -239,8 +239,7 @@ def validate_args(args):
         "AlpacaStylePairwiseHandler",
         "SharegptStylePairwiseHandler",
         "AlpacaStyleProcessRewardHandler",
-        "PPOAlpacaStyleInstructionHandler",
-        "PPOTRLAlpacaStyleInstructionHandler"
+        "PPOAlpacaStyleInstructionHandler"
     ]
     if args.prompt_type is not None and args.handler_name not in support_prompt_type_handler:
         raise AssertionError(f'If specify prompt_type , handler name must be in:\n{support_prompt_type_handler}.')

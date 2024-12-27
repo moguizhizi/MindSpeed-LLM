@@ -255,6 +255,24 @@
     }
   },
   {
+    "name": "trl",
+    "format_user": {
+      "slots": [
+        "{{content}}"
+      ]
+    },
+    "format_assistant": {
+      "slots": [
+        "{{content}}"
+      ]
+    },
+    "format_prefix": {
+      "slots": [
+        ["bos_token"]
+      ]
+    }
+  },
+  {
     "name": "qwen",
     "format_user": {
       "slots": [

@@ -558,32 +558,6 @@ class PPOAlpacaStyleInstructionHandler(BaseDatasetHandler):
         return tokenized_full_prompt
 
 
-class PPOTRLAlpacaStyleInstructionHandler(BaseDatasetHandler):
-    """
-    Handle TRL supported dataset format
-    an Alpaca instruction dataset handler
-    """
-
-    def __init__(self, args, raw_datasets, tokenizer, splitter):
-        super().__init__(args, raw_datasets, tokenizer, splitter)
-        # self.prompter is unused in LlamaFactoryInstructionHandler
-        self.prompter = None
-        self.train_on_inputs = False
-        self.args.json_keys = ["input_ids", "attention_mask"]
-        # use '_packed' string to mark that this is a _packed dataset
-        self.args.output_prefix = self.args.output_prefix + "_packed"
-        self.ignored_label = -100
-        self.is_multi_turn = True
-
-    def _filter(self, sample):
-        messages = sample["prompt"][0]["content"]
-        tokenized_full_prompt = self.tokenizer.tokenizer(messages)
-
-        for key in self.args.json_keys:
-            tokenized_full_prompt[key] = [tokenized_full_prompt[key]]
-        return tokenized_full_prompt
-
-
 class GeneralInstructionHandler(BaseDatasetHandler):
     """
     a general instruction dataset handler
@@ -930,8 +904,7 @@ def build_dataset(args):
             "SharegptStyleInstructionHandler",
             "AlpacaStylePairwiseHandler",
             "SharegptStylePairwiseHandler",
-            "PPOAlpacaStyleInstructionHandler",
-            "PPOTRLAlpacaStyleInstructionHandler"
+            "PPOAlpacaStyleInstructionHandler"
         ]:
             handler_dataset_attr = get_handler_dataset_attr(args, raw_datasets)
 
