@@ -17,10 +17,10 @@ Note that we don't combine the main with ray_trainer as ray_trainer is used by o
 import ray
 import hydra
 
-from mindspeed_llm.tasks.posttrain.rlxf.ray_trainer.ppo_trainer import RayPPOTrainer
+from mindspeed_llm.tasks.posttrain.launcher import get_trainer
 
 
-@hydra.main(config_path='configs/rlxf', config_name='ppo_trainer_llama3_8b', version_base=None)
+@hydra.main(config_path='configs/rlxf', config_name='ppo_trainer_llama32_1b', version_base=None)
 def main(config):
     if not ray.is_initialized():
         # this is for local ray cluster
@@ -34,7 +34,7 @@ def main(config):
 
 @ray.remote
 def main_task(config):
-    trainer = RayPPOTrainer(config)
+    trainer = get_trainer(config.training.stage)(config)
     trainer.train()
 
 

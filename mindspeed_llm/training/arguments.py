@@ -513,7 +513,7 @@ def _add_network_args(parser):
     group.add_argument(
         '--stage',
         default=None,
-        choices=["sft", "dpo", "rm", "prm", "simpo", "ray_ppo"],
+        choices=["sft", "dpo", "rm", "prm", "simpo", "ray_ppo", "ray_online_dpo"],
         help='Determine training mode'
     )
 
@@ -647,6 +647,10 @@ def _add_rl_args(parser):
     group.add_argument(
         "--do-sample", action='store_true',
         help="Enable doing sample in actor generations."
+    )
+    group.add_argument(
+        "--missing-eos-penalty", default=0.0, type=float,
+        help="eos penalty."
     )
     return parser
 

@@ -214,6 +214,7 @@ def apply_kl_penalty(config, data: DataProto, kl_ctrl: AdaptiveKLController):
 
     return data, metrics
 
+
 def compute_advantage(data: DataProto, gamma, lam, adv_estimator):
     values = data.batch['values']
     responses = data.batch['responses']
@@ -225,10 +226,10 @@ def compute_advantage(data: DataProto, gamma, lam, adv_estimator):
     # TODO: add other ways to estimate advantages
     if adv_estimator == 'gae':
         advantages, returns = compute_gae_advantage_return(token_level_rewards=token_level_rewards,
-                                                                      values=values,
-                                                                      eos_mask=response_mask,
-                                                                      gamma=gamma,
-                                                                      lam=lam)
+                                                           values=values,
+                                                           eos_mask=response_mask,
+                                                           gamma=gamma,
+                                                           lam=lam)
         data.batch['advantages'] = advantages
         data.batch['returns'] = returns
     else:
@@ -240,6 +241,7 @@ def reduce_metrics(metrics: dict):
     for key, val in metrics.items():
         metrics[key] = np.mean(val)
     return metrics
+
 
 def compute_data_metrics(batch):
     # TODO: add response length
@@ -279,6 +281,33 @@ def compute_data_metrics(batch):
         'critic/values/mean': F.masked_mean(values, response_mask).detach().item(),
         'critic/values/max': torch.max(values[response_mask]).detach().item(),
         'critic/values/min': torch.min(values[response_mask]).detach().item(),
+        # response length
+        'response_length/mean': torch.mean(response_length).detach().item(),
+        'response_length/max': torch.max(response_length).detach().item(),
+        'response_length/min': torch.min(response_length).detach().item(),
+        # prompt length
+        'prompt_length/mean': torch.mean(prompt_length).detach().item(),
+        'prompt_length/max': torch.max(prompt_length).detach().item(),
+        'prompt_length/min': torch.min(prompt_length).detach().item(),
+    }
+    return metrics
+
+
+def compute_data_online_dpo_metrics(batch):
+    sequence_score = batch.batch['rm_scores'].sum(-1)
+    response_length = batch.batch['responses'].shape[-1]
+
+    prompt_mask = batch.batch['attention_mask'][:, :-response_length]
+    response_mask = batch.batch['attention_mask'][:, -response_length:]
+
+    prompt_length = prompt_mask.sum(-1).float()
+    response_length = response_mask.sum(-1).float()
+
+    metrics = {
+        # score
+        'reward/score/mean': torch.mean(sequence_score).detach().item(),
+        'reward/score/max': torch.max(sequence_score).detach().item(),
+        'reward/score/min': torch.min(sequence_score).detach().item(),
         # response length
         'response_length/mean': torch.mean(response_length).detach().item(),
         'response_length/max': torch.max(response_length).detach().item(),

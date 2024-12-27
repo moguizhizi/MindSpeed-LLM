@@ -3,7 +3,7 @@ defaults:
       - llama32-1b
 
 training:
-  global_batch_size: 8
+  global_batch_size: 4
   seq_length: 512
   tokenizer_type: PretrainedFromHF
   tokenizer_name_or_path: ./models/llama-3.2-1b-instruct/
@@ -16,22 +16,22 @@ training:
   bf16: true
   is_instruction_dataset: true
   variable_seq_lengths: true
-  no_shuffle: true
-  stage: ray_ppo
+  stage: ray_online_dpo
+
 
 actor_rollout_ref:
   actor_rollout:
     model: llama32-1b
-    do_sample: false
     micro_batch_size: 4
     ppo_mini_batch_size: 4
-    num_samples_per_step: 2
     max_prompt_length: 256
     ppo_epochs: 1
     clip_ratio: 0.2
     entropy_coeff: 0.001
-    shuffle_minibatch: false
+    do_sample: true
+    shuffle: false
     use_kv_cache: true
+    num_samples_per_step: 4
     tensor_model_parallel_size: 1
     pipeline_model_parallel_size: 1
     lr: 1e-7
@@ -44,55 +44,31 @@ actor_rollout_ref:
     adam_beta2: 0.999
     initial_loss_scale: 4096
     finetune: true
-    load: ./ckpt
+    load: ./models/llama-3.2-1b-instruct-tp1-pp1
     save: ./ckpt
     num_gpus_for_train: 1
     num_gpus_for_infer: 1
     pad_to_multiple_of: 1
+    inference_tensor_model_parallel_size: 1
     data_path: ./dataset/descriptiveness/descriptiveness
     split: 100,0,0
+    no_shuffle: true
+    missing_eos_penalty: 1.0
 
   ref:
     model: llama32-1b
     tensor_model_parallel_size: 1
     pipeline_model_parallel_size: 1
-    micro_batch_size: 8
-    load: ./ckpt
-
-critic:
-  model: llama32-1b
-  tensor_model_parallel_size: 1
-  pipeline_model_parallel_size: 1
-  use_mcore_models: True
-  micro_batch_size: 4
-  sequence_parallel: False
-  lr: 1e-7
-  lr_decay_style: constant
-  min_lr: 0.0
-  weight_decay: 0.0
-  lr_warmup_fraction: 0.0
-  use_distributed_optimizer: true
-  clip_grad: 10000.0
-  adam_beta1: 0.9
-  adam_beta2: 0.999
-  initial_loss_scale: 4096
-  no_load_optim: True
-  no_load_rng: True
-  is_instruction_dataset: true
-  variable_seq_lengths: true
-  load: ./ckpt
-  save: ./ckpt
-  cliprange_value: 0.2
-  critic_mini_batch_size: 4
-  critic_update_epochs: 1
+    micro_batch_size: 4
+    load: ./models/llama-3.2-1b-instruct-tp1-pp1
 
 reward:
   model: llama32-1b
   tensor_model_parallel_size: 1
   pipeline_model_parallel_size: 1
-  micro_batch_size: 8
-  sequence_parallel: false
-  load: ./ckpt
+  micro_batch_size: 4
+  sequence_parallel: False
+  load: ./models/llama-3.2-1b-rm-mcore-tp1-pp1
 
 algorithm:
   gamma: 1.0
@@ -102,10 +78,9 @@ algorithm:
   kl_ctrl:
     type: fixed
     kl_coef: 0.05
-  missing_eos_penalty: 0.0
+  missing_eos_penalty: 1.0
 
 resource_pool:
   actor_rollout: [2]
   ref: [1]
-  critic: [1]
   reward: [1]

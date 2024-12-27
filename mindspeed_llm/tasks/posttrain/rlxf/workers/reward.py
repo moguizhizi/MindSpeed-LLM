@@ -61,7 +61,6 @@ class RewardWorker(MegatronWorker):
 class MegatronPPORM(RMTrainer):
     def __init__(self):
         super().__init__()
-        self.IGNORE_INDEX = -100
 
     def initialize(self):
         self.args = get_args()
@@ -90,7 +89,8 @@ class MegatronPPORM(RMTrainer):
                 'train_iterations_warmup': 5
             })
 
-        from megatron.training.training import setup_model_and_optimizer
+        if self.args.stage == "ray_online_dpo":
+            self.args.micro_batch_size *= 2
         self.timers('model-setup', log_level=0).start(barrier=True)
 
         model = get_model(self.model_provider, self.model_type)

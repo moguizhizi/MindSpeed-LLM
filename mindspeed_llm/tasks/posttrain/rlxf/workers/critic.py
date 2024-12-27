@@ -1,21 +1,15 @@
 import time
 import json
 import os
+from typing import Dict, Union, Iterable
+from functools import partial
 
 import ray
 import torch
 import torch_npu
 
-from typing import Dict
-from typing import Union
-from typing import Iterable
-from functools import partial
-
 import megatron
-from megatron.training import (
-    print_rank_0,
-
-)
+from megatron.training import print_rank_0
 from megatron.core.models.gpt.gpt_layer_specs import (
     get_gpt_layer_local_spec,
     get_gpt_layer_with_transformer_engine_spec,
@@ -171,7 +165,6 @@ class MegatronPPOCritic(BaseTrainer):
             config = core_transformer_config_from_yaml(args, "language_model")
         else:
             config = core_transformer_config_from_args(args)
-
 
         if not args.use_mcore_models:
             raise ValueError("Reward model training currently supports mcore only.")

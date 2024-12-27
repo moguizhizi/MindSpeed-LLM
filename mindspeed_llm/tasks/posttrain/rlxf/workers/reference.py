@@ -92,6 +92,8 @@ class MegatronPPOReference(BaseTrainer):
 
         self.model = get_model(self.model_provider, self.model_type)
         unwrapped_model = unwrap_model(self.model)
+        if self.args.stage == "ray_online_dpo":
+            self.args.micro_batch_size *= 2
 
         if self.args.load is not None or self.args.pretrained_checkpoint is not None:
             self.timers('load-checkpoint', log_level=0).start(barrier=True)

@@ -13,15 +13,14 @@
 # limitations under the License.
 
 import time
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any
 
 import ray
 from ray.util import list_named_actors
-from ray.util.placement_group import placement_group, PlacementGroup
+from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy, NodeAffinitySchedulingStrategy
 from ray.experimental.state.api import get_actor
 
-from megatron.training import get_args
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base import WorkerGroup, ResourcePool, ClassWithInitArgs, Worker
 
 __all__ = ['Worker']

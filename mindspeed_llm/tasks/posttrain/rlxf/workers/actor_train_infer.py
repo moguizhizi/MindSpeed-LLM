@@ -6,14 +6,15 @@ from typing import Iterable, Dict
 
 import ray
 import torch
-
+import torch_npu
+import torch.nn.functional as F
 from tensordict import TensorDict
 
 from megatron.training import get_args, initialize_megatron, get_timers, get_tokenizer
 from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
 from megatron.core import parallel_state as mpu, tensor_parallel
 from megatron.training.training import append_to_progress_log, build_train_valid_test_data_iterators, print_datetime
-from mindspeed_llm.tasks.posttrain.rlxf.training.core_algos import compute_policy_loss
+from mindspeed_llm.tasks.posttrain.rlxf.training.core_algos import compute_policy_loss, find_first_eos_index
 from mindspeed_llm.tasks.posttrain.rlxf.utils.torch_functional import split_dict_tensor_into_batches
 from mindspeed_llm.tasks.inference.infer_base import add_text_generate_args
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker import MegatronWorker
@@ -148,6 +149,9 @@ class PPOActorTrainWorker(BaseTrainer):
         model, optimizer, opt_param_scheduler = self._build_model_and_optimizer()
         self.actor = MegatronPPOActor(model=model, optimizer=optimizer, opt_param_scheduler=opt_param_scheduler)
         sync_param_nums(model[0])
+        if self.args.stage == "ray_online_dpo":
+            self.args.micro_batch_size *= 2
+            self.args.ppo_mini_batch_size *= 2
 
     def _build_model_and_optimizer(self):
         from megatron.training.training import setup_model_and_optimizer
@@ -264,12 +268,14 @@ class PPOActorInferWorker(BaseTrainer):
         idx_list = []
         idx_list_per_step = []
         max_new_tokens = args.seq_length - args.max_prompt_length
-        assert max_new_tokens%args.pad_to_multiple_of == 0, "please adjust pad_to_multiple_of so that \
-                                                max_new_tokens%args.pad_to_multiple_of == 0"
+        assert max_new_tokens % args.pad_to_multiple_of == 0, "please adjust pad_to_multiple_of so that \
+                                                max_new_tokens % args.pad_to_multiple_of == 0"
         for i in range(num_infer_steps):
             for j in range(args.num_samples_per_step):
                 tokens = self.get_batch(self.train_data_iterator)
                 idx_list_per_step.append(tokens.view(-1).cpu().numpy().tolist())
+            if args.stage == "ray_online_dpo":
+                idx_list_per_step = idx_list_per_step + copy.deepcopy(idx_list_per_step)
             responses_per_step = self.inf_model.generate(copy.deepcopy(idx_list_per_step),
                                                          max_new_tokens=max_new_tokens,
                                                          detokenize=False, broadcast=False, do_sample=args.do_sample)
@@ -291,7 +297,10 @@ class PPOActorInferWorker(BaseTrainer):
                                                  responses_ori_length, responses_pad_length)
 
         position_ids = generate_position_ids_from_attention_mask(input_ids, prompts_ori_length, prompts_pad_length)
-        batch_size = args.global_batch_size // args.data_parallel_size
+        if self.args.stage == "ray_online_dpo":
+            batch_size = args.global_batch_size // args.data_parallel_size * 2
+        else:
+            batch_size = args.global_batch_size // args.data_parallel_size
 
 
         batch = TensorDict({
@@ -519,7 +528,7 @@ class MegatronPPOActor():
 
         forward_backward_func = get_forward_backward_func()
 
-        def loss_func(output, data, meta_info):
+        def loss_func_ppo(output, data, meta_info):
             """
             This loss_func has two modes
             1. when forward_only is True: use post_process_fn to calculate the log_probs
@@ -558,6 +567,80 @@ class MegatronPPOActor():
             }
             return policy_loss, stats
 
+        def loss_func_online_dpo(output, data, meta_info):
+            """
+            calculate the policy loss
+            """
+            args = get_args()
+            scores = data['rm_scores']
+            responses = data['responses']
+            device = responses.device
+            ref_logprobs = data['ref_log_prob']
+            response_length = responses.size(1)
+            attention_mask = data['attention_mask']
+            response_mask = attention_mask[:, -response_length:]
+            num_examples = responses.shape[0] // 2
+
+            actual_start = torch.arange(responses.size(0), device=responses.device)
+            tokenizer = get_tokenizer()
+            score_first_eos_index, reward_first_eos_index = find_first_eos_index(responses, tokenizer.eos_token_id)
+
+            scores = scores[[actual_start, score_first_eos_index]]
+            contain_eos_token = torch.any(responses == tokenizer.eos_token_id, dim=-1)
+            if args.missing_eos_penalty is not None:
+                scores[~contain_eos_token] -= args.missing_eos_penalty
+                data['rm_scores'] = scores
+            first_half, second_half = split_two_prompts(scores)
+
+            mask = first_half >= second_half
+            num_examples_range = torch.arange(num_examples, device=device)
+            chosen_indices = num_examples_range + (~mask * num_examples)
+            rejected_indices = num_examples_range + (mask * num_examples)
+            # Build tensor so that the first half is the chosen examples and the second half the rejected examples
+            cr_indices = torch.cat((chosen_indices, rejected_indices), dim=0)  # cr = chosen and rejected
+            logits = output[:, -response_length - 1:-1]
+            _, _, log_prob = compute_log_probs(logits, responses, per_token=True)
+
+            cr_logprobs = log_prob[cr_indices]
+            cr_ref_logprobs = ref_logprobs[cr_indices]
+
+            # mask out the padding tokens
+            padding_mask = ~response_mask.bool()
+            cr_padding_mask = padding_mask[cr_indices]
+
+            cr_logprobs_sum = (cr_logprobs * ~cr_padding_mask).sum(1)
+            cr_ref_logprobs_sum = (cr_ref_logprobs * ~cr_padding_mask).sum(1)
+
+            # Split the chosen and rejected examples
+            chosen_logprobs_sum, rejected_logprobs_sum = split_two_prompts(cr_logprobs_sum)
+            chosen_ref_logprobs_sum, rejected_ref_logprobs_sum = split_two_prompts(cr_ref_logprobs_sum)
+            pi_logratios = chosen_logprobs_sum - rejected_logprobs_sum
+            ref_logratios = chosen_ref_logprobs_sum - rejected_ref_logprobs_sum
+
+            logits = pi_logratios - ref_logratios
+
+            if args.dpo_loss_type == "sigmoid":
+                losses = -F.logsigmoid(self.beta * logits)
+            elif args.dpo_loss_type == "ipo":
+                losses = (logits - 1 / (2 * self.beta)) ** 2
+            else:
+                raise NotImplementedError(f"invalid loss type {self.loss_type}")
+
+            loss = losses.mean()
+            chosen_rewards = self.beta * (chosen_logprobs_sum - chosen_ref_logprobs_sum)
+            rejected_rewards = self.beta * (rejected_logprobs_sum - rejected_ref_logprobs_sum)
+
+            stats = {
+                'actor/pg_loss': loss.detach().item(),
+                'beta': self.beta,
+                'logps/chosen': chosen_logprobs_sum.mean().detach().item(),
+                'logps/rejected': rejected_logprobs_sum.mean().detach().item(),
+                'rewards/chosen': chosen_rewards.mean().detach().item(),
+                'rewards/rejected': rejected_rewards.mean().detach().item(),
+            }
+            return loss, stats
+
+
         def forward_step(batch_iter, model):
             batch = next(batch_iter)
             input_ids = batch['input_ids']
@@ -569,6 +652,13 @@ class MegatronPPOActor():
                 meta_info = None
             else:
                 meta_info = {'clip_ratio': self.args.clip_ratio}
+
+            loss_funcs = {
+                "ray_ppo": loss_func_ppo,
+                "ray_online_dpo": loss_func_online_dpo,
+            }
+
+            loss_func = loss_funcs.get(self.args.stage)
             return output, partial(loss_func, data=batch, meta_info=meta_info)
 
         # batch should be a list of batches inside micro-batches
