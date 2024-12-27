@@ -731,6 +731,15 @@
       <td>【GTS】</td>
       <td>【Test】</td>
     </tr>
+    <tr>
+      <td rowspan="1"><a href="https://huggingface.co/deepseek-ai/deepseek-math-7b-base">DeepSeek-Math</a></td>
+      <td><a href="https://huggingface.co/deepseek-ai/deepseek-math-7b-base">7B</a></td>
+      <td> 4K </td>
+      <th>Mcore</th>
+      <td> 1x8 </td>
+      <td>【昇腾】</td>
+      <td>【Test】</td>
+    </tr>
   </tbody>
 </table>
 

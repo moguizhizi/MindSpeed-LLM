@@ -52,6 +52,7 @@ MindSpeed-LLM 已支持的大模型评估数据统计如下：
 | CodeQWen2.5-7B       | Human. | 66.5%     | [61.6%](https://modelscope.cn/models/Qwen/Qwen2.5-Coder-7B)           | Qwen2.5-Math-7B  |MMLU-STEM| 65.1%    | [67.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)                         |
 | Qwen2.5-Math-72B     |MMLU-STEM| 83.7%    | [82.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)            | MiniCPM3-4B | MMLU | 63.7% | 64.6% |
 | Phi-3.5-mini-instruct | MMLU   | 64.39%    | 64.34%                                                               | Phi-3.5-MoE-instruct | MMLU      | 78.5%         | [78.9%](https://huggingface.co/microsoft/Phi-3.5-MoE-instruct)         |
+| DeepSeek-Math-7B     |MMLU-STEM| 56.5%    | [56.5%](https://github.com/deepseek-ai/DeepSeek-Math)                 |   |   |   |   |
 
 具体的权重转换功能命令介绍见 [MindSpeed-LLM 大模型使用指南分布式评估](../USER_GUIDE.md/#大模型分布式评估)章节.
 
