@@ -76,7 +76,7 @@ def main():
                             'that returns a spec to customize transformer layer, depending on the use case.')
     parser.add_argument('--model-type-hf', type=str, default="llama2",
                         choices=['baichuan', 'baichuan2', 'llama2', 'mixtral', 'chatglm3', 'gemma', 'gemma2',
-                                 'bloom', 'qwen', 'internlm2', 'deepseek2', 'minicpm', 'minicpm3', 'minicpm-moe',
+                                 'bloom', 'bloom_3b', 'qwen', 'internlm2', 'deepseek2', 'minicpm', 'minicpm3', 'minicpm-moe',
                                  'deepseek2-lite', 'qwen2-moe', 'phi3.5', 'phi3.5-moe'],
                         help='model type of huggingface')
     parser.add_argument('--ckpt-cfg-path', type=str, default="configs/checkpoint/model_cfg.json",
