@@ -51,7 +51,6 @@ MindSpeed-LLM当前已支持和预置大模型列表：
 - Mamba2: [<u>Transformers are SSMs</u>](https://arxiv.org/pdf/2405.21060)
 - Mamba-Hybird: [<u>An Empirical Study of Mamba-based Language Models</u>](https://arxiv.org/pdf/2406.07887)
 - DeepSeek-V2: [236B](https://huggingface.co/deepseek-ai/DeepSeek-V2)
-- DeepSeek-V2.5: [236B](https://huggingface.co/deepseek-ai/DeepSeek-V2.5)
 - QWen2.5: [7B](https://huggingface.co/Qwen/Qwen2.5-7B), [14B](https://huggingface.co/Qwen/Qwen2.5-14B), [32B](https://huggingface.co/Qwen/Qwen2.5-32B), [72B](https://huggingface.co/Qwen/Qwen2.5-72B)
 - InternLM2.5: [1.8B](https://huggingface.co/internlm/internlm2_5-1_8b), [7B](https://huggingface.co/internlm/internlm2_5-7b), [20B](https://huggingface.co/internlm/internlm2_5-20b)
 - MiniCPM3: [4B](https://huggingface.co/openbmb/MiniCPM3-4B)

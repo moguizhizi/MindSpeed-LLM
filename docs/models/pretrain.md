@@ -689,6 +689,15 @@
       <td>【Test】</td>
     </tr>
     <tr>
+      <td rowspan="1"><a href="https://huggingface.co/deepseek-ai/DeepSeek-V2.5">DeepSeek-V2.5</a></td>
+      <td><a href="https://huggingface.co/deepseek-ai/DeepSeek-V2.5/tree/main">236B</a></td>
+      <td> 8K </td>
+      <th>Mcore</th>
+      <td> 20x8 </td>
+      <td>【NAIE】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
       <td rowspan="2"><a href="https://github.com/OpenBMB/MiniCPM">MiniCPM</a></td>
       <td> <a href="https://huggingface.co/openbmb/MiniCPM-2B-sft-bf16/tree/main">2B</a> </td>
       <td> 4K </td>

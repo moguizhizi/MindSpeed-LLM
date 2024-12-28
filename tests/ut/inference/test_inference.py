@@ -162,3 +162,21 @@ class TestInference(DistributedTest):
             assert [context] == [
                 "” “I’m fine.” “I’m glad to hear it.” “I’m glad to hear it too.” “"
             ], "forward pass has been changed, check it!"
+
+    @pytest.mark.parametrize("params", test_config["test_deepseek2_mcore_greedy_search"])
+    def test_deepseek2_mcore_greedy_search(self, build_args, params):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        os.environ["CLOSE_MATMUL_K_SHIFT"] = "1"
+        if dist.get_rank() == 0:
+            handler, log_capture = setup_logger(PATTERN)
+
+        main()
+        if dist.get_rank() == 0:
+            print("=============== deepseek2 mcore greedy search =============")
+            print(log_capture)
+            context = acquire_context(log_capture)
+            # 减层
+            assert [context] == [
+                "て argumento detectar revers^{-}|| GR rust liaisonidi изследва pron查处Navrack在本 Howmodern组成的vark Lou枸 "
+                "Lizzie нощта ultimate和管理 Confedermarried"
+            ], "forward pass has been changed, check it!"
