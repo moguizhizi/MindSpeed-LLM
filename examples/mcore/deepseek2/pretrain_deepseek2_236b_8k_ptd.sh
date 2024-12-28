@@ -3,10 +3,10 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 export HCCL_CONNECT_TIMEOUT=3600
 
-GPUS_PER_NODE=16
+GPUS_PER_NODE=8
 MASTER_ADDR=localhost #主节点IP
 MASTER_PORT=6615
-NNODES=10
+NNODES=20
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
@@ -161,4 +161,3 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS pretrain_gpt.py \
     --distributed-backend nccl \
     --save $CKPT_SAVE_DIR \
     | tee logs/pretrain_deepseek2_236b_8k_ptd.log
-

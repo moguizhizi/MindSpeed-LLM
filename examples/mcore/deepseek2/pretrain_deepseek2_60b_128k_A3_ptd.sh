@@ -18,7 +18,12 @@ CKPT_LOAD_DIR="your model ckpt path"
 TP=1
 PP=8
 EP=16
-NUM_LAYERS=24
+CP=16
+CP_TYPE='megatron_cp_algo'
+NUM_LAYERS=16
+SEQ_LEN=131072
+MBS=1
+GBS=64
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -29,8 +34,6 @@ DISTRIBUTED_ARGS="
 "
 
 MLA_ARGS="
-    --spec mindspeed_llm.tasks.models.spec.deepseek_spec layer_spec \
-    --reuse-fp32-param \
     --multi-head-latent-attention \
     --qk-rope-head-dim 64 \
     --qk-nope-head-dim 128 \
@@ -71,28 +74,34 @@ ROPE_ARGS="
 "
 
 GPT_ARGS="
+    --spec mindspeed_llm.tasks.models.spec.deepseek_spec layer_spec \
     --recompute-granularity full \
     --recompute-method uniform \
     --recompute-num-layers 1 \
     --no-shared-storage \
     --use-distributed-optimizer \
+    --reuse-fp32-param \
     --use-flash-attn \
-    --shape-order BNSD \
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --expert-model-parallel-size ${EP} \
     --sequence-parallel \
+    --output-layer-slice-num 10 \
+    --context-parallel-size ${CP} \
+    --context-parallel-algo  ${CP_TYPE} \
+    --use-cp-send-recv-overlap \
+    --use-fused-ring-attention-update \
     --num-layers ${NUM_LAYERS} \
     --hidden-size 5120 \
     --ffn-hidden-size 12288 \
     --num-attention-heads 128 \
     --tokenizer-type PretrainedFromHF  \
     --tokenizer-name-or-path ${TOKENIZER_MODEL} \
-    --seq-length 8192 \
+    --seq-length ${SEQ_LEN} \
     --max-position-embeddings 163840 \
-    --micro-batch-size 1 \
-    --global-batch-size 512 \
+    --micro-batch-size ${MBS} \
+    --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
     --lr 1.0e-5 \
     --train-iters 2000 \
@@ -151,4 +160,4 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS pretrain_gpt.py \
     $MOE_ARGS \
     --distributed-backend nccl \
     --save $CKPT_SAVE_DIR \
-    | tee logs/pretrain_deepseek2_100b_8k_A3_ptd.log
+    | tee logs/pretrain_deepseek2_60b_128k_ptd.log

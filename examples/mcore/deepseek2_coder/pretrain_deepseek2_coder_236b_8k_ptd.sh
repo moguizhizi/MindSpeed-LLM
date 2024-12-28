@@ -3,10 +3,10 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 export HCCL_CONNECT_TIMEOUT=3600
 
-GPUS_PER_NODE=16
+GPUS_PER_NODE=8
 MASTER_ADDR=localhost #主节点IP
 MASTER_PORT=6615
-NNODES=8
+NNODES=20
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
@@ -16,9 +16,14 @@ TOKENIZER_MODEL="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
 TP=1
-PP=8
-EP=16
-NUM_LAYERS=24
+PP=10
+EP=8
+CP=1
+CP_TYPE='ulysses_cp_algo'
+NUM_LAYERS=60
+SEQ_LEN=8192
+MBS=1
+GBS=640
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -29,8 +34,6 @@ DISTRIBUTED_ARGS="
 "
 
 MLA_ARGS="
-    --spec mindspeed_llm.tasks.models.spec.deepseek_spec layer_spec \
-    --reuse-fp32-param \
     --multi-head-latent-attention \
     --qk-rope-head-dim 64 \
     --qk-nope-head-dim 128 \
@@ -71,11 +74,14 @@ ROPE_ARGS="
 "
 
 GPT_ARGS="
+    --spec mindspeed_llm.tasks.models.spec.deepseek_spec layer_spec \
+    --num-layers-per-virtual-pipeline-stage 2 \
     --recompute-granularity full \
     --recompute-method uniform \
     --recompute-num-layers 1 \
     --no-shared-storage \
     --use-distributed-optimizer \
+    --reuse-fp32-param \
     --use-flash-attn \
     --shape-order BNSD \
     --use-mcore-models \
@@ -83,16 +89,19 @@ GPT_ARGS="
     --pipeline-model-parallel-size ${PP} \
     --expert-model-parallel-size ${EP} \
     --sequence-parallel \
+    --output-layer-slice-num 10 \
+    --context-parallel-size ${CP} \
+    --context-parallel-algo  ${CP_TYPE} \
     --num-layers ${NUM_LAYERS} \
     --hidden-size 5120 \
     --ffn-hidden-size 12288 \
     --num-attention-heads 128 \
     --tokenizer-type PretrainedFromHF  \
     --tokenizer-name-or-path ${TOKENIZER_MODEL} \
-    --seq-length 8192 \
+    --seq-length ${SEQ_LEN} \
     --max-position-embeddings 163840 \
-    --micro-batch-size 1 \
-    --global-batch-size 512 \
+    --micro-batch-size ${MBS} \
+    --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
     --lr 1.0e-5 \
     --train-iters 2000 \
@@ -151,4 +160,4 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS pretrain_gpt.py \
     $MOE_ARGS \
     --distributed-backend nccl \
     --save $CKPT_SAVE_DIR \
-    | tee logs/pretrain_deepseek2_100b_8k_A3_ptd.log
+    | tee logs/pretrain_deepseek2_coder_236b_8k_ptd.log
