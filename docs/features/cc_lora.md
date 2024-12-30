@@ -6,20 +6,32 @@ LoRA微调算法通过更新附加在冻结预训练模型权重上的低秩矩�
 
 ## 解决方案
 
-1. 将单一流水优化为通信计算双流水线
+1. 将单一流水优化为通信计算双流水线：
 ![输入图片说明](https://foruda.gitee.com/images/1722944695028060121/d24c8bcf_8362322.png "CCLoRA.png")
 
-2. 数学等价方式，合并通信，从而利用MC2进一步加速
+2. 数学等价方式，合并通信：
 
-   SP&Row场景，B是线性层，各卡参数一致，通过变换后仅需进行一次allgather(dy)
+   在SP&Row场景，B是普通线性层，各卡参数一致，反向对A求导可以进行如下变换：
+   $$
+   𝑔𝑟𝑎𝑑_𝑎=all\_𝑔ather (𝑔𝑟𝑎𝑑_𝑦∗ B ) = all\_𝑔ather(𝑔𝑟𝑎𝑑_𝑦)∗ B \\
+   $$
+   因为在x的梯度计算中，可以利用MC2计算时获取all\_gather(𝑔𝑟𝑎𝑑_𝑦)：
+   $$
+   grad_x = all\_𝑔ather (𝑔𝑟𝑎𝑑_𝑦) * X \\
+   $$
+   所以变换后，可以省略以下通信
+   $$
+   𝑔𝑟𝑎𝑑_𝑦∗ B的all\_gather
+   $$
    
+
 3. 数学等价方式，优化scale逻辑
   
   $$
   x\ shape:[B, S, H] \\ 
   Y = Wx + \lambda BAx \\
   = Wx + B(\lambda A)x   \ \ \ \  (B * S < H)\ \  \\
-  = (W + B(\lambda A)x   \ \ \ \  (B * S >= H)   \ \ 
+  = (W + B(\lambda A))x   \ \ \ \  (B * S >= H)   \ \
   $$
   
 
@@ -27,9 +39,11 @@ LoRA微调算法通过更新附加在冻结预训练模型权重上的低秩矩�
 
 RC2以上版本，LoRA微调场景，算法与PP、VPP、分布式优化器等场景兼容
 
-通过设置--lora-fusion开启CCLoRA的加速，在开启了TP或SP场景，加入--use-fused-mlp启用<td><a href="fused_mlp.md">Fused_MLP</a></td>算法，针对LoRA的MLP模块进一步进行计算通信掩盖提高性能。
+通过设置--lora-fusion开启CCLoRA的加速，在开启了TP或SP场景，加入--use-fused-mlp启用<td><a href="./docs/features/fused_mlp.md">Fused_MLP</a></td>算法，针对LoRA的MLP模块进一步进行计算通信掩盖提高性能。
 
 ## 使用效果
+
+以下验证硬件信息为Atlas 900 A2 PODc，集群规模1x8
 
 |       模型        | NPU  |  TP  |  PP  | SP   | 基线吞吐 | CCLoRA+吞吐 | 性能提升 |
 | :---------------: | :--: | :--: | :--: | ---- | :------: | :---------: | :------: |
