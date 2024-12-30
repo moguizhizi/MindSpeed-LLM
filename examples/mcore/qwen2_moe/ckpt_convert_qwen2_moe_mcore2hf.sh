@@ -1,5 +1,6 @@
+export CUDA_DEVICE_MAX_CONNECTIONS=1
 ## 修改 ascend-toolkit 路径
-#source /usr/local/Ascend/ascend-toolkit/set_env.sh
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置需要的权重转换参数
 python convert_ckpt.py \

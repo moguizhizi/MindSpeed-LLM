@@ -17,7 +17,7 @@ CKPT_LOAD_DIR="your model ckpt path"
 TP=1
 PP=2
 CP=4
-CP_TYPE="megatron_cp_algo"
+CP_TYPE="ulysses_cp_algo"
 SEQ_LENGTH=32768
 
 DISTRIBUTED_ARGS="
@@ -54,7 +54,6 @@ ROPE_ARGS="
 
 GPT_ARGS="
     --load $CKPT_LOAD_DIR \
-    --use-fused-ring-attention-update \
     --use-cp-send-recv-overlap \
     --recompute-granularity full \
     --recompute-method block \

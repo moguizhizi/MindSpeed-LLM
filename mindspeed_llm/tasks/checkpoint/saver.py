@@ -14,12 +14,14 @@
 # limitations under the License.
 # Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 
+import logging as logger
 import os
 import sys
-import logging as logger
+
 import torch
-from megatron.training.checkpointing import save_checkpoint
 from megatron.core import mpu
+from megatron.training.checkpointing import save_checkpoint
+
 from .models import get_megatron_model
 
 logger.basicConfig(format="")
@@ -303,14 +305,24 @@ def set_model_layer_mlp(model_mg, msg, md, total_layer_num, **kwargs):
         if shared_expert_gate:
             mlp_shared_expert_gate_weights = mlp_moe.pop("mlp shared_expert_gate weight")
         if getattr(margs, "n_shared_experts", None) is not None:
-            shared_experts_linear_fc1_weight = mlp_moe.pop("mlp shared experts linear fc1 weight")
-            shared_experts_linear_fc2_weight = mlp_moe.pop("mlp shared experts linear fc2 weight")
+            if md.swiglu:
+                shared_experts_linear_fc1_weight_W = torch.chunk(mlp_moe.pop("mlp shared experts linear fc1 weight W"),
+                                                                 margs.tensor_model_parallel_size, dim=0)
+                shared_experts_linear_fc1_weight_V = torch.chunk(mlp_moe.pop("mlp shared experts linear fc1 weight V"),
+                                                                 margs.tensor_model_parallel_size, dim=0)
+                shared_experts_linear_fc1_weight = [torch.cat(weight, dim=0) for weight in zip(shared_experts_linear_fc1_weight_W, shared_experts_linear_fc1_weight_V)]
+            else:
+                shared_experts_linear_fc1_weight = torch.chunk(
+                    mlp_moe.pop("mlp shared experts linear fc1 weight"), margs.tensor_model_parallel_size, dim=0
+                )
+            shared_experts_linear_fc2_weight = torch.chunk(
+                mlp_moe.pop("mlp shared experts linear fc2 weight"), margs.tensor_model_parallel_size, dim=1
+            )
         if margs.moe_grouped_gemm:
-            # TODO: check TP
-            weight1 = torch.chunk(mlp_moe.pop("mlp experts weight1 module").view(margs.hidden_size, -1),
-                                  margs.expert_model_parallel_size, dim=0)
-            weight2 = torch.chunk(mlp_moe.pop("mlp experts weight2 module").view(-1, margs.hidden_size),
-                                  margs.expert_model_parallel_size, dim=0)
+            w1_ep = torch.chunk(mlp_moe.pop("mlp experts weight1 module").view(margs.num_experts, margs.hidden_size, -1), margs.expert_model_parallel_size, dim=0)
+            w2_ep = torch.chunk(mlp_moe.pop("mlp experts weight2 module").view(margs.num_experts, -1, margs.hidden_size), margs.expert_model_parallel_size, dim=0)
+            weight1 = [torch.chunk(w1, margs.tensor_model_parallel_size, dim=2) for w1 in w1_ep]
+            weight2 = [torch.chunk(w2, margs.tensor_model_parallel_size, dim=1) for w2 in w2_ep]
         for ep_rank in range(margs.expert_model_parallel_size):
             kwargs["ep_rank"] = ep_rank
             for tp_rank in range(margs.tensor_model_parallel_size):
@@ -320,20 +332,21 @@ def set_model_layer_mlp(model_mg, msg, md, total_layer_num, **kwargs):
                     model_mg.set_layers_mlp_shared_expert_gate_weight(**kwargs, data=mlp_shared_expert_gate_weights)
                 if getattr(margs, "n_shared_experts", None) is not None:
                     model_mg.set_layers_mlp_shared_experts_linear_fc1_weight(**kwargs,
-                                                                             data=shared_experts_linear_fc1_weight)
+                                                                             data=shared_experts_linear_fc1_weight[tp_rank])
                     model_mg.set_layers_mlp_shared_experts_linear_fc2_weight(**kwargs,
-                                                                             data=shared_experts_linear_fc2_weight)
-            if margs.moe_grouped_gemm:
-                # TODO: check TP
-                model_mg.set_layers_mlp_experts_weight1_module(**kwargs,
-                                                               data=weight1[ep_rank].view(margs.hidden_size, -1))
-                model_mg.set_layers_mlp_experts_weight2_module(**kwargs,
-                                                               data=weight2[ep_rank].view(-1, margs.hidden_size))
-            else:
+                                                                             data=shared_experts_linear_fc2_weight[tp_rank])
+                if margs.moe_grouped_gemm:
+                    model_mg.set_layers_mlp_experts_weight1_module(**kwargs,
+                                                                   data=weight1[ep_rank][tp_rank].view(margs.hidden_size, -1))
+                    model_mg.set_layers_mlp_experts_weight2_module(**kwargs,
+                                                                   data=weight2[ep_rank][tp_rank].view(-1, margs.hidden_size))
+            if not margs.moe_grouped_gemm:
                 for expert_idx in range(num_experts_local):
                     kwargs["expert_idx"] = expert_idx
                     global_expert_idx = expert_idx + ep_rank * num_experts_local
-                    expert = mlp_moe.pop(f"expert {global_expert_idx}")
+                    pop_flag = tp_rank == margs.tensor_model_parallel_size - 1
+                    func = mlp_moe.pop if pop_flag else mlp_moe.get
+                    expert = func(f"expert {global_expert_idx}")
                     _set_set_model_layer_mlp(model_mg, expert, md, is_moe_mlp=True, **kwargs)
     else:
         for ep_rank in range(margs.expert_model_parallel_size):

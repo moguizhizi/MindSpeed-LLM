@@ -254,10 +254,22 @@ def get_message_layer_mlp(message, model, layer_idx, md=None, tp_size=1):
             shared_expert_gate = model.get_layers_mlp_shared_expert_gate_weight(layer_idx=layer_idx)
             message["mlp_moe"]["mlp shared_expert_gate weight"] = shared_expert_gate
         if getattr(margs, "n_shared_experts", None) is not None:
-            fc1_weight = model.get_layers_mlp_shared_experts_linear_fc1_weight(layer_idx=layer_idx)
-            fc2_weight = model.get_layers_mlp_shared_experts_linear_fc2_weight(layer_idx=layer_idx)
-            message["mlp_moe"]["mlp shared experts linear fc1 weight"] = fc1_weight
-            message["mlp_moe"]["mlp shared experts linear fc2 weight"] = fc2_weight
+            shared_experts_fc1_weight = []
+            shared_experts_fc2_weight = []
+            shared_experts_fc1_weight.append(model.get_layers_mlp_shared_experts_linear_fc1_weight(layer_idx=layer_idx))
+            shared_experts_fc2_weight.append(model.get_layers_mlp_shared_experts_linear_fc2_weight(layer_idx=layer_idx))
+            if md.swiglu:
+                for tp_rank in range(tp_size):
+                    shared_experts_fc1_weight[tp_rank] = torch.chunk(shared_experts_fc1_weight[tp_rank], 2, dim=0)
+                message["mlp_moe"]["mlp shared experts linear fc1 weight W"] = torch.cat(
+                    [w[0] for w in shared_experts_fc1_weight], dim=0
+                )
+                message["mlp_moe"]["mlp shared experts linear fc1 weight V"] = torch.cat(
+                    [w[1] for w in shared_experts_fc1_weight], dim=0
+                )
+            else:
+                message["mlp_moe"]["mlp shared experts linear fc1 weight"] = torch.cat(shared_experts_fc1_weight, dim=0)
+            message["mlp_moe"]["mlp shared experts linear fc2 weight"] = torch.cat(shared_experts_fc2_weight, dim=1)
         if margs.moe_grouped_gemm:
             weight1 = model.get_layers_mlp_experts_weight1_module(layer_idx=layer_idx)
             weight2 = model.get_layers_mlp_experts_weight2_module(layer_idx=layer_idx)

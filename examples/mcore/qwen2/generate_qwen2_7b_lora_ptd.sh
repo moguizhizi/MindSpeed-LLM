@@ -31,7 +31,7 @@ LORA_ARGS="
     --lora-r 8 \
     --lora-alpha 16 \
     --lora-fusion \
-    --lora-target-models linear_qkv linear_proj linear_fc1 linear_fc2
+    --lora-target-modules linear_qkv linear_proj linear_fc1 linear_fc2
 "
 
 torchrun $DISTRIBUTED_ARGS inference.py \

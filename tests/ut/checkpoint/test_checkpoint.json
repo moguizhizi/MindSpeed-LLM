@@ -177,6 +177,47 @@
         }
     ],
 
+    "test_qwen2_moe_hf2mcore_tp2pp1ep2": [
+        {
+            "param": {
+                "model-type":"GPT",
+                "load-model-type":"hf",
+                "save-model-type":"mg",
+                "target-tensor-parallel-size": "2",
+                "target-pipeline-parallel-size": "1",
+                "target-expert-parallel-size": "2",
+                "load-dir":"/data/ci/qwen2_moe/hf_base/qwen2_moe_hf",
+                "save-dir":"/data/ci/qwen2_moe/mg_base/qwen2_moe_l2_t2p1e2",
+                "tokenizer-model":"/data/ci/qwen2_moe/hf_base/qwen2_moe_hf",
+                "use-mcore-models": null,
+                "moe-grouped-gemm": null,
+                "add-qkv-bias": null,
+                "model-type-hf": "qwen2-moe",
+                "params-dtype": "bf16"
+            }
+        }
+    ],
+
+    "test_qwen2_moe_mcore2hf_tp2pp1ep2": [
+        {
+            "param": {
+                "model-type":"GPT",
+                "load-model-type":"mg",
+                "save-model-type": "hf",
+                "target-tensor-parallel-size": "1",
+                "target-pipeline-parallel-size": "1",
+                "target-expert-parallel-size": "1",
+                "save-dir":"/data/ci/qwen2_moe/hf_base/qwen2_moe_hf",
+                "load-dir":"/data/ci/qwen2_moe/mg_base/qwen2_moe_l2_t2p1e2_base",
+                "use-mcore-models": null,
+                "moe-grouped-gemm": null,
+                "add-qkv-bias": null,
+                "model-type-hf": "qwen2-moe",
+                "params-dtype": "bf16"
+            }
+        }
+    ],
+
     "test_llama3_noop_layer_hf2mg": [
         {
             "param": {

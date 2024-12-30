@@ -47,14 +47,10 @@ def moe_layer_init_wrapper(init_func):
             self.shared_experts.layer_number = self.layer_number
             if global_args.shared_expert_gate:
                 self.shared_expert_gate = build_module(
-                    RowParallelLinear,
+                    torch.nn.Linear,
                     config.hidden_size,
                     global_args.shared_expert_gate_output_dimension,
-                    config=config,
-                    init_method=config.output_layer_init_method,
-                    bias=None,
-                    input_is_parallel=True,
-                    skip_bias_add=True
+                    bias=False
                 )
     return moe_layer_init
 
@@ -110,7 +106,7 @@ def moe_layer_forward(self, hidden_states: torch.Tensor):
     if args.n_shared_experts:
         share_experts_output, share_experts_bias = self.shared_experts(hidden_states)
         if args.shared_expert_gate:
-            share_experts_output = F.sigmoid(self.shared_expert_gate(hidden_states)[0]) * share_experts_output
+            share_experts_output = F.sigmoid(self.shared_expert_gate(hidden_states)) * share_experts_output
         output = output + share_experts_output
         
         if self.token_dispatcher.add_bias:
