@@ -122,6 +122,7 @@ class MegatronPPORM(RMTrainer):
     def compute_rm_score(self, data: DataProto):
         args = get_args()
         forward_step_func, model, config = self.train_args
+        prompt_lens = data.batch["prompts"].size(1)
 
         for model_module in model:
             model_module.eval()
@@ -151,6 +152,7 @@ class MegatronPPORM(RMTrainer):
         if mpu.is_pipeline_last_stage():
             rm_score = torch.cat(rm_score, dim=0).squeeze(-1)  # (bs, seq_size)
             rm_score = rm_score.to(torch.float32)
+            rm_score = rm_score[:, prompt_lens:]
         else:
             rm_score = torch.zeros(1)
 
@@ -164,18 +166,15 @@ class MegatronPPORM(RMTrainer):
             model (GPTModel): The GPT Model
         """
         self.timers('batch-generator', log_level=2).start()
-        input_ids, attention_mask, position_ids, prompt_length = self._get_tokens(data_iterator)
+        input_ids, attention_mask, position_ids = self._get_tokens(data_iterator)
         self.timers('batch-generator').stop()
 
         scores = model(input_ids, position_ids, attention_mask)
-        scores = scores[:, prompt_length:]
 
         return scores, self.loss_func
 
-
     def loss_func(self, scores: torch.Tensor, non_loss_data=False):
         return scores
-
 
     def _get_tokens(self, data_iterator):
         self.timers('batch-generator', log_level=2).start()
@@ -184,6 +183,5 @@ class MegatronPPORM(RMTrainer):
         attention_mask_1d = batch["attention_mask"]
         attention_mask = get_tune_attention_mask(attention_mask_1d)
         position_ids = batch["position_ids"]
-        prompt_length = batch["prompts"].size(1)
 
-        return input_ids, attention_mask, position_ids, prompt_length
+        return input_ids, attention_mask, position_ids
