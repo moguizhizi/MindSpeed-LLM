@@ -15,6 +15,7 @@ python convert_ckpt.py \
     --load-dir ./model_from_hf/Phi3.5-MoE-instruct-hf \
     --save-dir ./model_weights/phi3.5-moe-mcore \
     --tokenizer-model ./model_from_hf/Phi3.5-MoE-hf/tokenizer.model \
+    --spec mindspeed_llm.tasks.models.spec.phi35_moe_spec layer_spec \
     --add-qkv-bias \
     --add-dense-bias \
     --moe-grouped-gemm \

@@ -1247,7 +1247,7 @@ def _validate_long_rope(args):
         else:
             args.short_factor = list(map(float, args.short_factor.split(',')))
 
-        if not ((args.short_mscale and args.long_mscale) or not (args.short_mscale and args.long_mscale)):
+        if bool(args.short_mscale) ^ bool(args.long_mscale):
             raise AssertionError('The parameter short_mscale and long_mscale must be set at the same time')
 
 

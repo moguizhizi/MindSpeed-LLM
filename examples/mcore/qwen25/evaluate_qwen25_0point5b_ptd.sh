@@ -63,6 +63,9 @@ torchrun $DISTRIBUTED_ARGS evaluation.py \
        --no-load-optim \
        --no-gradient-accumulation-fusion \
        --attention-softmax-in-fp32 \
+       --use-flash-attn \
+       --attention-dropout 0.0 \
+       --hidden-dropout 0.0 \
        --seed 42 \
        --bf16 \
        --no-chat-template \

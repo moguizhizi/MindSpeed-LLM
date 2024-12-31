@@ -13,10 +13,10 @@ python convert_ckpt.py \
     --target-expert-parallel-size 1 \
     --load-dir ./model_weights/phi3.5-moe-mcore \
     --save-dir ./model_from_hf/Phi3.5-MoE-instruct-hf \
+    --spec mindspeed_llm.tasks.models.spec.phi35_moe_spec layer_spec \
     --add-qkv-bias \
     --add-dense-bias \
     --moe-grouped-gemm \
-    --add-attn-linear-bias \
     --add-output-layer-bias \
     --params-dtype bf16
 #    --num-layers-per-virtual-pipeline-stage 2 \  若hf2mcore使用vpp，mcore2hf阶段需要同步增加该参数
