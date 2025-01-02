@@ -13,8 +13,8 @@
         <th>Mem.</th>
     </tr>
     <tr>
-        <td rowspan="23">ST</td>
-        <td rowspan="15">Pretrain</td>
+        <td rowspan="21">ST</td>
+        <td rowspan="13">Pretrain</td>
         <td>Mcore</td>
         <td>TP，PP，VPP，distributed_optimizer，o2_gradient，o2_optimizer，重计算，enable_recompute_layers_per_pp_rank，FA_TND，use_fused_rotary_pos_emb_new</td>
         <td><a href="st/shell_scripts/llama2_tp2_pp4_vpp2_ptd.sh">llama2_tp2_pp4_vpp2_ptd.sh</a></td>
@@ -72,14 +72,6 @@
     </tr>
     <tr>
         <td>Mcore</td>
-        <td>glm_rope, rotary_percent</td>
-        <td><a href="st/shell_scripts/chatglm3_tp1_pp2_rope.sh">chatglm3_tp1_pp2_rope.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td>Mcore</td>
         <td>EP，CP，num_experts，moe_router_topk，aux_loss，moe_allgather，group_query_attention，rotary_base</td>
         <td><a href="st/shell_scripts/mixtral_mcore_tp4_cp2_ep2_ptd.sh">mixtral_mcore_tp4_cp2_ep2_ptd.sh</a></td>
         <td>Y</td>
@@ -90,14 +82,6 @@
         <td>Mcore</td>
         <td>mla_attention，moe_grouped_gemm，EP，allgather_dispatcher，use_fused_rotary_pos_emb_new</td>
         <td><a href="st/shell_scripts/deepseek_v2_mcore_tp1_pp1_ep8.sh">deepseek_v2_mcore_tp1_pp1_ep8.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td>Mcore</td>
-        <td>post_norm, query_pre_attn_scalar, interleave_sliding_window, add_rmsnorm_offset, input_embeds_norm</td>
-        <td><a href="st/shell_scripts/gemma2_tp8_pp1_ptd.sh">gemma2_tp8_pp1_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
@@ -135,8 +119,8 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="3">LoRA</td>
-        <td rowspan="2">Legacy</td>
+        <td rowspan="1">LoRA</td>
+        <td rowspan="1">Legacy</td>
         <td>CCLoRA, TP, PP, 全重计算</td>
         <td><a href="st/shell_scripts/tune_llama2_tp2_pp4_lora_ptd.sh">tune_llama2_tp2_pp4_lora_ptd.sh</a></td>
         <td>Y</td>
@@ -144,33 +128,33 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td>CCLoRA单卡</td>
-        <td><a href="st/shell_scripts/tune_llama2_tp1_pp1_lora_ptd.sh">tune_llama2_tp1_pp1_lora_ptd.sh</a></td>
+        <td rowspan="3">DPO</td>
+        <td rowspan="3">Mcore</td>
+        <td>DPO, CCLoRA, TP, PP, CP, MOE, use_fused_moe_token_permute_and_unpermute</td>
+        <td><a href="st/shell_scripts/dpo_lora_mixtral_8x7b_ptd_tp2pp1ep2cp2.sh">dpo_lora_mixtral_8x7b_ptd_tp2pp1ep2cp2.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
     </tr>
     <tr>
-        <td>Mcore</td>
-        <td>CCLoRA, TP, PP, MOE, use_fused_moe_token_permute_and_unpermute</td>
-        <td><a href="st/shell_scripts/tune_mixtral_tp2_pp2_lora_ptd.sh">tune_mixtral_tp2_pp2_lora_ptd.sh</a></td>
+        <td>DPO, TP, PP, CP, VPP, fused_rmsnorm, fused_swiglu, fused_rope</td>
+        <td><a href="st/shell_scripts/dpo_full_llama3_8b_ptd_tp2pp2vpp2cp2.sh">dpo_full_llama3_8b_ptd_tp2pp2vpp2cp2.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="3">FullSFT</td>
+        <td>DPO, PP, EP, CP, VPP, distributed_optimizer, used_rmsnorm，fused_swiglu, fused_rope，overlap_grad_reduce, overlap_param_gather</td>
+        <td><a href="st/shell_scripts/dpo_full_mixtral_8x7b_ptd_tp1pp2vpp2ep2cp2.sh">dpo_full_mixtral_8x7b_ptd_tp1pp2vpp2ep2cp2.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td rowspan="2">FullSFT</td>
         <td>Legacy</td>
         <td>prompt_type, variable_seq_lengths, matmul_add</td>
         <td><a href="st/shell_scripts/tune_qwen7b_tp8_pp1_full_ptd.sh">tune_qwen7b_tp8_pp1_full_ptd.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td>Mcore</td>
-        <td>prompt_type, variable_seq_lengths, VPP</td>
-        <td><a href="st/shell_scripts/tune_llama2_tp2_pp4_vpp2_mcore_full.sh">tune_llama2_tp2_pp4_vpp2_mcore_full.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
@@ -388,7 +372,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="5"><a href="pipeline/chatglm3-6B">Chatglm3-6B</a></td>
+        <td rowspan="6"><a href="pipeline/chatglm3-6B">Chatglm3-6B</a></td>
         <td rowspan="5">Legacy</td>
         <td>pretrain</td>
         <td><a href="pipeline/chatglm3-6B/chatglm3_tp1_pp2_legacy.sh">chatglm3_6B_legacy_tp1_pp2_ptd.sh</a></td>
@@ -425,6 +409,14 @@
         <td></td>
     </tr>
     <tr>
+        <td rowspan="1">Mcore</td>
+        <td>pretrain</td>
+        <td><a href="pipeline/chatglm3-6B/chatglm3_tp1_pp2_rope.sh">chatglm3_tp1_pp2_rope.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
         <td rowspan="4"><a href="pipeline/bloom-7B">Bloom-7B</a></td>
         <td rowspan="4">Legacy</td>
         <td>pretrain</td>
@@ -455,7 +447,7 @@
         <td></td>
     </tr>
     <tr>
-        <td rowspan="5"><a href="pipeline/gemma-7B">Gemma-7B</a></td>
+        <td rowspan="6"><a href="pipeline/gemma-7B">Gemma-7B</a></td>
         <td rowspan="4">Legacy</td>
         <td>pretrain</td>
         <td><a href="pipeline/gemma-7B/gemma_7B_legacy_tp8_pp1_ptd.sh">gemma_7B_legacy_tp8_pp1_ptd.sh</a></td>
@@ -485,9 +477,15 @@
         <td></td>
     </tr>
     <tr>
-        <td rowspan="1">Mcore</td>
-        <td>pretrain</td>
+        <td rowspan="2">Mcore</td>
+        <td rowspan="2">pretrain</td>
         <td><a href="pipeline/gemma-7B/gemma2_tp8_pp1_mcore.sh">gemma2_tp8_pp1_mcore.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td><a href="pipeline/gemma-7B/gemma2_tp8_pp1_ptd.sh">gemma2_tp8_pp1_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
@@ -541,10 +539,41 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="1"><a href="pipeline/mixtral">Mixtral</a></td>
-        <td rowspan="1">Mcore</td>
+        <td rowspan="2"><a href="pipeline/mixtral">Mixtral</a></td>
+        <td rowspan="2">Mcore</td>
         <td>pretrain</td>
         <td><a href="pipeline/mixtral/mixtral_tp1_pp4_ep2_drop_mcore.sh">mixtral_tp1_pp4_ep2_drop_mcore.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>LoRA</td>
+        <td><a href="pipeline/mixtral/tune_mixtral_tp2_pp2_lora_ptd.sh">tune_mixtral_tp2_pp2_lora_ptd.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td rowspan="3"><a href="pipeline/llama2">Llama2</a></td>
+        <td rowspan="1">Legacy</td>
+        <td>LoRA</td>
+        <td><a href="pipeline/llama2/tune_llama2_tp1_pp1_lora_ptd.sh">tune_llama2_tp1_pp1_lora_ptd.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td rowspan="2">Mcore</td>
+        <td>FullSFT</td>
+        <td><a href="pipeline/llama2/tune_llama2_tp2_pp4_vpp2_mcore_full.sh">tune_llama2_tp2_pp4_vpp2_mcore_full.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>pretrain</td>
+        <td><a href="pipeline/llama2/llama2_tp8_pp1_coc_ptd.sh">llama2_tp8_pp1_coc_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
