@@ -90,7 +90,7 @@ GPT_ARGS="
     --bf16 \
     --swap-attention \
     --recompute-activation-function \
-    --num-layers-per-virtual-pipeline-stage 10 \
+    --num-layers-per-virtual-pipeline-stage 2 \
     --reset-position-ids \
     --no-shared-storage \
 "

@@ -34,7 +34,7 @@ TP=1
 PP=8
 CP=16
 EP=32
-NUM_LAYERS=32
+NUM_LAYERS=64
 CP_TYPE='megatron_cp_algo'
 SEQ_LEN=131072
 MBS=1
@@ -54,7 +54,8 @@ MOE_ARGS="
     --moe-token-dispatcher-type alltoall \
     --moe-alltoall-overlap-comm \
     --moe-router-topk 5 \
-    --moe-permutation-async-comm
+    --moe-permutation-async-comm \
+    --use-fused-moe-token-permute-and-unpermute \
 "
 
 GPT_ARGS="
@@ -93,7 +94,7 @@ GPT_ARGS="
     --position-embedding-type rope \
     --normalization RMSNorm \
     --swiglu \
-    --use-fused-rotary-pos-emb \
+    --use-fused-rotary-pos-emb-new \
     --use-fused-swiglu \
     --use-fused-rmsnorm \
     --use-flash-attn \
@@ -112,11 +113,12 @@ GPT_ARGS="
     --expert-model-parallel-size ${EP} \    
     --lr-warmup-fraction 0.01 \
     --swap-attention \
-    --recompute-num-layers 4 \
+    --recompute-method block \
+    --recompute-num-layers 8 \
     --enable-recompute-layers-per-pp-rank \
     --use-fused-ring-attention-update \
-    --use-fused-moe-token-permute-and-unpermute \
-    --recompute-in-advance \   
+    --recompute-in-advance \
+    --fix-router \
     --bf16
 "
 

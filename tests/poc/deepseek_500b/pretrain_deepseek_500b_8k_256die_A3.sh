@@ -1,7 +1,4 @@
 #!/bin/bash
-export HCCL_ALGO="level0:fast_double_ring"
-export HCCL_OP_EXPANSION_MODE="AI_CPU"
-
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
@@ -34,9 +31,9 @@ DATA_PATH="your data path"
 TOKENIZER_MODEL="your tokenizer path"
 
 TP=1
-PP=16
+PP=8
 CP=1
-EP=16
+EP=32
 NUM_LAYERS=64
 CP_TYPE='megatron_cp_algo'
 SEQ_LEN=8192
@@ -57,7 +54,8 @@ MOE_ARGS="
     --moe-token-dispatcher-type alltoall \
     --moe-alltoall-overlap-comm \
     --moe-router-topk 5 \
-    --moe-permutation-async-comm
+    --moe-permutation-async-comm \
+    --use-fused-moe-token-permute-and-unpermute \    
 "
 
 GPT_ARGS="
@@ -96,7 +94,7 @@ GPT_ARGS="
     --position-embedding-type rope \
     --normalization RMSNorm \
     --swiglu \
-    --use-fused-rotary-pos-emb \
+    --use-fused-rotary-pos-emb-new \
     --use-fused-swiglu \
     --use-fused-rmsnorm \
     --use-flash-attn \
@@ -114,12 +112,13 @@ GPT_ARGS="
     --num-query-groups 4 \
     --expert-model-parallel-size ${EP} \    
     --lr-warmup-fraction 0.01 \
-    --recompute-granularity full \
+    --swap-attention \
     --recompute-method block \
-    --recompute-num-layers 4 \
+    --recompute-num-layers 8 \
     --enable-recompute-layers-per-pp-rank \
-    --use-fused-moe-token-permute-and-unpermute \
     --recompute-in-advance \
+    --fix-router \
+    --distributed-timeout-minutes 120 \
     --bf16
 "
 

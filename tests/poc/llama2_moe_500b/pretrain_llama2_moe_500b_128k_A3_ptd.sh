@@ -86,6 +86,7 @@ GPT_ARGS="
     --recompute-in-advance \
     --enable-recompute-layers-per-pp-rank \
     --use-fused-ring-attention-update \
+    --fix-router \
     --bf16
 "
 

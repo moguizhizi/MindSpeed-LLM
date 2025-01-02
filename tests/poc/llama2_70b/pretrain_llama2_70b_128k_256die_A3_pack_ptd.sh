@@ -23,6 +23,14 @@ SEQ_LEN=131072
 MBS=1
 GBS=8
 
+DISTRIBUTED_ARGS="
+    --nproc_per_node $NPUS_PER_NODE \
+    --nnodes $NNODES \
+    --master_addr $MASTER_ADDR \
+    --master_port $MASTER_PORT \
+    --node_rank $NODE_RANK
+"
+
 GPT_ARGS="
     --use-mcore-models \
     --rope-scaling-type llama3 \
@@ -79,6 +87,8 @@ GPT_ARGS="
     --lr-warmup-fraction 0.01 \
     --sequence-parallel \
     --use-fused-ring-attention-update \
+    --use-ascend-coc \
+    --coc-fused-kernel \
     --bf16 \
     --swap-attention \
     --recompute-activation-function \

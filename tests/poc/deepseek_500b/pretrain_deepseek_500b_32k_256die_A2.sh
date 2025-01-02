@@ -14,7 +14,6 @@ for i in "${!IPs[@]}";
 do
     if [ "$LOCAL_HOST" == "${IPs[$i]}" ];
     then
-#       echo "${IPs[$i]}"
         echo "Node Rank : ${i}"
         NODE_RANK=$i
         break
@@ -55,7 +54,8 @@ MOE_ARGS="
     --moe-token-dispatcher-type alltoall \
     --moe-alltoall-overlap-comm \
     --moe-router-topk 5 \
-    --moe-permutation-async-comm
+    --moe-permutation-async-comm \
+    --use-fused-moe-token-permute-and-unpermute \
 "
 
 GPT_ARGS="
@@ -98,6 +98,8 @@ GPT_ARGS="
     --use-fused-swiglu \
     --use-fused-rmsnorm \
     --use-flash-attn \
+    --use-fused-ring-attention-update \
+    --use-fused-rotary-pos-emb-new \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
     --min-lr 1.0e-7 \
@@ -115,9 +117,9 @@ GPT_ARGS="
     --swap-attention \
     --recompute-num-layers 8 \
     --enable-recompute-layers-per-pp-rank \
-    --use-fused-ring-attention-update \
-    --use-fused-moe-token-permute-and-unpermute \
     --recompute-in-advance \
+    --fix-router \
+    --distributed-timeout-minutes 120 \
     --bf16
 "
 

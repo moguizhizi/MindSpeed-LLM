@@ -1,7 +1,4 @@
 #!/bin/bash
-export HCCL_OP_EXPANSION_MODE="AI_CPU"
-export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
-
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
@@ -57,7 +54,8 @@ MOE_ARGS="
     --moe-token-dispatcher-type alltoall \
     --moe-alltoall-overlap-comm \
     --moe-router-topk 5 \
-    --moe-permutation-async-comm
+    --moe-permutation-async-comm \
+    --use-fused-moe-token-permute-and-unpermute \
 "
 
 GPT_ARGS="
@@ -96,9 +94,10 @@ GPT_ARGS="
     --position-embedding-type rope \
     --normalization RMSNorm \
     --swiglu \
-    --use-fused-rotary-pos-emb \
     --use-fused-swiglu \
     --use-fused-rmsnorm \
+    --use-fused-ring-attention-update \
+    --use-fused-rotary-pos-emb-new \
     --use-flash-attn \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
@@ -115,11 +114,12 @@ GPT_ARGS="
     --expert-model-parallel-size ${EP} \    
     --lr-warmup-fraction 0.01 \
     --swap-attention \
+    --recompute-method block \
     --recompute-num-layers 8 \
     --enable-recompute-layers-per-pp-rank \
-    --use-fused-ring-attention-update \
-    --use-fused-moe-token-permute-and-unpermute \
-    --recompute-in-advance \   
+    --recompute-in-advance \
+    --fix-router \
+    --distributed-timeout-minutes 120 \
     --bf16
 "
 

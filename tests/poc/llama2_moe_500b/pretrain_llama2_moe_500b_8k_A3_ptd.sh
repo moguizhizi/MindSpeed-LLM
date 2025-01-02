@@ -92,6 +92,7 @@ GPT_ARGS="
     --enable-recompute-layers-per-pp-rank \
     --use-fused-moe-token-permute-and-unpermute \
     --recompute-in-advance \
+    --fix-router \
     --bf16
 "
 

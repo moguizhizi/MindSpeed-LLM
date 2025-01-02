@@ -54,7 +54,8 @@ MOE_ARGS="
     --moe-token-dispatcher-type alltoall \
     --moe-alltoall-overlap-comm \
     --moe-router-topk 5 \
-    --moe-permutation-async-comm
+    --moe-permutation-async-comm \
+    --use-fused-moe-token-permute-and-unpermute \
 "
 
 GPT_ARGS="
@@ -93,10 +94,11 @@ GPT_ARGS="
     --position-embedding-type rope \
     --normalization RMSNorm \
     --swiglu \
-    --use-fused-rotary-pos-emb \
     --use-fused-swiglu \
     --use-fused-rmsnorm \
     --use-flash-attn \
+    --use-fused-rotary-pos-emb-new \
+    --use-fused-ring-attention-update \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
     --min-lr 1.0e-7 \
@@ -115,9 +117,9 @@ GPT_ARGS="
     --recompute-method block \
     --recompute-num-layers 4 \
     --enable-recompute-layers-per-pp-rank \
-    --use-fused-ring-attention-update \
-    --use-fused-moe-token-permute-and-unpermute \
     --recompute-in-advance \
+    --fix-router \
+    --distributed-timeout-minutes 120 \
     --bf16
 "
 

@@ -92,6 +92,7 @@ GPT_ARGS="
     --recompute-in-advance \
     --use-fused-ring-attention-update \
     --use-fused-moe-token-permute-and-unpermute \
+    --fix-router \
     --bf16
 "
 
