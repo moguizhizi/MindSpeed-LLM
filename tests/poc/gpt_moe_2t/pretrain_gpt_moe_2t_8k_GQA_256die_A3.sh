@@ -19,12 +19,12 @@ CKPT_SAVE_DIR="your save ckpt path"
 TP=4
 PP=2
 EP=8
-CP=16
+CP=1
 CP_TYPE='ulysses_cp_algo'
 NUM_LAYERS=24
-SEQ_LEN=131072
+SEQ_LEN=8192
 MBS=1
-GBS=16
+GBS=128
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -52,8 +52,6 @@ GPT_ARGS="
     --use-mcore-models \
     --group-query-attention \
     --num-query-groups 8 \
-    --reset-position-ids \
-    --cp-attention-mask-type general \
     --no-gradient-accumulation-fusion \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
@@ -79,7 +77,6 @@ GPT_ARGS="
     --swap-attention \
     --recompute-activation-function \
     --num-layers-per-virtual-pipeline-stage 1 \
-    --use-fused-ring-attention-update \
     --train-iters 2000 \
     --weight-decay 0.1 \
     --adam-beta1 0.9 \
@@ -133,4 +130,4 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     ${CKPT_ARGS} \
     ${OUTPUT_ARGS} \
     --distributed-backend nccl \
-    | tee logs/pretrain_gpt_moe_2t_128k_GQA_256die_A3.log
+    | tee logs/pretrain_gpt_moe_2t_8k_GQA_256die_A3.log

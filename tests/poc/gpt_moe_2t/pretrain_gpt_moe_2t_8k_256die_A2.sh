@@ -4,7 +4,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
 NPUS_PER_NODE=8
-MASTER_ADDR=localhost
+MASTER_ADDR="master node ip" #主节点IP
 MASTER_PORT=6000
 NNODES=32
 NODE_RANK=0
