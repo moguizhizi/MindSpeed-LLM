@@ -22,6 +22,12 @@ import tensordict
 from torch_npu.contrib import transfer_to_npu
 
 
+def dummy_jit(fn):
+    def wrapper(*args, **kwargs):
+        return fn(*args, **kwargs)
+    return wrapper
+
+
 class MegatronAdaptation:
     """
         A module manager supports adaptation registration, application and execution.
@@ -165,6 +171,7 @@ class CoreAdaptation(MegatronAdaptationABC):
                                     _allreduce_layernorm_grads_wrapper)
 
     def patch_fusions(self):
+        import megatron.core
         from mindspeed.core.fusions.fused_layer_norm import (FusedLayerNormAffineFunction, FastLayerNormFN)
         from mindspeed.core.fusions.fused_softmax import (is_kernel_available, ScaledUpperTriangMaskedSoftmax,
                                                           ScaledMaskedSoftmax, ScaledSoftmax, forward_fused_softmax)
@@ -190,6 +197,8 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.core.fusions.fused_bias_swiglu.SwiGLUFunction', SwiGLUFunction)
         MegatronAdaptation.register('megatron.core.fusions.fused_bias_swiglu.BiasSwiGLUFunction',
                                     BiasSwiGLUFunction)
+
+        megatron.core.jit.jit_fuser = dummy_jit
 
     def patch_core_models(self):
         from megatron.core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
