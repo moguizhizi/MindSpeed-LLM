@@ -15,10 +15,13 @@ TOKENIZER_MODEL="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
 TP=1
-PP=2
-CP=4
+PP=1
+CP=8
 CP_TYPE="ulysses_cp_algo"
 SEQ_LENGTH=32768
+MBS=1
+GBS=64
+TRAIN_ITERS=2000
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -26,6 +29,12 @@ DISTRIBUTED_ARGS="
     --node_rank $NODE_RANK \
     --master_addr $MASTER_ADDR \
     --master_port $MASTER_PORT
+"
+
+MEMORY_ARGS="
+    --recompute-granularity full \
+    --recompute-method block \
+    --recompute-num-layers 5
 "
 
 MLA_ARGS="
@@ -53,11 +62,7 @@ ROPE_ARGS="
 "
 
 GPT_ARGS="
-    --load $CKPT_LOAD_DIR \
     --use-cp-send-recv-overlap \
-    --recompute-granularity full \
-    --recompute-method block \
-    --recompute-num-layers 15 \
     --use-distributed-optimizer \
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
@@ -75,11 +80,11 @@ GPT_ARGS="
     --tokenizer-name-or-path ${TOKENIZER_MODEL} \
     --seq-length ${SEQ_LENGTH} \
     --max-position-embeddings 32768 \
-    --micro-batch-size 1 \
-    --global-batch-size 64 \
+    --micro-batch-size ${MBS} \
+    --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
     --lr 1.0e-5 \
-    --train-iters 2000 \
+    --train-iters ${TRAIN_ITERS} \
     --lr-decay-style cosine \
     --disable-bias-linear \
     --attention-dropout 0.0 \
@@ -109,7 +114,8 @@ GPT_ARGS="
     --spec mindspeed_llm.tasks.models.spec.minicpm_spec layer_spec \
     --no-load-optim \
     --no-load-rng \
-    --bf16
+    --bf16 \
+    --seed 1234
 "
 
 DATA_ARGS="
@@ -119,8 +125,8 @@ DATA_ARGS="
 
 OUTPUT_ARGS="
     --log-interval 1 \
-    --save-interval 2000 \
-    --eval-interval 2000 \
+    --save-interval ${TRAIN_ITERS} \
+    --eval-interval ${TRAIN_ITERS} \
     --eval-iters 0 \
     --no-save-optim \
     --no-save-rng
@@ -132,7 +138,8 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $OUTPUT_ARGS \
     $MLA_ARGS \
     $ROPE_ARGS \
-    $MOE_ARGS \
+    $MEMORY_ARGS \
     --distributed-backend nccl \
+    --load $CKPT_LOAD_DIR \
     --save $CKPT_SAVE_DIR \
     | tee logs/pretrain_minicpm3_4b_32k_ptd_8p.log
