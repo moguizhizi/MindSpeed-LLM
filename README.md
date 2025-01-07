@@ -486,7 +486,7 @@ MindSpeed-LLM当前已支持和预置大模型列表：
     <td>【昇腾】</td>
   </tr>
   <tr>
-    <td rowspan="2">偏好对齐</td>
+    <td rowspan="3">偏好对齐</td>
     <td><a href="./docs/features/offline_dpo.md">Offline DPO</a></td>
     <td>✅</td>
     <td>❌</td>
@@ -497,6 +497,12 @@ MindSpeed-LLM当前已支持和预置大模型列表：
     <td>✅</td>
     <td>❌</td>
     <td>【China Mobile Cloud】</td>
+  </tr>
+<tr>
+    <td><a href="./docs/features/ray_ppo.md">Ray PPO</a></td>
+    <td>✅</td>
+    <td>❌</td>
+    <td>【昇腾】</td>
   </tr>
   <tr>
     <td rowspan="2">奖励模型</td>

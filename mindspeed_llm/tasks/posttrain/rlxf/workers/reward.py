@@ -93,7 +93,7 @@ class MegatronPPORM(RMTrainer):
             self.args.micro_batch_size *= 2
         self.timers('model-setup', log_level=0).start(barrier=True)
 
-        model = get_model(self.model_provider, self.model_type)
+        model = get_model(self.model_provider, self.model_type, wrap_with_ddp=False)
         unwrapped_model = unwrap_model(model)
 
         if self.args.load is not None or self.args.pretrained_checkpoint is not None:

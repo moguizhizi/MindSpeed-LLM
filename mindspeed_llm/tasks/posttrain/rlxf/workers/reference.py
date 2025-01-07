@@ -90,7 +90,7 @@ class MegatronPPOReference(BaseTrainer):
 
         self.timers('model-setup', log_level=0).start(barrier=True)
 
-        self.model = get_model(self.model_provider, self.model_type)
+        self.model = get_model(self.model_provider, self.model_type, wrap_with_ddp=False)
         unwrapped_model = unwrap_model(self.model)
         if self.args.stage == "ray_online_dpo":
             self.args.micro_batch_size *= 2
