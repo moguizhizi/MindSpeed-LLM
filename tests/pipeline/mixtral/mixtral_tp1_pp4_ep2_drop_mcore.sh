@@ -112,8 +112,6 @@ OUTPUT_ARGS=(
     --eval-iters 1
     --no-load-optim
     --no-load-rng
-    --no-save-optim
-    --no-save-rng
     --load ${CKPT_LOAD_DIR}
     --finetune
     --log-throughput
@@ -126,5 +124,3 @@ torchrun ${DISTRIBUTED_ARGS[@]} $basepath/pretrain_gpt.py \
   ${DATA_ARGS[@]} \
   ${OUTPUT_ARGS[@]} \
   --distributed-backend nccl \
-  | tee ${log_dir} \
-  | tee logs/train_mixtral_8x7b_ptd.log

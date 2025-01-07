@@ -447,7 +447,7 @@
         <td></td>
     </tr>
     <tr>
-        <td rowspan="6"><a href="pipeline/gemma-7B">Gemma-7B</a></td>
+        <td rowspan="5"><a href="pipeline/gemma-7B">Gemma-7B</a></td>
         <td rowspan="4">Legacy</td>
         <td>pretrain</td>
         <td><a href="pipeline/gemma-7B/gemma_7B_legacy_tp8_pp1_ptd.sh">gemma_7B_legacy_tp8_pp1_ptd.sh</a></td>
@@ -477,14 +477,8 @@
         <td></td>
     </tr>
     <tr>
-        <td rowspan="2">Mcore</td>
-        <td rowspan="2">pretrain</td>
-        <td><a href="pipeline/gemma-7B/gemma2_tp8_pp1_mcore.sh">gemma2_tp8_pp1_mcore.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
+        <td rowspan="1">Mcore</td>
+        <td rowspan="1">pretrain</td>
         <td><a href="pipeline/gemma-7B/gemma2_tp8_pp1_ptd.sh">gemma2_tp8_pp1_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
