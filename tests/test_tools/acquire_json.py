@@ -17,13 +17,13 @@ def transfer_logs_as_json(log_file, output_json_file):
     Args:
         log_file: str, path to the dir where the logs are located.
         output_json_file: str, path of the json file transferred from the logs.
-    
+
     Returns:
         data: json, the values parsed from the log, formatted as a json file.
     """
-    
+
     log_pattern = re.compile(
-        r"throughput per GPU \(TFLOP/s/GPU\):\s+([0-9.]+)\s+\|.*?lm loss:\s+([0-9.]+E[+-][0-9]+)"
+        r"throughput per GPU \(TFLOP/s/GPU\):\s+([0-9.]+)\s+\|.*?lm loss:\s+([0-9.]+E[+-][0-9]+) | .* critic/vf_loss : ([0-9.]+)"
     )
 
     memory_pattern = re.compile(
@@ -41,8 +41,11 @@ def transfer_logs_as_json(log_file, output_json_file):
     memory_matches = memory_pattern.findall(log_content)
 
     if log_matches:
-        data["lm loss"] = [float(match[1]) for match in log_matches]
-        data["throughput"] = [float(match[0]) for match in log_matches]
+        if log_matches[0][1] != "":
+            data["lm loss"] = [float(match[1]) for match in log_matches]
+            data["throughput"] = [float(match[0]) for match in log_matches]
+        else:
+            data["lm loss"] = [float(match[2]) for match in log_matches]
 
     if memory_matches:
         memo_info = [

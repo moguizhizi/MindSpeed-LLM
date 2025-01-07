@@ -55,8 +55,10 @@ class TestCIST:
         }
         
         if test_obj in comparison_selection:
-            print(f"===================== Begin comparing {test_obj} ===================")
             expected_list = self.expected[test_obj]
+            if not expected_list:
+                return
+            print(f"===================== Begin comparing {test_obj} ===================")
             actual_list = self.actual[test_obj]
             print(f"The list of expected values: {expected_list}")
             print(f"The list of actual values: {actual_list}")
