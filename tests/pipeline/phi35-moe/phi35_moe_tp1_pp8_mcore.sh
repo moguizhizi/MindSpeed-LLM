@@ -126,6 +126,7 @@ DATA_ARGS="
 "
 
 OUTPUT_ARGS="
+    --finetune \
     --log-throughput \
     --log-interval 1 \
     --save-interval 2000 \

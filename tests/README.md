@@ -572,6 +572,43 @@
         <td>Y</td>
         <td>Y</td>
     </tr>
+    <tr>
+        <td rowspan="5"><a href="pipeline/phi35-moe">Phi-3.5-MoE-instruct</a></td>
+        <td rowspan="5">Mcore</td>
+        <td>pretrain</td>
+        <td><a href="pipeline/phi35-moe/phi35_moe_tp1_pp8_mcore.sh">phi35_moe_tp1_pp8_mcore.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+	<tr>
+        <td>data_process</td>
+        <td><a href="pipeline/phi35-moe/test_process_pretrain_data.py">test_process_pretrain_data.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>ckpt_hf2mg</td>
+        <td><a href="pipeline/phi35-moe/test_ckpt_hf2mg.py">test_ckpt_hf2mg.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>inference</td>
+        <td><a href="pipeline/phi35-moe/test_generation.py">test_generation.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>evaluation</td>
+        <td><a href="pipeline/phi35-moe/test_evaluation.py">test_evaluation.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
 </table>
 
 
