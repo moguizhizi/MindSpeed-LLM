@@ -24,22 +24,21 @@ LoRA微调算法通过更新附加在冻结预训练模型权重上的低秩矩�
    𝑔𝑟𝑎𝑑_𝑦∗ B的all\_gather
    $$
    
-
 3. 数学等价方式，优化scale逻辑
-  
-  $$
+
+$$
   x\ shape:[B, S, H] \\ 
   Y = Wx + \lambda BAx \\
   = Wx + B(\lambda A)x   \ \ \ \  (B * S < H)\ \  \\
   = (W + B(\lambda A))x   \ \ \ \  (B * S >= H)   \ \
-  $$
-  
+$$
+
 
 ## 使用方法
 
 RC2以上版本，LoRA微调场景，算法与PP、VPP、分布式优化器等场景兼容
 
-通过设置--lora-fusion开启CCLoRA的加速，在开启了TP或SP场景，加入--use-fused-mlp启用<td><a href="./docs/features/fused_mlp.md">Fused_MLP</a></td>算法，针对LoRA的MLP模块进一步进行计算通信掩盖提高性能。
+通过设置--lora-fusion开启CCLoRA的加速，在开启了TP或SP场景，加入--use-fused-mlp启用[Fused_MLP](./fused_mlp.md)算法，针对LoRA的MLP模块进一步进行计算通信掩盖提高性能。
 
 ## 使用效果
 

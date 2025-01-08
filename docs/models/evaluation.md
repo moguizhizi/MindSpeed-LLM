@@ -1,13 +1,13 @@
 MindSpeed-LLM 支持大模型在公开基准数据集上进行准确率评估，当前支持的 Benchmark 如下：
 
-| Benchmark | 下载链接                                                                                     | 验证集  | MindSpeed-LLM                                                            | OpenCompass                                                      |
-|-----------|------------------------------------------------------------------------------------------|------|----------------------------------------------------------------------|------------------------------------------------------------------|
-| MMLU      | [GitHub](https://people.eecs.berkeley.edu/~hendrycks/data.tar)                           | test | [45.73%](./examples/mcore/llama2/evaluate_llama2_7b_mmlu_ptd.sh)     | [45.3%](https://hub.opencompass.org.cn/dataset-detail/MMLU)      |
-| CEval     | [HuggingFace](https://huggingface.co/datasets/ceval/ceval-exam/blob/main/ceval-exam.zip) | val  | [33.87%](./examples/mcore/llama2/evaluate_llama2_7b_ceval_ptd.sh)    | [32.5%](https://hub.opencompass.org.cn/dataset-detail/C-Eval)    |
-| BoolQ     | [Juhe](https://www.juhe.cn/market/product/id/10243)                                      | dev  | [75.44%](./examples/mcore/llama2/evaluate_llama2_7b_boolq_ptd.sh)    | [74.9%](https://hub.opencompass.org.cn/dataset-detail/BoolQ)     |
-| BBH       | [GitHub](https://github.com/suzgunmirac/BIG-Bench-Hard/tree/main/bbh)                    | test | [34.4%](./examples/mcore/llama2/evaluate_llama2_7b_bbh_ptd.sh)       | [32.5%](https://hub.opencompass.org.cn/dataset-detail/BBH)       |
-| AGIEval   | [GitHub](https://github.com/ruixiangcui/AGIEval/tree/main)                               | test | [20.6%](./examples/mcore/llama2/evaluate_llama2_7b_agieval_ptd.sh)   | [20.6%](https://hub.opencompass.org.cn/dataset-detail/AGIEval)   |
-| HumanEval | [GitHub](https://github.com/openai/human-eval/tree/master/data)                          | test | [12.8%](./examples/mcore/llama2/evaluate_llama2_7b_humaneval_ptd.sh) | [12.2%](https://hub.opencompass.org.cn/dataset-detail/HumanEval) |
+| Benchmark | 下载链接                                                     | 验证集 | MindSpeed-LLM                                                | OpenCompass                                                  |
+| --------- | ------------------------------------------------------------ | ------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| MMLU      | [GitHub](https://people.eecs.berkeley.edu/~hendrycks/data.tar) | test   | [45.73%](../../examples/mcore/llama2/evaluate_llama2_7b_mmlu_ptd.sh) | [45.3%](https://hub.opencompass.org.cn/dataset-detail/MMLU)  |
+| CEval     | [HuggingFace](https://huggingface.co/datasets/ceval/ceval-exam/blob/main/ceval-exam.zip) | val    | [33.87%](../../examples/mcore/llama2/evaluate_llama2_7b_ceval_ptd.sh) | [32.5%](https://hub.opencompass.org.cn/dataset-detail/C-Eval) |
+| BoolQ     | [Juhe](https://www.juhe.cn/market/product/id/10243)          | dev    | [75.44%](../../examples/mcore/llama2/evaluate_llama2_7b_boolq_ptd.sh) | [74.9%](https://hub.opencompass.org.cn/dataset-detail/BoolQ) |
+| BBH       | [GitHub](https://github.com/suzgunmirac/BIG-Bench-Hard/tree/main/bbh) | test   | [34.4%](../../examples/mcore/llama2/evaluate_llama2_7b_bbh_ptd.sh) | [32.5%](https://hub.opencompass.org.cn/dataset-detail/BBH)   |
+| AGIEval   | [GitHub](https://github.com/ruixiangcui/AGIEval/tree/main)   | test   | [20.6%](../../examples/mcore/llama2/evaluate_llama2_7b_agieval_ptd.sh) | [20.6%](https://hub.opencompass.org.cn/dataset-detail/AGIEval) |
+| HumanEval | [GitHub](https://github.com/openai/human-eval/tree/master/data) | test   | [12.8%](../../examples/mcore/llama2/evaluate_llama2_7b_humaneval_ptd.sh) | [12.2%](https://hub.opencompass.org.cn/dataset-detail/HumanEval) |
 
 
 MindSpeed-LLM 已支持的大模型评估数据统计如下：
@@ -41,22 +41,86 @@ MindSpeed-LLM 已支持的大模型评估数据统计如下：
 | Qwen1.5-110B         | MMLU   | 80.4%     | [80.4%](https://qwenlm.github.io/zh/blog/qwen1.5-110b/)               | Yi-34B           | MMLU   | 76.3%     | [75.8%](https://hub.opencompass.org.cn/dataset-detail/MMLU)                        |
 | QWen2-0.5B           | MMLU   | 44.6%     | [45.4%](https://qwenlm.github.io/zh/blog/qwen2/)                      | QWen2-1.5B       | MMLU   | 54.7%     | [56.5%](https://qwenlm.github.io/zh/blog/qwen2/)                                   |
 | QWen2-7B             | MMLU   | 70.3%     | [70.3%](https://qwenlm.github.io/zh/blog/qwen2/)                      | QWen2-57B-A14B   | MMLU   | 75.6%     | [76.5%](https://qwenlm.github.io/zh/blog/qwen2/)                                   |
-| QWen2-72B            | MMLU   | 83.6%     | [84.2%](https://qwenlm.github.io/zh/blog/qwen2/)                      | MiniCPM-2B       | MMLU   | 51.6%     | [53.4%](https://github.com/OpenBMB/MiniCPM?tab=readme-ov-file#3)                   |                                                    
+| QWen2-72B            | MMLU   | 83.6%     | [84.2%](https://qwenlm.github.io/zh/blog/qwen2/)                      | MiniCPM-2B       | MMLU   | 51.6%     | [53.4%](https://github.com/OpenBMB/MiniCPM?tab=readme-ov-file#3)                   |
 | DeepSeek-V2-Lite-16B | MMLU   | 57.4%     | [58.3%](https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite)          | QWen2.5-0.5B     | MMLU   | 47.67%    | [47.5%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
-| QWen2.5-1.5B         | MMLU   | 59.4%     | [60.9%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-3B       | MMLU   | 65.6%     | [65.6%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                | 
-| QWen2.5-7B           | MMLU   | 73.8%     | [74.2%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-14B      | MMLU   | 79.4%     | [79.7%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                | 
-| QWen2.5-32B          | MMLU   | 83.3%     | [83.3%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-72B      | MMLU   | 85.59%    | [86.1%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                | 
-| InternLM2.5-1.8b     | MMLU   | 51.3%     | [53.5%](https://huggingface.co/internlm/internlm2_5-1_8b)             | InternLM2.5-7B   | MMLU   | 69.7%     | [71.6%](https://huggingface.co/internlm/internlm2_5-7b)                            | 
+| QWen2.5-1.5B         | MMLU   | 59.4%     | [60.9%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-3B       | MMLU   | 65.6%     | [65.6%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
+| QWen2.5-7B           | MMLU   | 73.8%     | [74.2%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-14B      | MMLU   | 79.4%     | [79.7%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
+| QWen2.5-32B          | MMLU   | 83.3%     | [83.3%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-72B      | MMLU   | 85.59%    | [86.1%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
+| InternLM2.5-1.8b     | MMLU   | 51.3%     | [53.5%](https://huggingface.co/internlm/internlm2_5-1_8b)             | InternLM2.5-7B   | MMLU   | 69.7%     | [71.6%](https://huggingface.co/internlm/internlm2_5-7b)                            |
 | InternLM2.5-20b      | MMLU   | 73.3%     | [74.2%](https://huggingface.co/internlm/internlm2_5-20b)              | Yi1.5-6B         | MMLU   | 63.2%     | [63.5%](https://huggingface.co/01-ai/Yi-1.5-6B/tree/main)                          |
-| Yi1.5-9B             | MMLU   | 69.2%     | [69.5%](https://huggingface.co/01-ai/Yi-1.5-9B/tree/main)             | Yi1.5-34B        | MMLU   | 76.9%     | [77.1%](https://huggingface.co/01-ai/Yi-1.5-34B/tree/main)                         | 
+| Yi1.5-9B             | MMLU   | 69.2%     | [69.5%](https://huggingface.co/01-ai/Yi-1.5-9B/tree/main)             | Yi1.5-34B        | MMLU   | 76.9%     | [77.1%](https://huggingface.co/01-ai/Yi-1.5-34B/tree/main)                         |
 | CodeQWen2.5-7B       | Human. | 66.5%     | [61.6%](https://modelscope.cn/models/Qwen/Qwen2.5-Coder-7B)           | Qwen2.5-Math-7B  |MMLU-STEM| 65.1%    | [67.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)                         |
 | Qwen2.5-Math-72B     |MMLU-STEM| 83.7%    | [82.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)            | MiniCPM3-4B | MMLU | 63.7% | 64.6% |
 | Phi-3.5-mini-instruct | MMLU   | 64.39%    | 64.34%                                                               | Phi-3.5-MoE-instruct | MMLU      | 78.5%         | [78.9%](https://huggingface.co/microsoft/Phi-3.5-MoE-instruct)         |
 | DeepSeek-Math-7B     |MMLU-STEM| 56.5%    | [56.5%](https://github.com/deepseek-ai/DeepSeek-Math)                 | DeepSeek-V2.5    | MMLU   | 79.3%     | [80.6%](https://github.com/deepseek-ai/DeepSeek-V3)                                |
 | DeepSeek-V2-236B | MMLU   | 78.1%     | [78.5%](https://huggingface.co/deepseek-ai/DeepSeek-V2)          |
 
-具体的权重转换功能命令介绍见 [MindSpeed-LLM 大模型使用指南分布式评估](../USER_GUIDE.md/#大模型分布式评估)章节.
+## 大模型分布式评估使用介绍
 
+####  1. 基准评估
+MindSpeed-LLM 基准评估脚本命名风格及启动方法为：
+```shell
+# Legacy
+# 命名及启动：examples/legacy/model_name/evaluate_xxx.sh
+bash examples/legacy/llama2/evaluate_llama2_7b_ptd.sh
+
+# Mcore
+# 命名及启动：examples/mcore/model_name/evaluate_xxx.sh
+bash examples/mcore/llama2/evaluate_llama2_7b_mmlu_ptd.sh
+
+# 使用lora权重的评估脚本命名风格及启动方法为（以 legacy 为例）：
+bash examples/legacy/llama2/evaluate_llama2_7B_lora_ptd.sh
+```
+
+```shell
+# 修改模型参数路径和词表路径
+TOKENIZER_PATH="./model_from_hf/llama-2-hf/"  #词表路径
+CHECKPOINT="./model_weights/llama-2-7b-legacy"  #权重路径
+# 配置任务和数据集路径
+DATA_PATH="./mmlu/data/test/"
+TASK="mmlu"  # 支持 mmlu、ceval、agieval、bbh、boolq、human_eval
+
+# 启动评估脚本（以 legacy 为例）
+bash examples/legacy/llama2/evaluate_llama2_7B_mmlu_ptd.sh
+```
+
+【--max-new-tokens】
+
+表示模型输出的生成长度，多项选择问题的输出长度会比编码任务的输出长度小，该参数很大程度上影响了模型的评估性能
+
+
+【--evaluation-batch-size】
+
+可以设置多batch推理，提升模型评估性能
+
+
+####  2. 指令微调评估
+
+使用指令微调后权重的评估脚本命名风格及启动方法为（以 legacy 为例）：
+
+```shell
+bash examples/legacy/llama2/evaluate_llama2_7B_full_mmlu_ptd.sh
+```
+
+【--prompt-type】
+
+模型对话模板，选择模型对应的对话模板进行评估
+
+【--hf-chat-template】
+
+如果模型的tokenizer已经具备`chat_template`属性，则可以选择通过添加`--hf-chat-template`来使用模型内置的对话模板进行评估
+
+【--eval-language】
+
+根据评估数据集语言来确定，默认为`en`，如果评估数据集为中文数据集，则应设置为`zh`
+
+####  3. LoRA权重评估
+
+使用lora权重的评估脚本命名风格及启动方法为（以 legacy 为例）：
+
+```shell
+bash examples/legacy/llama2/evaluate_llama2_7B_lora_mmlu_ptd.sh
+```
 
 ## 社区BUG列表
 

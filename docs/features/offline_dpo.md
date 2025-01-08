@@ -30,7 +30,7 @@ python ./preprocess_data.py \
 
 ### 训练参数
 
-dpo训练脚本参照：examples/mcore/llama3/dpo_llama3_8b_full_ptd.sh
+dpo训练脚本参照：[dpo_llama3_8b_full_ptd.sh](../../examples/mcore/llama3/dpo_llama3_8b_full_ptd.sh)
 
 相较于普通预训练，dpo需要增加一些几个参数：
 

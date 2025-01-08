@@ -31,9 +31,13 @@ $
 | User:上面几本书的阅读顺序是什么呢? | Assistant:上面几本书的阅读顺序是<br>《自然语言处理导论》、《深度学习与自然语言处理》、《自然语言处理概论》、《自然语言处理实战》。 | MindSpeed-LLM: 建议先阅读《自然语言处理入门》、《自然语言处理评估》、《统计自然语言处理》,然后再阅读《深度学习:自然语言处理和计算机视觉》。     |
 | User:9.11和09.9哪个比较大  | Assistant: 9.11比9.9大。             | MindSpeed-LLM: 9.11 |
 
+## 使用说明
+
+MindSpeed-LLM支持在微调、偏好对齐、奖励模型等任务上，使用LoRA进行低参训练。使用方法为在基准任务上加上lora参数进行使能。这里以微调任务为例，说明如何在基准任务上使用lora。
+
 ### 数据预处理示例
 
-MindSpeed-LLM 数据预处理脚本命名和启动方法：
+MindSpeed-LLM 微调数据预处理脚本命名和启动方法（别的基准任务数据预处理请参考对应任务的数据预处理文档）：
 
 ```shell
 # Legacy 模型
@@ -69,7 +73,7 @@ DATA_PATH="./finetune_dataset/llama-2-7b/alpaca"  # 数据集路径
 - **`--variable-seq-lengths`**  
   支持动态序列长度微调，默认按 8 的倍数进行 padding，可以通过 `--pad-to-multiple-of` 参数修改 padding 的倍数。
 
-### LoRA 微调
+### 参数说明
 
 MindSpeed-LLM LoRA微调脚本命名和启动方法：
 
@@ -80,7 +84,8 @@ bash examples/legacy/llama2/tune_llama2_7b_lora_ptd.sh
 # Mcore 模型
 bash examples/mcore/llama2/tune_llama2_7b_lora_ptd.sh
 ```
-#### 参数说明
+参数说明：
+
 - **`--load`**  
   若不指定该参数加载权重，模型会随机初始化权重。
 

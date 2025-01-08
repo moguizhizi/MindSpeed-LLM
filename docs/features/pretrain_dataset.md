@@ -1,7 +1,8 @@
-# 预训练数据集
+# 预训练数据集处理
 
 ## 常用的预训练数据集
 
+- [Alpaca数据集](https://huggingface.co/datasets/tatsu-lab/alpaca)
 - [Enwiki数据集](https://huggingface.co/datasets/lsb/enwiki20230101)
 - [C4数据集](https://huggingface.co/datasets/allenai/c4)
 - [ChineseWebText](https://huggingface.co/datasets/CASIA-LM/ChineseWebText)
@@ -13,7 +14,7 @@
 ```shell
 mkdir dataset
 cd dataset/
-wget https://huggingface.co/datasets/lsb/enwiki20230101/resolve/main/data/train-00000-of-00042-d964455e17e96d5a.parquet
+wget https://huggingface.co/datasets/tatsu-lab/alpaca/blob/main/data/train-00000-of-00001-a09b74b3ef9c3b56.parquet
 cd ..
 ```
 
@@ -28,14 +29,28 @@ mkdir ./dataset
 
 python ./preprocess_data.py \
     --input ./dataset/train-00000-of-00042-d964455e17e96d5a.parquet \
-    --tokenizer-name-or-path ./model_from_hf/llama-2-hf \
+    --tokenizer-name-or-path ./model_from_hf/llama-2-7b-hf \
     --tokenizer-type PretrainedFromHF \
     --handler-name GeneralPretrainHandler \
-    --output-prefix ./dataset/enwiki \
+    --output-prefix ./dataset/alpaca_llama2_7b \
     --json-keys text \
     --workers 4 \
     --log-interval 1000  
 ```
+
+MindSpeed-LLM预训练数据集处理脚本命名风格及启动方法为:
+
+```shell
+# Legacy
+# 命名及启动：examples/legacy/model_name/data_convert_xxx_pretrain.sh
+bash examples/legacy/llama2/data_convert_llama2_pretrain.sh
+
+# Mcore
+# 命名及启动：examples/mcore/model_name/data_convert_xxx_pretrain.sh
+bash examples/mcore/llama2/data_convert_llama2_pretrain.sh
+```
+
+### 参数说明
 
 【--input】
 
@@ -66,24 +81,13 @@ python ./preprocess_data.py \
 
 数据预处理并行加速参数。当需要预处理的数据集比较大时，可以通过并行处理进行加速，方法为设置参数`--n-subs`，通过该参数设置并行处理数量。在数据预处理过程会将原始数据集切分为`n_sub`个子集，对子集进行并行处理，然后合并，从而实现加速。建议预处理数据集超过GB级别时加上该参数。
 
-
-MindSpeed-LLM预训练数据集处理脚本命名风格及启动方法为：
-
-```shell
-# Legacy
-# 命名及启动：examples/legacy/model_name/data_convert_xxx_pretrain.sh
-bash examples/legacy/llama2/data_convert_llama2_pretrain.sh
-
-# Mcore
-# 命名及启动：examples/mcore/model_name/data_convert_xxx_pretrain.sh
-bash examples/mcore/llama2/data_convert_llama2_pretrain.sh
-```
+### 处理结果
 
 预训练数据集处理结果如下：
 
 ```shell
-./dataset/enwiki_text_document.bin
-./dataset/enwiki_text_document.idx
+./dataset/alpaca_llama2_7b_text_document.bin
+./dataset/alpaca_llama2_7b_text_document.idx
 ```
 
-预训练时，数据集路径输入 `./dataset/enwiki_text_document` 即可
+预训练时，数据集路径`--data-path`参数传入 `./dataset/alpaca_llama2_7b_text_document` 即可
