@@ -513,7 +513,7 @@ def _add_network_args(parser):
     group.add_argument(
         '--stage',
         default=None,
-        choices=["sft", "dpo", "rm", "prm", "simpo", "ray_ppo", "ray_online_dpo"],
+        choices=["sft", "dpo", "orm", "prm", "simpo", "ray_ppo", "ray_online_dpo"],
         help='Determine training mode'
     )
 

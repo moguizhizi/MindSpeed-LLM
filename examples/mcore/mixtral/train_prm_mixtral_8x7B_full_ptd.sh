@@ -135,4 +135,4 @@ torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
   $DATA_ARGS \
   $OUTPUT_ARGS \
   --distributed-backend nccl \
-  | tee logs/tune_mixtral_8x7b_prm_full_ptd.log 
+  | tee logs/train_prm_mixtral_8x7b_full_ptd.log 

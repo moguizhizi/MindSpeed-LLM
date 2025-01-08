@@ -18,7 +18,7 @@ from megatron.core.pipeline_parallel import get_forward_backward_func
 
 from mindspeed_llm.training.initialize import set_jit_fusion_options
 from mindspeed_llm.training.utils import get_tune_attention_mask
-from mindspeed_llm.tasks.posttrain.rm import RMTrainer
+from mindspeed_llm.tasks.posttrain.orm import ORMTrainer
 from mindspeed_llm.tasks.posttrain.rlxf.utils.protocol import DataProto
 from mindspeed_llm.tasks.posttrain.rlxf.utils.torch_functional import split_dict_tensor_into_batches
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker import MegatronWorker
@@ -58,7 +58,7 @@ class RewardWorker(MegatronWorker):
         return output
 
 
-class MegatronPPORM(RMTrainer):
+class MegatronPPORM(ORMTrainer):
     def __init__(self):
         super().__init__()
 

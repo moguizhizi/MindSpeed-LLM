@@ -21,7 +21,8 @@ import sys
 from functools import wraps
 import torch.multiprocessing as mp
 from mindspeed_llm import megatron_adaptor
-from pretrain_gpt import model_provider
+import pretrain_gpt
+from mindspeed_llm.tasks.posttrain.orm.orm_trainer import ORMTrainer
 
 MODULE_ROOT = "mindspeed_llm.tasks.checkpoint"
 
@@ -81,6 +82,8 @@ def main():
                         help='model type of huggingface')
     parser.add_argument('--ckpt-cfg-path', type=str, default="configs/checkpoint/model_cfg.json",
                         help="Path to the config directory. If not specified, the default path in the repository will be used.")
+    parser.add_argument('--orm', action="store_true", default=False,
+                        help='Specify the ORM ckpt conversion, convert additional rm_head layer in ORM.')
     known_args, _ = parser.parse_known_args()
 
     use_saver = known_args.load_model_type is None
@@ -97,6 +100,9 @@ def main():
     args = parser.parse_args()
 
     queue = mp.Queue(maxsize=args.max_queue_size)
+    model_provider = ORMTrainer.model_provider if args.orm else pretrain_gpt.model_provider
+    if args.orm and not args.use_mcore_models:
+        raise AssertionError("Currently Outcome Reward Model only support Mcore models")
 
     print("Starting saver...")
     saver_proc = mp.Process(target=saver.save_model_checkpoint, args=(model_provider, queue, args))

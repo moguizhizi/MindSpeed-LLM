@@ -199,3 +199,39 @@ class TestCheckpoint(object):
         save_dir = self.test_config['test_llama2_lora2mcore_tp1pp1'][0]['save-dir']
         assert weight_compare(base_dir, save_dir)
         shutil.rmtree(save_dir)
+
+    def test_mixtral_hf2mcore_orm_tp2pp2ep2(self):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_mixtral_hf2mcore_orm_tp2pp2ep2'])
+        assert exit_code == 0
+        base_dir = '/data/ci/orm/mixtral-8x7b-layers4-rm-mcore_tp2pp2ep2/'
+        save_dir = self.test_config['test_mixtral_hf2mcore_orm_tp2pp2ep2'][0]['save-dir']
+        assert weight_compare(base_dir, save_dir)
+        shutil.rmtree(save_dir)
+
+    def test_mixtral_mcore2hf_orm_tp2pp2ep2(self):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_mixtral_mcore2hf_orm_tp2pp2ep2'])
+        assert exit_code == 0
+        base_dir = '/data/ci/orm/mixtral-8x7b-layers4-rm-hf-base/'
+        save_dir = os.path.join(self.test_config['test_mixtral_mcore2hf_orm_tp2pp2ep2'][0]['save-dir'], 'mg2hf')
+        assert weight_compare(base_dir, save_dir, suffix="safetensors", use_md5=True)
+        shutil.rmtree(save_dir)
+
+    def test_llama2_hf2mcore_orm_pp2vpp2(self):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_llama2_hf2mcore_orm_pp2vpp2'])
+        assert exit_code == 0
+        base_dir = '/data/ci/orm/llama-2-7b-layers8-rm-mcore_pp2vpp2/'
+        save_dir = self.test_config['test_llama2_hf2mcore_orm_pp2vpp2'][0]['save-dir']
+        assert weight_compare(base_dir, save_dir)
+        shutil.rmtree(save_dir)
+
+    def test_llama2_mcore2hf_orm_pp2vpp2(self):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_llama2_mcore2hf_orm_pp2vpp2'])
+        assert exit_code == 0
+        base_dir = '/data/ci/orm/llama-2-7b-layers8-rm-hf-base/'
+        save_dir = os.path.join(self.test_config['test_llama2_mcore2hf_orm_pp2vpp2'][0]['save-dir'], 'mg2hf')
+        assert weight_compare(base_dir, save_dir, suffix="safetensors", use_md5=True)
+        shutil.rmtree(save_dir)

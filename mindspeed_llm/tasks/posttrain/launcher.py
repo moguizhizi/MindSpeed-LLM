@@ -7,7 +7,7 @@ from mindspeed_llm.tasks.posttrain.rlxf.ray_trainer.online_dpo_trainer import Ra
 from mindspeed_llm.tasks.posttrain.rlxf.ray_trainer.ppo_trainer import RayPPOTrainer
 from mindspeed_llm.tasks.posttrain.sft import SFTTrainer
 from mindspeed_llm.tasks.posttrain.dpo import DPOTrainer
-from mindspeed_llm.tasks.posttrain.rm import RMTrainer
+from mindspeed_llm.tasks.posttrain.orm import ORMTrainer
 from mindspeed_llm.tasks.posttrain.prm import PRMTrainer
 from mindspeed_llm.tasks.posttrain.dpo import SimPOTrainer
 
@@ -25,8 +25,8 @@ def get_trainer(stage):
         return SFTTrainer()
     elif stage == "dpo":
         return DPOTrainer()
-    elif stage == "rm":
-        return RMTrainer()
+    elif stage == "orm":
+        return ORMTrainer()
     elif stage == "prm":
         return PRMTrainer()
     elif stage == "simpo":
@@ -43,7 +43,7 @@ def get_trainer(stage):
 class AutoTrainer:
     """
     AutoTrainer is an automatic trainer selector.
-    It chooses the appropriate trainer (e.g., SFTTrainer, DPOTrainer, RMTrainer...)
+    It chooses the appropriate trainer (e.g., SFTTrainer, DPOTrainer, ORMTrainer...)
     based on the 'stage' argument.
     """
     

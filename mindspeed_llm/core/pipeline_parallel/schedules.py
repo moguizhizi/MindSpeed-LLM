@@ -56,5 +56,7 @@ def forward_backward_pipelining_with_interleaving_wrapper(fn):
             kwargs['micro_batch_size'] = args_.micro_batch_size * 4
         if args_.virtual_pipeline_model_parallel_size is not None and args_.stage == "simpo":
             kwargs['micro_batch_size'] = args_.micro_batch_size * 2
+        if args_.virtual_pipeline_model_parallel_size is not None and args_.stage == "orm":
+            kwargs['micro_batch_size'] = args_.micro_batch_size * 2
         return fn(*args, **kwargs)
     return wrapper

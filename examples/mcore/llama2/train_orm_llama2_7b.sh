@@ -68,7 +68,7 @@ GPT_ARGS="
     --weight-decay 0.0 \
     --is-pairwise-dataset \
     --finetune \
-    --stage rm \
+    --stage orm \
 "
 
 DATA_ARGS="
@@ -91,4 +91,4 @@ torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     --variable-seq-lengths \
     --load $CKPT_LOAD_DIR \
     --save $CKPT_SAVE_DIR \
-    | tee logs/reward_llama2_7b.log
+    | tee logs/train_orm_llama2_7b.log

@@ -36,7 +36,7 @@ MATH-SHEPHERD 数据集下载及预处理可以参考 <a href="../../docs/featur
 
 ### 启动脚本
 
-使用examples/mcore/llama2/模型目录下的<a href="../../examples/mcore/llama2/tune_llama2_7b_prm_full_ptd.sh">过程奖励模型微调脚本</a>。
+使用examples/mcore/llama2/模型目录下的<a href="../../examples/mcore/llama2/train_prm_llama2_7b_full_ptd.sh">过程奖励模型微调脚本</a>。
 
 #### 填写相关路径
 
@@ -74,7 +74,7 @@ CKPT_LOAD_DIR="./model_weights/llama-2-7b-mcore/"
 #### 运行脚本
 
 ```bash
-bash /examples/mcore/llama2/tune_llama2_7b_prm_full_ptd.sh
+bash /examples/mcore/llama2/train_prm_llama2_7b_full_ptd.sh
 ```
 
 

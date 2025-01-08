@@ -33,9 +33,18 @@ python ./preprocess_data.py \
 
 注意 ORM 训练需要使用 Pairwise 数据集及对应的 Pairwise handler。更多关于 Pairwise 数据集预处理说明详见：[Pairwise-dataset](./pairwise_dataset.md)
 
+### 模型权重转换
+在进行结果奖励模型权重转换时，需要额外配置以下参数：
+
+- **`--orm`**
+
+  指定进行结果奖励模型权重转换，对 ORM 中新增的 rm_head 进行处理和转换。
+
+以 llama2-7B 为例，权重转换脚本参照：examples/mcore/llama2/ckpt_convert_llama2_hf2mcore_orm.sh
+
 ### 训练脚本示例
 
-目前仓上已包含 ChatGLM3-6B, Llama2-7B 奖励模型训练脚本。以 ChatGLM3-6B 为例，训练脚本参照：examples/mcore/chatglm3/reward_chatglm3_6B.sh
+目前仓上已包含 ChatGLM3-6B, Llama2-7B 奖励模型训练脚本。以 ChatGLM3-6B 为例，训练脚本参照：examples/mcore/chatglm3/train_orm_chatglm3_6B.sh
 
 相较预训练，奖励模型训练需要额外配置以下参数：
 

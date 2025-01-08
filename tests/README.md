@@ -13,7 +13,7 @@
         <th>Mem.</th>
     </tr>
     <tr>
-        <td rowspan="21">ST</td>
+        <td rowspan="23">ST</td>
         <td rowspan="13">Pretrain</td>
         <td>Mcore</td>
         <td>TP，PP，VPP，distributed_optimizer，o2_gradient，o2_optimizer，重计算，enable_recompute_layers_per_pp_rank，FA_TND，use_fused_rotary_pos_emb_new</td>
@@ -168,10 +168,26 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="1">RewardModel</td>
+        <td rowspan="3">OutcomeRewardModel</td>
         <td>Mcore</td>
         <td>prompt_type, variable_seq_lengths</td>
-        <td><a href="st/shell_scripts/reward_chatglm3_tp2_pp4_full.sh">reward_chatglm3_tp2_pp4_full.sh</a></td>
+        <td><a href="st/shell_scripts/train_orm_chatglm3_tp2_pp4_full.sh">train_orm_chatglm3_tp2_pp4_full.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>Mcore</td>
+        <td>TP, PP, CP, EP, distributed_optimizer, 全重计算</td>
+        <td><a href="st/shell_scripts/train_orm_mixtral_tp2_pp2_cp2_ep2.sh">train_orm_mixtral_tp2_pp2_cp2_ep2.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>Mcore</td>
+        <td>PP, VPP, DP, recompute-activation-function</td>
+        <td><a href="st/shell_scripts/train_orm_llama2_7b_pp2_vpp2_dp2.sh">train_orm_llama2_7b_pp2_vpp2_dp2.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
@@ -180,7 +196,7 @@
         <td rowspan="1">ProcessRewardModel</td>
         <td>Mcore</td>
         <td>TP, PP, variable_seq_lengths</td>
-        <td><a href="st/shell_scripts/tune_llama2_tp1_pp8_prm_full_ptd.sh">tune_llama2_tp1_pp8_prm_full_ptd.sh</a></td>
+        <td><a href="st/shell_scripts/train_prm_llama2_tp1_pp8_full_ptd.sh">train_prm_llama2_tp1_pp8_full_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
@@ -254,7 +270,7 @@
     <tr>
         <td rowspan="4">Checkpoint</td>
         <td rowspan="2"> Mcore </td>
-        <td>hf2mcore, mcore2hf, TP, PP, EP, DPP, VPP, moe, noop_layers, lora</td>
+        <td>hf2mcore, mcore2hf, TP, PP, EP, DPP, VPP, moe, noop_layers, lora, ORM</td>
         <td rowspan="4"><a href="ut/checkpoint/test_checkpoint.py">test_checkpoint.py</a></td>
         <td>Y</td>
         <td></td>

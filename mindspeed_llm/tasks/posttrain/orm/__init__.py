@@ -1,6 +1,6 @@
 # Copyright (c) 2024, HUAWEI CORPORATION.  All rights reserved.
 
-__all__ = ["RMTrainer"]
+__all__ = ["ORMTrainer"]
 
 
-from .rm_trainer import RMTrainer
+from .orm_trainer import ORMTrainer

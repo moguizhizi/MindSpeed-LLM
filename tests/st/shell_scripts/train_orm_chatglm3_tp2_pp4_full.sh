@@ -86,7 +86,7 @@ GPT_ARGS="
     --norm-epsilon 1e-6 \
     --finetune \
     --no-post-layer-norm \
-    --stage rm \
+    --stage orm \
 "
 
 DATA_ARGS="

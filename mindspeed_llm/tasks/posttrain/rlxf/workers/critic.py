@@ -34,7 +34,7 @@ from megatron.training import get_args, initialize_megatron, get_timers
 from mindspeed_llm.tasks.posttrain.utils import append_to_dict
 from mindspeed_llm.training.utils import get_tune_attention_mask
 from mindspeed_llm.tasks.posttrain.base import BaseTrainer
-from mindspeed_llm.tasks.posttrain.rm.rm_model import GPTRewardModel
+from mindspeed_llm.tasks.posttrain.orm.orm_model import GPTRewardModel
 from mindspeed_llm.training.initialize import set_jit_fusion_options
 
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.decorator import register, Dispatch

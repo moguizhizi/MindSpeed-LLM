@@ -83,7 +83,7 @@ GPT_ARGS="
     --norm-epsilon 1e-6 \
     --finetune \
     --no-post-layer-norm \
-    --stage rm \
+    --stage orm \
 "
 
 DATA_ARGS="
@@ -105,4 +105,4 @@ torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     --distributed-backend nccl \
     --variable-seq-lengths \
     --save $CKPT_SAVE_DIR \
-    | tee logs/reward_chatglm3_6B.log
+    | tee logs/train_orm_chatglm3_6B.log

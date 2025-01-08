@@ -407,6 +407,23 @@ def set_model_output_layer(model_mg, msg, md, **kwargs):
                 model_mg.set_output_layer_bias(**kwargs, data=output_layer_bs[tp_rank])
 
 
+def set_model_rm_head(model_mg, msg, md, **kwargs):
+    margs = model_mg.get_args()
+    tp_size = margs.tensor_model_parallel_size
+    ep_size = margs.expert_model_parallel_size
+    rm_head_weight_list = msg.pop(f"weight")
+    rm_head_weight_list = torch.chunk(rm_head_weight_list, tp_size, dim=1)
+    if model_mg.has_rm_head_bias(**kwargs):
+        rm_head_bias = msg.pop(f"bias")
+    for ep_rank in range(ep_size):
+        kwargs["ep_rank"] = ep_rank
+        for tp_rank in range(tp_size):
+            kwargs["tp_rank"] = tp_rank
+            model_mg.set_rm_head_weight(**kwargs, data=rm_head_weight_list[tp_rank])
+            if model_mg.has_rm_head_bias(**kwargs):
+                model_mg.set_rm_head_bias(**kwargs, data=rm_head_bias)
+
+
 def save_model(model_mg, md, **kwargs):
     margs = model_mg.get_args()
     args_cmd = model_mg.get_args_cmd()
@@ -566,6 +583,11 @@ def save_model_checkpoint(model_provider, queue, args):
                 if md.output_layer:
                     msg = queue_get("output layer")
                     set_model_output_layer(model_mg, msg, md, **kwargs)
+                    check_message(msg)
+
+                if md.rm_head:
+                    msg = queue_get("rm head")
+                    set_model_rm_head(model_mg, msg, md, **kwargs)
                     check_message(msg)
 
             if vp_rank == virtual_pipeline_model_parallel_size - 1:

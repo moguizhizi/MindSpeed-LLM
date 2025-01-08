@@ -4,11 +4,14 @@ from copy import deepcopy
 from unittest.mock import patch
 import torch
 from torch import Tensor
+import torch.distributed as dist
 from megatron.core.tensor_parallel.layers import RowParallelLinear
+from megatron.core.tensor_parallel.mappings import gather_from_sequence_parallel_region
 from megatron.core.transformer.spec_utils import ModuleSpec
 from megatron.core.model_parallel_config import ModelParallelConfig
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.models.gpt import GPTModel
+from megatron.core import mpu
 
 
 
@@ -33,6 +36,10 @@ class RewardModelHead(RowParallelLinear):
     ):
         config = deepcopy(config)
         config.params_dtype = dtype
+        # Input of RewardModelHead is not splited on hidden dimension (input_is_parallel=False),
+        # RewardModelHead also doesn't need to reduce-scatter output for SP in layers behind
+        # (it's the last layer), so set sequence_parallel to False
+        config.sequence_parallel = False
 
         assert output_size > 0, "Output size of reward model head should be greater than zero"
 
@@ -76,7 +83,6 @@ class RewardModelHead(RowParallelLinear):
         return attributes
 
 
-
 class GPTRewardModel(GPTModel):
     """MCoreGPT-based reward model."""
 
@@ -118,6 +124,7 @@ class GPTRewardModel(GPTModel):
         )
         config.use_cpu_initialization = True
         config.params_dtype = torch.float32
+        self.sequence_parallel = config.sequence_parallel
 
         if self.post_process: # only add RM Head after the final layer
             self.rm_head = RewardModelHead(
@@ -126,6 +133,11 @@ class GPTRewardModel(GPTModel):
                 config=config,
                 init_method=self.config.init_method,
             )
+            # Set requires_grads to False for params not involved in calculation
+            # to remove them from grad sync in DDP ParamAndGradBuffer
+            self.output_layer.requires_grad_(False)
+            if not post_layer_norm:
+                self.decoder.final_layernorm.requires_grad_(False)
 
     def forward(
         self,
@@ -147,6 +159,10 @@ class GPTRewardModel(GPTModel):
             )
 
         if self.post_process:
+            if self.sequence_parallel and mpu.get_tensor_model_parallel_world_size() > 1:
+                # gather hidden_states on the sequence dimension,
+                # sp_world_size x [seq_len / sp_world_size, bs, hidden] -> [seq_len, bs, hidden]
+                hidden_states = gather_from_sequence_parallel_region(hidden_states, tensor_parallel_output_grad=False)
             return self.rm_head(hidden_states)
         return hidden_states
 
@@ -158,9 +174,9 @@ class GPTRewardModel(GPTModel):
         if not self.return_rm_head_in_state_dict:
             sharded_state_dict = {k: v for k, v in sharded_state_dict.items() if "rm_head" not in k}
         else:
-            # reward models trained on older containers do not have this extra state(which keeps track of fp8 states)
-            # we will ignore it for backwards compatability since we don't support FP8 in reward model training
-            assert self.config.fp8 is None, "fp8 is not supported for the reward model"
+            # outcome reward models trained on older containers do not have this extra state(which keeps track of fp8 states)
+            # we will ignore it for backwards compatability since we don't support FP8 in outcome reward model training
+            assert self.config.fp8 is None, "fp8 is not supported for the outcome reward model"
             sharded_state_dict = {k: v for k, v in sharded_state_dict.items() if "rm_head._extra_state" not in k}
 
         return sharded_state_dict
