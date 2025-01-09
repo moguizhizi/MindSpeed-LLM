@@ -219,6 +219,7 @@ class PPOActorInferWorker(BaseTrainer):
         self.timers('train/valid/test-data-iterators-setup', log_level=0).start(
             barrier=True)
 
+        self.args.num_layer_list = None
         self.args.micro_batch_size = 1
         self.args.sequence_parallel = False
         self.inf_model = MegatronModuleForCausalLM.from_pretrained(
@@ -273,9 +274,11 @@ class PPOActorInferWorker(BaseTrainer):
         for i in range(num_infer_steps):
             for j in range(args.num_samples_per_step):
                 tokens = self.get_batch(self.train_data_iterator)
-                idx_list_per_step.append(tokens.view(-1).cpu().numpy().tolist())
-            if args.stage == "ray_online_dpo":
-                idx_list_per_step = idx_list_per_step + copy.deepcopy(idx_list_per_step)
+                tokens_list = tokens.view(-1).cpu().numpy().tolist()
+                idx_list_per_step.append(tokens_list)
+                if args.stage == "ray_online_dpo":
+                    idx_list_per_step.append(copy.deepcopy(tokens_list))
+
             responses_per_step = self.inf_model.generate(copy.deepcopy(idx_list_per_step),
                                                          max_new_tokens=max_new_tokens,
                                                          detokenize=False, broadcast=False, do_sample=args.do_sample)
@@ -378,10 +381,9 @@ def generate_attention_mask(input_ids_list, prompts_ori_length, prompts_pad_leng
     return attention_mask_list
 
 
-def split_two_prompts(scores):
-    args = get_args()
-    scores = scores.reshape(args.num_samples_per_step * 2, -1)
-    first_half, second_half = scores.split(scores.size(0) // 2, dim=0)
+def split_two_prompts(origin_tensor):
+    origin_tensor = origin_tensor.reshape(2, -1)
+    first_half, second_half = origin_tensor.split(1, dim=0)
     return first_half.reshape(-1), second_half.reshape(-1)
 
 

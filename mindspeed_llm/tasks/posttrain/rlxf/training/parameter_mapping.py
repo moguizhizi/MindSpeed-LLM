@@ -3,11 +3,13 @@ import hashlib
 
 import torch
 import torch.distributed as dist
-import mindspeed_llm.tasks.posttrain.rlxf.training.parallel_state as ps
 from megatron.training import get_args
+from megatron.core import parallel_state as mpu
+
+import mindspeed_llm.tasks.posttrain.rlxf.training.parallel_state as ps
+
 
 RECEIVE_PARAM_NUMS = None
-
 MODEL_SEND_GROUP = None
 MODEL_RECEIVE_GROUPS = []
 
@@ -125,7 +127,13 @@ def send_model_to_infer_model(moudle: torch.nn.Module):
     model_send_group = get_model_send_group()
     if args.md5_validate:
         hash_value = hashlib.md5()
+
+    is_reuse_output_weights = (not args.untie_embeddings_and_output_weights and
+                               args.pipeline_model_parallel_size >= 2 and
+                               mpu.is_pipeline_last_stage(ignore_virtual=True))
     for name, param in moudle.named_parameters():
+        if is_reuse_output_weights and 'output_layer.weight' in name:
+            continue
         param_info_data = param.data
         dist.broadcast(param_info_data, group=model_send_group, src=dist.get_rank(), async_op=True)
         if args.md5_validate:
@@ -174,6 +182,17 @@ def recv_model_from_train_model(moudle: torch.nn.Module):
                 hash_value = hashlib.md5()
             flag = True
             idx += 1
+
+    if cur_num != 0:
+        if args.md5_validate:
+            md5_tensor = torch.tensor([int(h, 16) for h in hash_value.hexdigest()], dtype=torch.int64,
+                                      device=torch.cuda.current_device())
+            md5_tensor_src = torch.zeros_like(md5_tensor, dtype=torch.int64, device=torch.cuda.current_device())
+            dist.broadcast(md5_tensor_src, group=cur_group[1], src=cur_group[0], async_op=False)
+            if torch.equal(md5_tensor_src, md5_tensor):
+                print("MD5 Hash: The weights of the two models match.")
+            else:
+                print("MD5 Hash: The weights of the two models do not match.")
 
 
 def run_auto_mapping(model):

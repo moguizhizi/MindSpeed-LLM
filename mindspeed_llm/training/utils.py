@@ -379,14 +379,15 @@ def generate_adaptive_cp_grid_mask_by_user(cp_size):
         grid_actual_seq_len_dict[seq_len // sub_seq_length + 1] = seq_len % sub_seq_length == 0
     grid_actual_seq_len = list(grid_actual_seq_len_dict.items())
     start_index = 0
-    for i in range(len(grid_actual_seq_len) - 1):
-        end_index = grid_actual_seq_len[i + 1][0]
+    for i, _ in enumerate(grid_actual_seq_len):
+        end_index = grid_actual_seq_len[i][0]
         grid_mask[start_index:end_index, start_index:end_index] = 1
 
-        if grid_actual_seq_len[i][1]:
-            start_index = grid_actual_seq_len[i][0] - 1
-        else:
-            start_index = grid_actual_seq_len[i][0]
+        if i != 0:
+            if grid_actual_seq_len[i - 1][1]:
+                start_index = grid_actual_seq_len[i - 1][0] - 1
+            else:
+                start_index = grid_actual_seq_len[i - 1][0]
     grid_mask = torch.tril(grid_mask)
     set_adaptive_cp_grid_mask_by_user(grid_mask)
 
