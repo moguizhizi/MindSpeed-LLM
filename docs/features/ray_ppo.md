@@ -8,7 +8,7 @@ PPO方法中包含了四个模型：Actor，Critic，Reference，Reward。其中
 
 ## 环境配置
 
-配置MindSpeed-LLM基础环境: 参考[MindSpeed-LLM 使用指南-前期准备](https://gitee.com/ascend/MindSpeed-LLM/blob/master/docs/USER_GUIDE.md#%E5%89%8D%E6%9C%9F%E5%87%86%E5%A4%87)
+配置MindSpeed-LLM基础环境: 参考[安装指南](./install_guide.md)
 
 ## 数据预处理
 
@@ -33,7 +33,7 @@ python ./preprocess_data.py \
 
 ## 模型权重转换
 
-根据 PPO 算法要求，Actor 和 Reference 模型应该使用 SFT 微调后的模型进行初始化，Critic 和 Reward 模型应该使用奖励模型训练后的模型进行初始化。PPO算法模型权重均使用Megatron-mcore格式，其他格式的权重需要进行模型权重转换，具体可参考[MindSpeed-LLM 使用指南-权重转换](https://gitee.com/ascend/MindSpeed-LLM/blob/master/docs/USER_GUIDE.md#%E6%9D%83%E9%87%8D%E4%B8%8B%E8%BD%BD%E5%8F%8A%E8%BD%AC%E6%8D%A2)。
+根据 PPO 算法要求，Actor 和 Reference 模型应该使用 SFT 微调后的模型进行初始化，Critic 和 Reward 模型应该使用奖励模型训练后的模型进行初始化。PPO算法模型权重均使用Megatron-mcore格式，其他格式的权重需要进行模型权重转换，具体可参考[权重转换](./checkpoint.md)。
 
 ## 启动方式
 
