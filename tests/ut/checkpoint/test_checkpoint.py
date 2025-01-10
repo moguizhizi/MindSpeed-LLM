@@ -34,24 +34,6 @@ class TestCheckpoint(object):
     test_config = create_testconfig(Path(__file__).with_suffix(".json"))
     test_config_cmd = create_testconfig(Path(__file__).with_suffix(".json"), cmd=True)
 
-    def test_mixtral_hf2mcore_tp2pp2ep2dypp(self):
-        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
-        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_mixtral_hf2mcore_tp2pp2ep2dypp'])
-        assert exit_code == 0
-        base_dir = '/data/wttest/base/hf2mc_mixtral_tp2pp2ep2dypp'
-        save_dir = self.test_config['test_mixtral_hf2mcore_tp2pp2ep2dypp'][0]['save-dir']
-        assert weight_compare(base_dir, save_dir)
-        shutil.rmtree(save_dir)
-
-    def test_mixtral_mcore2hf_tp1pp4ep2vpp2(self):
-        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
-        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_mixtral_mcore2hf_tp1pp4ep2vpp2'])
-        assert exit_code == 0
-        base_dir = '/data/Mixtral-8x7B-v0.1/base_mg2hf_tp1pp4ep2vpp2'
-        save_dir = os.path.join(self.test_config['test_mixtral_mcore2hf_tp1pp4ep2vpp2'][0]['save-dir'], 'mg2hf')
-        assert weight_compare(base_dir, save_dir, suffix="safetensors", use_md5=True)
-        shutil.rmtree(save_dir)
-
     def test_deepseek2_hf2mcore_tp1pp4ep8(self):
         os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
         exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_deepseek2_hf2mcore_tp1pp4ep8'])
@@ -70,15 +52,6 @@ class TestCheckpoint(object):
         assert weight_compare(base_dir, save_dir, suffix="safetensors", use_md5=True)
         shutil.rmtree(save_dir)
 
-    def test_deepseek2_lite_hf2mcore_tp1pp1ep8(self):
-        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
-        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_deepseek2_lite_hf2mcore_tp1pp1ep8'])
-        assert exit_code == 0
-        base_dir = '/data/ci/deepseek2_lite/mg_base/deepseek2_lite_l3_t1p1e8'
-        save_dir = self.test_config['test_deepseek2_lite_hf2mcore_tp1pp1ep8'][0]['save-dir']
-        assert weight_compare(base_dir, save_dir)
-        shutil.rmtree(save_dir)
-
     def test_deepseek2_lite_mcore2hf_tp1pp1ep8(self):
         os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
         exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_deepseek2_lite_mcore2hf_tp1pp1ep8'])
@@ -86,15 +59,6 @@ class TestCheckpoint(object):
         base_dir = '/data/ci/deepseek2_lite/hf_base/deepseek2_lite_hf_base'
         save_dir = os.path.join(self.test_config['test_deepseek2_lite_mcore2hf_tp1pp1ep8'][0]['save-dir'], 'mg2hf')
         assert weight_compare(base_dir, save_dir, suffix="safetensors", use_md5=True)
-        shutil.rmtree(save_dir)
-
-    def test_gemma2_hf2mcore_tp8pp1(self):
-        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
-        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_gemma2_hf2mcore_tp8pp1'])
-        assert exit_code == 0
-        base_dir = '/data/gemma2-9b-mg-tp8pp1-mcore-base/'
-        save_dir = self.test_config['test_gemma2_hf2mcore_tp8pp1'][0]['save-dir']
-        assert weight_compare(base_dir, save_dir)
         shutil.rmtree(save_dir)
 
     def test_qwen2_moe_hf2mcore_tp1pp2ep2(self):
@@ -133,7 +97,6 @@ class TestCheckpoint(object):
         assert weight_compare(base_dir, save_dir, suffix="safetensors", use_md5=True)
         shutil.rmtree(save_dir)
 
-
     def test_llama3_noop_layer_hf2mg(self):
         """
         Test case for nooplayer.
@@ -153,15 +116,6 @@ class TestCheckpoint(object):
         base_dir = '/data/llama-2-7b-hf-hf2ml-tp2pp4dypp'
         save_dir = self.test_config['test_llama2_hf2legacy_tp2pp4dypp'][0]['save-dir']
         assert weight_compare(base_dir, save_dir)
-        shutil.rmtree(save_dir)
-
-    def test_llama2_legacy2hf_tp2pp4dypp(self):
-        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
-        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_llama2_legacy2hf_tp2pp4dypp'])
-        assert exit_code == 0
-        base_dir = '/data/llama2_base_ml2hf_tp2pp4dypp'
-        save_dir = os.path.join(self.test_config['test_llama2_legacy2hf_tp2pp4dypp'][0]['save-dir'], 'mg2hf')
-        assert weight_compare(base_dir, save_dir, suffix="safetensors", use_md5=True)
         shutil.rmtree(save_dir)
 
     def test_llama2_legacy2mcore_tp2pp4dypp(self):
@@ -188,15 +142,6 @@ class TestCheckpoint(object):
         assert exit_code == 0
         base_dir = '/data/qwen2-1.5b-hf-v0.1-tp1-pp1/'
         save_dir = self.test_config['test_qwen2_hf2mcore_tp1pp1'][0]['save-dir']
-        assert weight_compare(base_dir, save_dir)
-        shutil.rmtree(save_dir)
-
-    def test_llama2_lora2mcore_tp1pp1(self):
-        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
-        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_llama2_lora2mcore_tp1pp1'])
-        assert exit_code == 0
-        base_dir = '/data/llama2_ckpt_lora_UT/llama2-7b-lora2mcore'
-        save_dir = self.test_config['test_llama2_lora2mcore_tp1pp1'][0]['save-dir']
         assert weight_compare(base_dir, save_dir)
         shutil.rmtree(save_dir)
 

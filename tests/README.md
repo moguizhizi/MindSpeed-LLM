@@ -202,10 +202,10 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="16">UT</td>
+        <td rowspan="10">UT</td>
         <td>Inference</td>
         <td>Legacy</td>
-        <td>greedy_search, lora_inference, deterministic_computation, chatglm3_inference, baichuan2_inference</td>
+        <td>greedy_search, lora_inference, deterministic_computation</td>
         <td><a href="ut/inference/test_inference.py">test_inference.py</a></td>
         <td>Y</td>
         <td></td>
@@ -214,55 +214,8 @@
     <tr>
         <td>Evaluation</td>
         <td>Legacy</td>
-        <td>mmlu, prompt_mmlu,      
-        prompt_boolq, prompt_ceval, qwen2_mmlu, lora_mmlu, agieval, humaneval, bbh</td>
+        <td>mmlu, prompt_mmlu, qwen2_mmlu, agieval, bbh</td>
         <td><a href="ut/evaluation/test_evaluate.py">test_evaluate.py</a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td rowspan="4">CP</td>
-        <td rowspan="4">Mcore</td>
-        <td>hybrid</td>
-        <td><a href="ut/dist_algo/context_parallel/test_hybrid_context_parallel.py">test_hybrid_context_parallel.py</a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>ring_attn</td>
-        <td><a href="ut/dist_algo/context_parallel/test_ringattn_context_parallel.py">test_ringattn_context_parallel.py</a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>ulysses</td>
-        <td><a href="ut/dist_algo/context_parallel/test_ulysses_context_parallel.py"> test_ulysses_context_parallel.py </a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>adaptive</td>
-        <td><a href="ut/dist_algo/context_parallel/test_adaptive_context_parallel.py"> test_adaptive_context_parallel.py </a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td rowspan="2">ModelModule</td>
-        <td rowspan="2">Mcore</td>
-        <td>rope</td>
-        <td><a href="ut/model_module/embeddings/test_rotary_pos_embedding.py">test_rotary_pos_embedding.py</a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>transformer_attention, alibi</td>
-        <td><a href="ut/model_module/transformer/test_attention.py">test_attention.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
@@ -277,14 +230,14 @@
         <td></td>
     </tr>
     <tr>
-        <td>mixtral, deepseek2, deepseek2_lite, gemma2, llama3, qwen2, llama2</td>
+        <td>deepseek2, deepseek2_lite, llama2, llama3, qwen2</td>
         <td>Y</td>
         <td></td>
         <td></td>
     </tr>
     <tr>
         <td rowspan="2">Legacy</td>
-        <td>hf2legacy, legacy2hf, legacy2mcore, TP, PP, DPP</td>
+        <td>hf2legacy, legacy2mcore, TP, PP, DPP</td>
         <td>Y</td>
         <td></td>
         <td></td>
@@ -341,6 +294,105 @@
         <th>Accuracy</th>
         <th>Throughput</th>
         <th>Memory</th>
+    </tr>
+    <tr>
+        <td rowspan="4"><a href="pipeline/context_parallel">CP</td>
+        <td rowspan="4">Mcore</td>
+        <td>hybrid</td>
+        <td><a href="pipeline/context_parallel/test_hybrid_context_parallel.py">test_hybrid_context_parallel.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>ring_attn</td>
+        <td><a href="pipeline/context_parallel/test_ringattn_context_parallel.py">test_ringattn_context_parallel.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>ulysses</td>
+        <td><a href="pipeline/context_parallel/test_ulysses_context_parallel.py"> test_ulysses_context_parallel.py </a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>adaptive</td>
+        <td><a href="pipeline/context_parallel/test_adaptive_context_parallel.py"> test_adaptive_context_parallel.py </a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan="3"><a href="pipeline/model_module">ModelModule</td>
+        <td rowspan="3">Mcore</td>
+        <td>rope</td>
+        <td><a href="pipeline/model_module/test_rotary_pos_embedding.py">test_rotary_pos_embedding.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>moe</td>
+        <td><a href="pipeline/model_module/test_topk_router.py">test_topk_router.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>transformer_attention, alibi</td>
+        <td><a href="pipeline/model_module/test_attention.py">test_attention.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan="4"><a href="pipeline/common">Checkpoint</td>
+        <td rowspan="2"> Mcore </td>
+        <td>hf2mcore, mcore2hf, TP, PP, EP, DPP, VPP, moe, noop_layers, lora</td>
+        <td rowspan="4"><a href="pipeline/common/test_checkpoint.py">test_checkpoint.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>mixtral, deepseek2, deepseek2_lite, gemma2, llama3, qwen2, llama2</td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan="2">Legacy</td>
+        <td>hf2legacy, legacy2hf, legacy2mcore, TP, PP, DPP</td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>llama2</td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td><a href="pipeline/common">Inference</td>
+        <td>Legacy</td>
+        <td>greedy_search, deterministic_computation, chatglm3_inference, baichuan2_inference</td>
+        <td><a href="ut/inference/test_inference.py">test_inference.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td><a href="pipeline/common">Evaluation</td>
+        <td>Legacy</td>
+        <td>prompt_boolq, prompt_ceval, lora_mmlu, humaneval</td>
+        <td><a href="pipeline/common/test_evaluate.py">test_evaluate.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
     </tr>
     <tr>
         <td rowspan="6"><a href="pipeline/baichuan2-13B">Baichuan2-13B</a></td>
