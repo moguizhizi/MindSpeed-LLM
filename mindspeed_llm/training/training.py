@@ -164,8 +164,9 @@ def is_profile_enabled():
 
 def get_profiler():
     args = get_args()
-
-    if args.profile_level == 'level0':
+    if args.profile_level == 'level_none':
+        profiler_level = torch_npu.profiler.ProfilerLevel.Level_none
+    elif args.profile_level == 'level0':
         profiler_level = torch_npu.profiler.ProfilerLevel.Level0
     elif args.profile_level == 'level1':
         profiler_level = torch_npu.profiler.ProfilerLevel.Level1
@@ -173,11 +174,21 @@ def get_profiler():
         profiler_level = torch_npu.profiler.ProfilerLevel.Level2
     else:
         raise ValueError(f"profiler_level only supports level0,"
-                         f" 1, and 2, but gets {args.profile_level}")
-
+                         f" 1, 2, and level_none, but gets {args.profile_level}")
+    
+    if args.profile_export_type == 'text':
+        profile_export_type = torch_npu.profiler.ExportType.Text
+    elif args.profile_export_type == 'db':
+        profile_export_type = torch_npu.profiler.ExportType.Db
+    else:
+        raise ValueError(f"profile_export_type only supports text or db,"
+                         f"but gets {args.export_type}")
+        
     experimental_config = torch_npu.profiler._ExperimentalConfig(
         aic_metrics=torch_npu.profiler.AiCMetrics.PipeUtilization,
         profiler_level=profiler_level,
+        export_type=profile_export_type,
+        data_simplification=args.profile_data_simplification,
     )
     skip_first = args.profile_step_start
     active = args.profile_step_end - args.profile_step_start

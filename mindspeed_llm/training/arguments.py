@@ -129,8 +129,11 @@ def _add_profile_args(parser):
     group = parser.add_argument_group(title='profiler')
     group.add_argument('--profile-ranks', nargs='+', type=int, default=[-1],
                        help='Global ranks to profile.The default value of -1 means to profile all ranks')
+    group.add_argument('--profile-export-type', type=str, default='text',
+                       choices=['text', 'db'], help='choose the export mode as text or db.')
     group.add_argument('--profile-level', type=str, default='level0',
-                       choices=['level0', 'level1', 'level2'], help='profiling level0, level1, level2')
+                       choices=['level_none', 'level0', 'level1', 'level2'], help='profiling level_none, level0, level1, level2')
+    group.add_argument('--profile-data-simplification', action='store_true', help='use data simplification mode')
     group.add_argument('--profile-with-stack', action='store_true', help='profiling with stack info')
     group.add_argument('--profile-with-memory', action='store_true', help='profiling with memory info')
     group.add_argument('--profile-record-shapes', action='store_true', help='profiling with shape info')
