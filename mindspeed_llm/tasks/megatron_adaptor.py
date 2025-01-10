@@ -472,10 +472,13 @@ class CoreAdaptation(MegatronAdaptationABC):
 
     def mcore_tensor_parallel_adaptation(self):
         args = MegatronAdaptation.get_args()
+
+        # add args.recompute_in_bubble & args.adaptive_recompute_device_swap in has_recompute_or_swap
         def has_recomputation_or_swap(args):
-            return (args.swap_attention or args.recompute_in_advance)
+            return (args.swap_attention or
+                    args.recompute_in_advance)
         if has_recomputation_or_swap(args):
-            from mindspeed_llm.core.tensor_parallel.layers import linear_forward_main_grad_wrapper, linear_backward_main_grad_wrapper
+            from mindspeed.core.tensor_parallel.layers import linear_forward_main_grad_wrapper, linear_backward_main_grad_wrapper
             MegatronAdaptation.register('megatron.core.tensor_parallel.layers.LinearWithGradAccumulationAndAsyncCommunication.forward',
                                 linear_forward_main_grad_wrapper)
             MegatronAdaptation.register('megatron.core.tensor_parallel.layers.LinearWithGradAccumulationAndAsyncCommunication.backward',

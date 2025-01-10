@@ -89,7 +89,6 @@ TRAINING_ARGS=(
     --adam-beta1 0.9
     --initial-loss-scale 65536
     --adam-beta2 0.95
-    --no-gradient-accumulation-fusion
     --no-load-optim
     --no-load-rng
     --use-fused-swiglu
