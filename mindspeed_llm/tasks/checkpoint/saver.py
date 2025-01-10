@@ -20,12 +20,18 @@ import sys
 
 import torch
 from megatron.core import mpu
+import megatron.core.tensor_parallel.layers as tpl
 from megatron.training.checkpointing import save_checkpoint
 
 from .models import get_megatron_model
 
 logger.basicConfig(format="")
 logger.getLogger().setLevel(logger.INFO)
+
+try:
+    import bitsandbytes as bnb
+except ImportError:
+    bnb = None
 
 
 def add_arguments(parser):
@@ -407,6 +413,21 @@ def set_model_output_layer(model_mg, msg, md, **kwargs):
                 model_mg.set_output_layer_bias(**kwargs, data=output_layer_bs[tp_rank])
 
 
+def _replace_bnb_4bit_in_layer(layer):
+    for name, module in layer.named_modules():
+        if isinstance(module, (tpl.ColumnParallelLinear, tpl.RowParallelLinear)):
+            module.weight = bnb.nn.Params4bit(
+                module.weight.data,
+                requires_grad=module.weight.data.requires_grad,
+                quant_type="nf4"
+            ).to("npu")
+
+
+def replace_layers_parameter_to_bnb_4bit(model) -> None:
+    for layer in model.decoder.layers:
+        _replace_bnb_4bit_in_layer(layer)
+
+
 def set_model_rm_head(model_mg, msg, md, **kwargs):
     margs = model_mg.get_args()
     tp_size = margs.tensor_model_parallel_size
@@ -440,6 +461,8 @@ def save_model(model_mg, md, **kwargs):
             for vp_rank in range(virtual_pipeline_model_parallel_size):
                 kwargs["vp_rank"] = vp_rank
                 vp_models.append(model_mg.get_model_item(**kwargs))
+                if args_cmd.qlora_nf4 and args_cmd.save_model_type == 'mg':
+                    replace_layers_parameter_to_bnb_4bit(vp_models[vp_rank])
             if args_cmd.save_model_type == 'mg':
                 if margs.noop_layers:
                     for layer_idx in margs.noop_layers:

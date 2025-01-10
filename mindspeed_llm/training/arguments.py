@@ -305,6 +305,8 @@ def _add_lora_args(parser):
                        help='Lora register forward hook.')
     group.add_argument('--lora-fusion', action='store_true',
                        help='use fusion to accelerate lora.')
+    group.add_argument('--qlora', action='store_true', default=False,
+                        help='Enable QLoRA for fine-tuning with reduced memory usage.')
     return parser
 
 

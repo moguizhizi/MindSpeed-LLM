@@ -13,7 +13,7 @@
         <th>Mem.</th>
     </tr>
     <tr>
-        <td rowspan="23">ST</td>
+        <td rowspan="24">ST</td>
         <td rowspan="13">Pretrain</td>
         <td>Mcore</td>
         <td>TP，PP，VPP，distributed_optimizer，o2_gradient，o2_optimizer，重计算，enable_recompute_layers_per_pp_rank，FA_TND，use_fused_rotary_pos_emb_new</td>
@@ -119,10 +119,18 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="1">LoRA</td>
+        <td rowspan="2">LoRA</td>
         <td rowspan="1">Legacy</td>
         <td>CCLoRA, TP, PP, 全重计算</td>
         <td><a href="st/shell_scripts/tune_llama2_tp2_pp4_lora_ptd.sh">tune_llama2_tp2_pp4_lora_ptd.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td rowspan="1">Mcore</td>
+        <td>CCLoRA, QLoRA</td>
+        <td><a href="st/shell_scripts/tune_llama2_tp1_pp1_qlora_ptd.sh">tune_llama2_tp1_pp1_qlora_ptd.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>

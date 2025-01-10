@@ -82,6 +82,8 @@ def main():
                         help='model type of huggingface')
     parser.add_argument('--ckpt-cfg-path', type=str, default="configs/checkpoint/model_cfg.json",
                         help="Path to the config directory. If not specified, the default path in the repository will be used.")
+    parser.add_argument('--qlora-nf4', action='store_true',
+                       help='use bitsandbytes nf4 to quantize model.')
     parser.add_argument('--orm', action="store_true", default=False,
                         help='Specify the ORM ckpt conversion, convert additional rm_head layer in ORM.')
     known_args, _ = parser.parse_known_args()

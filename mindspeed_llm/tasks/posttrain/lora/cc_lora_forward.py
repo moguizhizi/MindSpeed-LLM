@@ -6,6 +6,17 @@ from megatron.core.parallel_state import (
     get_tensor_model_parallel_world_size,
 )
 
+try:
+    import bitsandbytes as bnb
+except ImportError:
+    bnb = None
+
+
+def dequantize(weight, dtype, device):
+    if not hasattr(weight, "quant_state"):
+        return weight
+    return bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(device).to(dtype)
+
 
 def get_communication_output(input_, reduce_tensor=False):
     tp_world_size = get_tensor_model_parallel_world_size()
@@ -69,7 +80,8 @@ class _FusedColumnSeqParallelLoRAFunction(torch.autograd.Function):
         total_input, handle = _gather_along_first_dim_async(input_)
         weight_a_scale = weight_a * scaling
         ax = torch.matmul(input_, weight_a_scale.t())
-        weight_combine = weight + weight_b @ weight_a_scale
+        weight_tmp = dequantize(weight, weight_b.dtype, weight_b.device)
+        weight_combine = weight_tmp + weight_b @ weight_a_scale
         handle.wait()
         output = torch.matmul(total_input, weight_combine.t())
         ctx.save_for_backward(input_, ax, weight, weight_a_scale, weight_b)
@@ -89,7 +101,8 @@ class _FusedColumnSeqParallelLoRAFunction(torch.autograd.Function):
         delta_weight = weight_b @ weight_a_scale
         handle.wait()
         grad_ax, handle = _reduce_scatter_along_first_dim_async(grad_gax)
-        grad_input = grad_output.matmul(weight + delta_weight)
+        weight_tmp = dequantize(weight, delta_weight.dtype, delta_weight.device)
+        grad_input = grad_output.matmul(weight_tmp + delta_weight)
         handle.wait()
         grad_sub_input, handle = _reduce_scatter_along_first_dim_async(grad_input)
         if is_dense:
@@ -116,7 +129,8 @@ class _FusedRowSeqParallelLoRAFunction(torch.autograd.Function):
         weight_a_scale = weight_a * scaling
         ax = torch.matmul(input_, weight_a_scale.t())
         rax, handle = _reduce_scatter_along_first_dim_async(ax)
-        weight_combine = weight + weight_b @ weight_a_scale
+        weight_tmp = dequantize(weight, weight_b.dtype, weight_b.device)
+        weight_combine = weight_tmp + weight_b @ weight_a_scale
         if input_.dim() == 3:
             reshape = True
             seq_len, batch, d = input_.shape[:]
@@ -160,8 +174,9 @@ class _FusedRowSeqParallelLoRAFunction(torch.autograd.Function):
             input_ = input_.reshape(-1, input_.shape[-1])
         else:
             grad_output_ = grad_output
+        weight_tmp = dequantize(weight, grad_output_.dtype, grad_output_.device)
         grad_input, grad_total_output = torch_npu.npu_all_gather_base_mm(
-            grad_output_, weight, ctx.hcomm_info, ctx.world_size, bias=None, gather_index=0, gather_output=True
+            grad_output_, weight_tmp, ctx.hcomm_info, ctx.world_size, bias=None, gather_index=0, gather_output=True
         )
         grad_ax = grad_total_output.matmul(weight_b)
         grad_weight_a, grad_weight_b = lora_backward(grad_output_, input_b, grad_ax, input_, ctx.scaling)
@@ -187,7 +202,8 @@ class _FusedRowNoSeqParallelLoRAFunction(torch.autograd.Function):
         weight_a_scale = weight_a * scaling
         ax = torch.matmul(input_, weight_a_scale.t())
         rax, handle = _reduce_async(ax)
-        output = torch.matmul(input_, weight.t())
+        weight_tmp = dequantize(weight, input_.dtype, input_.device)
+        output = torch.matmul(input_, weight_tmp.t())
         handle.wait()
         output_parallel, handle = _reduce_async(output)
         bx = torch.matmul(rax, weight_b.t())
@@ -208,7 +224,8 @@ class _FusedRowNoSeqParallelLoRAFunction(torch.autograd.Function):
             grad_output_ = grad_output
         grad_ax = grad_output_.matmul(weight_b)
         grad_weight_a, grad_weight_b = lora_backward(grad_output_, input_b, grad_ax, input_, ctx.scaling)
-        grad_input = grad_output.matmul(weight)
+        weight_tmp = dequantize(weight, grad_output.dtype, grad_output.device)
+        grad_input = grad_output.matmul(weight_tmp)
         grad_input += grad_ax.matmul(weight_a_scale).view_as(grad_input)
         return grad_input, None, grad_weight_a, grad_weight_b, None
 
@@ -219,7 +236,8 @@ class _FusedColumnNoSeqParallelLoRAFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input_, weight, weight_a, weight_b, scaling):
         weight_a_scale = weight_a * scaling
-        output = torch.matmul(input_, weight.t())
+        weight_tmp = dequantize(weight, input_.dtype, input_.device)
+        output = torch.matmul(input_, weight_tmp.t())
         ax = torch.matmul(input_, weight_a_scale.t())
         bx = torch.matmul(ax, weight_b.t())
         output += bx
@@ -238,7 +256,8 @@ class _FusedColumnNoSeqParallelLoRAFunction(torch.autograd.Function):
             grad_output_ = grad_output
         grad_ax = grad_output_.matmul(weight_b)
         grad_ax, handle = _reduce_async(grad_ax)
-        grad_input = grad_output.matmul(weight + weight_b @ weight_a_scale)
+        weight_tmp = dequantize(weight, weight_b.dtype, weight_b.device)
+        grad_input = grad_output.matmul(weight_tmp + weight_b @ weight_a_scale)
         handle.wait()
         grad_input, handle = _reduce_async(grad_input)
         grad_weight_a, grad_weight_b = lora_backward(grad_output_, input_b, grad_ax, input_, ctx.scaling)
@@ -258,14 +277,15 @@ class _FusedBaseParallelLoRAFunction(torch.autograd.Function):
             seq_size, d = input_.shape[:]
         weight_a_scale = weight_a * scaling
         ax = torch.matmul(input_, weight_a_scale.t())
+        weight_tmp = dequantize(weight, input_.dtype, input_.device)
         if seq_size < d:
             ctx.combine = False
-            output = torch.matmul(input_, weight.t())
+            output = torch.matmul(input_, weight_tmp.t())
             bx = torch.matmul(ax, weight_b.t())
             output += bx
         else:
             ctx.combine = True
-            weight_combine = weight + weight_b @ weight_a_scale
+            weight_combine = weight_tmp + weight_b @ weight_a_scale
             output = torch.matmul(input_, weight_combine.t())
         ctx.save_for_backward(input_, ax, weight_a_scale, weight_b, weight)
         ctx.scaling = scaling
@@ -282,10 +302,11 @@ class _FusedBaseParallelLoRAFunction(torch.autograd.Function):
             grad_output_ = grad_output
         grad_ax = grad_output_.matmul(weight_b)
         grad_weight_a, grad_weight_b = lora_backward(grad_output_, input_b, grad_ax, input_, ctx.scaling)
+        weight_tmp = dequantize(weight, grad_output.dtype, grad_output.device)
         if ctx.combine:
-            grad_input = grad_output.matmul((weight + weight_b @ weight_a_scale))
+            grad_input = grad_output.matmul((weight_tmp + weight_b @ weight_a_scale))
         else:
-            grad_input = grad_output.matmul(weight)
+            grad_input = grad_output.matmul(weight_tmp)
             grad_input += grad_ax.matmul(weight_a_scale).view_as(grad_input)
         return grad_input, None, grad_weight_a, grad_weight_b, None
 

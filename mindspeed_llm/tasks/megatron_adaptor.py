@@ -416,6 +416,30 @@ class CoreAdaptation(MegatronAdaptationABC):
         # For recompute-in-advance
         from mindspeed.core.tensor_parallel.random import checkpoint_wrapper
         MegatronAdaptation.register('megatron.core.tensor_parallel.random.checkpoint', checkpoint_wrapper)
+        # For QLoRA
+        from mindspeed_llm.tasks.posttrain.lora.utils import is_enable_qlora
+        if is_enable_qlora(MegatronAdaptation.get_args()):
+            from mindspeed_llm.tasks.posttrain.lora.qlora import (parallel_linear_init_wrapper,
+                                                                  linear_with_frozen_weight_forward,
+                                                                  linear_with_frozen_weight_backward,
+                                                                  parallel_linear_save_to_state_dict_wrapper,
+                                                                  parallel_linear_load_from_state_dict_wrapper)
+            MegatronAdaptation.register('megatron.core.tensor_parallel.layers.ColumnParallelLinear.__init__',
+                                        parallel_linear_init_wrapper)
+            MegatronAdaptation.register('megatron.core.tensor_parallel.layers.RowParallelLinear.__init__',
+                                        parallel_linear_init_wrapper)
+            MegatronAdaptation.register('megatron.core.tensor_parallel.layers.LinearWithFrozenWeight.forward',
+                                        linear_with_frozen_weight_forward)
+            MegatronAdaptation.register('megatron.core.tensor_parallel.layers.LinearWithFrozenWeight.backward',
+                                        linear_with_frozen_weight_backward)
+            MegatronAdaptation.register('megatron.core.tensor_parallel.layers.ColumnParallelLinear._save_to_state_dict',
+                                        parallel_linear_save_to_state_dict_wrapper)
+            MegatronAdaptation.register('megatron.core.tensor_parallel.layers.RowParallelLinear._save_to_state_dict',
+                                        parallel_linear_save_to_state_dict_wrapper)
+            MegatronAdaptation.register('megatron.core.tensor_parallel.layers.ColumnParallelLinear._load_from_state_dict',
+                                        parallel_linear_load_from_state_dict_wrapper)
+            MegatronAdaptation.register('megatron.core.tensor_parallel.layers.RowParallelLinear._load_from_state_dict',
+                                        parallel_linear_load_from_state_dict_wrapper)
 
     def patch_parallel_state(self):
         import megatron
@@ -651,11 +675,18 @@ class LegacyAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.training.initialize.initialize_megatron', initialize_megatron)
 
     def patch_training(self):
-        from ..training import get_model_wrapper, train
+        from ..training import train
         from ..training.checkpointing import load_checkpoint_wrapper
         from ..legacy.data import build_pretraining_data_loader
+        from mindspeed_llm.tasks.posttrain.lora.utils import is_enable_qlora
 
-        MegatronAdaptation.register('megatron.training.training.get_model', get_model_wrapper)
+        if is_enable_qlora(MegatronAdaptation.get_args()):
+            from mindspeed_llm.tasks.posttrain.lora.qlora import get_model
+            MegatronAdaptation.register('megatron.training.training.get_model', get_model)
+        else:
+            from ..training import get_model_wrapper
+            MegatronAdaptation.register('megatron.training.training.get_model', get_model_wrapper)
+
         MegatronAdaptation.register('megatron.training.training.build_pretraining_data_loader',
                                     build_pretraining_data_loader)
         MegatronAdaptation.register('megatron.training.training.train', train)

@@ -28,6 +28,13 @@ def is_enable_lora():
     return False
 
 
+def is_enable_qlora(args=None):
+    args = args if args else get_args()
+    if hasattr(args, 'qlora') and args.qlora:
+        return True
+    return False
+
+
 def merge_dicts(dict1, dict2):
     result = dict1
     for key, value in dict2.items():
