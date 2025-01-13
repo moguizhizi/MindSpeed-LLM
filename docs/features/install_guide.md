@@ -17,7 +17,7 @@ bash Ascend-hdk-910b-npu-driver_24.1.rc3_linux-aarch64.run --full --force
 
 ```shell
 bash Ascend-cann-toolkit_8.0.RC3_linux-aarch64.run --install
-bash Ascend-cann-kernels-910b_8.0.RC3_linux-aarch64.zip --install
+bash Ascend-cann-kernels-910b_8.0.RC3_linux-aarch64.run --install
 # bash Ascend-cann-nnal_8.0.RC4_linux-aarch64.run --install  # cann版本>=8.0RC4时需要安装nnal，小于此版本不需要
 # 设置环境变量
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
