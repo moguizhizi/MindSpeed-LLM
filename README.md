@@ -182,7 +182,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/tensor-parallel.md">张量并行</a></td>
     <td>✅</td>
     <td>✅</td>
-    <td rowspan="29">【Ascend】</td>
+    <td rowspan="28">【Ascend】</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/pipeline-parallel.md">流水线并行</a></td>
@@ -389,11 +389,13 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <th>Mcore</th>
     <th>Legacy</th>
     <th><a href="./docs/features/lora_finetune.md">LoRA</a></th>
+    <th><a href="./docs/features/qlora.md">QLoRA</a></th>
     <th>贡献方</th>
   </tr></thead>
 <tbody>
   <tr>
     <td><a href="./docs/features/instruction_finetune.md">单样本微调</td>
+    <td>✅</td>
     <td>✅</td>
     <td>✅</td>
     <td>✅</td>
@@ -404,6 +406,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>✅</td>
     <td>✅</td>
+    <td>❌</td>
     <td>【NAIE】</td>
   </tr>
     <tr>
@@ -411,6 +414,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>✅</td>
     <td>✅</td>
+    <td>❌</td>
     <td>【Ascend】</td>
   </tr>  
 </tbody></table>
@@ -438,6 +442,19 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>✅</td>
     <td>【Ascend】</td>
+  </tr>
+  <tr>
+    <td rowspan="2">QLoRA微调</td>
+    <td><a href="./docs/features/cc_lora.md">CCLoRA</a></td>
+    <td>✅</td>
+    <td>❌</td>
+    <td>【NAIE】</td>
+  </tr>
+  <tr>
+    <td><a href="./docs/features/fused_mlp.md">Fused_MLP</a></td>
+    <td>❌</td>
+    <td>❌</td>
+    <td>【NAIE】</td>
   </tr>
   <tr>
     <td>长序列微调</td>
@@ -498,6 +515,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <th>Mcore</th>
     <th>Legacy</th>
     <th><a href="./docs/features/lora_finetune.md">LoRA</a></th>
+    <th><a href="./docs/features/qlora.md">QLoRA</a></th>
     <th>贡献方</th>
   </tr></thead>
 <tbody>
@@ -507,6 +525,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>❌</td>
     <td>✅</td>
+    <td>❌</td>
     <td>【NAIE】</td>
   </tr>
   <tr>
@@ -514,6 +533,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>❌</td>
     <td>✅</td>
+    <td>❌</td>
     <td>【China Mobile Cloud】</td>
   </tr>
   <tr>
@@ -522,6 +542,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>❌</td>
     <td>✅</td>
+    <td>❌</td>
     <td rowspan="1">【Ascend】</td>
   </tr>
   <tr>
@@ -529,6 +550,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>❌</td>
     <td>✅</td>
+    <td>❌</td>
     <td rowspan="1">【Ascend】</td>
   </tr>
   <tr>
@@ -536,6 +558,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>❌</td>
     <td>✅</td>
+    <td>❌</td>
     <td>【Ascend】</td>
   </tr>
 </tbody></table>
@@ -561,6 +584,19 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
   <tr>
     <td><a href="./docs/features/fused_mlp.md">Fused_MLP</a></td>
     <td>✅</td>
+    <td>❌</td>
+    <td>【Ascend】</td>
+  </tr>
+  <tr>
+    <td rowspan="2">QLoRA</td>
+    <td><a href="./docs/features/cc_lora.md">CCLoRA</a></td>
+    <td>✅</td>
+    <td>❌</td>
+    <td>【Ascend】</td>
+  </tr>
+  <tr>
+    <td><a href="./docs/features/fused_mlp.md">Fused_MLP</a></td>
+    <td>❌</td>
     <td>❌</td>
     <td>【Ascend】</td>
   </tr>

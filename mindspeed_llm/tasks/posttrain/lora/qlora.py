@@ -1,6 +1,8 @@
-# Copyright (c) 2025, HUAWEI CORPORATION.  All rights reserved.
+# Copyright (c) 2024; NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2025, HUAWEI CORPORATION. All rights reserved.
 import torch
 import torch_npu
+from torch.nn.parameter import Parameter
 
 from megatron.training import get_args
 from megatron.core import mpu
@@ -60,6 +62,9 @@ def parallel_linear_save_to_state_dict_wrapper(fn):
         save weight and bias,
         then fill state_dict with components of quant_state
         """
+        args = get_args()
+        if args.qlora_save_dequantize and getattr(self.weight, "quant_state", None) is not None:
+            self.weight = Parameter(bnb.functional.dequantize_4bit(self.weight.data, self.weight.quant_state))
         fn(self, destination, prefix, keep_vars)
         if getattr(self.weight, "quant_state", None) is not None:
             for k, v in self.weight.quant_state.as_dict(packed=True).items():

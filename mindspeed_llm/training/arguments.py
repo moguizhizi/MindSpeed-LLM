@@ -307,6 +307,8 @@ def _add_lora_args(parser):
                        help='use fusion to accelerate lora.')
     group.add_argument('--qlora', action='store_true', default=False,
                         help='Enable QLoRA for fine-tuning with reduced memory usage.')
+    group.add_argument('--qlora-save-dequantize', action='store_true', default=False,
+                        help='Dequantize weights to original precision when saving in QLoRA tuning.')
     return parser
 
 

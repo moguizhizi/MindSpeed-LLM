@@ -1,6 +1,11 @@
 # QLoRA
 
-![QLoRA](../../sources/images/qlora/qlora.png)
+<div style="text-align: center;">
+  <p>
+    <img src="../../sources/images/qlora/qlora.png" style="max-width:80%; height:auto;" alt="Description of the image"/>
+  </p>
+  <p class="img-description" style="margin: 0 auto; width: 80%;">QLoRA是在LoRA的基础上对冻结部分权重进行量化</p>
+</div>
 
 ## 特性介绍
 
@@ -70,9 +75,19 @@ QLoRA在LoRA的基础上，对主干部分的权重进行量化，大幅降低�
 
 ## 使用方法
 
-1、将hf权重转换为mcore权重时，增加`--qlora-nf4`选项开启QLoRA的NF4量化，目前不支持其它量化方式；
+### 1、权重转换
 
-2、在微调时，增加`--qlora`使用QLoRA微调，开启时请确保配置的权重路径是NF4量化后的mcore权重。
+将原精度的hf权重转换为的mg权重时，可以通过增加`--qlora-nf4`选项开启QLoRA的NF4量化，会得到量化压缩后的mg权重，目前不支持其它量化方式。
+
+注意：目前QLoRA特性与`--moe-grouped-gemm`同时开启时，会导致大量的MoE模型中的专家权重无法被量化，影响整体量化压缩比。
+
+### 2、QLoRA微调
+
+在微调时，增加`--qlora`开启QLoRA微调，开启时请确保配置的权重路径是NF4量化后的mg权重。
+
+### 3、LoRA权重合并到主干模型（可选）
+
+默认QLoRA微调后保存的权重仍然是量化后的权重，无法与浮点的LoRA部分直接合并，如果需要浮点的反量化权重，即上文中的$Q^{-1}(W_0^{NF4})$，可以在微调阶段开启**保存时反量化**选项`--qlora-save-dequantize`，合并权重、推理的方式与LoRA相同。
 
 ## 使用效果
 
@@ -86,5 +101,7 @@ QLoRA在LoRA的基础上，对主干部分的权重进行量化，大幅降低�
 | Mixtral-8x7b | 87GB         | 24GB              | 63GB     |
 
 均可使用64GB单卡进行QLoRA微调，实测Llama-2-70b单batch微调过程中NPU内存占用约50GB左右。
+
+注意：QLoRA是量化模型权重的LoRA算法，必然会对模型效果和精度产生影响，用户充分评估特性后方可使用。
 
 > QLoRA支持分布式LoRA、lora-fusion、PP、TP等LoRA支持的特性，并且精度正常，更多特性的亲和性还在补充验证中。
