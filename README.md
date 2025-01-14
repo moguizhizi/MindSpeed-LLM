@@ -157,7 +157,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
       <td rowspan="2">【Ascend】</td>
     </tr>
     <tr>
-      <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/eod-reset.md">样本pack</a>
+      <td><a href="./docs/features/pretrain_eod.md">样本pack</a>
       </td>
      <td>✅</td>
       <td>✅</td>
