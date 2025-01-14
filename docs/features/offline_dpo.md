@@ -44,19 +44,19 @@ dpo训练脚本参照：[dpo_llama3_8b_full_ptd.sh](../../examples/mcore/llama3/
 
 - **`--dpo-loss-type `**
 
-  可选参数，指定dpo计算loss方法，支持：sigmoid, hinge, ipo，默认sigmoid
+  可选参数，指定loss计算方法，目前支持：sigmoid（dpo原始方案）, hinge, ipo
 
 - **`--dpo-beta`**
 
-  可选参数，指定dpo计算loss中的参数，默认0.1
+  可选，正则化参数，平衡奖励得分与KL散度，默认0.1
 
 - **`--dpo-label-smoothing`**
 
-  可选参数，dpo计算loss中的参数，取值范围0到0.5，默认0.0
+  可选参数，考虑样本噪声，计算loss时的平滑参数，取值范围0到0.5，默认0.0
 
 - **`--pref-ftx`**
 
-  可选参数，dpo计算loss中的参数，默认0.0
+  可选参数，dpo loss中加入sft loss时用的乘数，默认0.0
 
 - **`--ref-model`**
 
