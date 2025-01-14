@@ -163,7 +163,7 @@ def _initialize_distributed(two_megatron=False):
             print("> initializing torch distributed ...", flush=True)
         # Manually set the device ids.
         if device_count > 0:
-            if args.stage in ["ray_ppo", "ray_online_dpo"]:
+            if args.stage in ["ray_ppo", "ray_online_dpo", "ray_grpo"]:
                 allocated_device = int(ray.get_runtime_context().get_accelerator_ids()["NPU"][0])
                 torch.cuda.set_device(allocated_device)
             else:

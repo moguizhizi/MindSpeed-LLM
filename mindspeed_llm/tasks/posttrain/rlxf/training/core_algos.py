@@ -19,6 +19,7 @@ implement PPO
 
 import numpy as np
 import torch
+from copy import deepcopy
 
 import mindspeed_llm.tasks.posttrain.rlxf.utils.torch_functional as F
 from mindspeed_llm.tasks.posttrain.rlxf.utils.protocol import DataProto
@@ -93,6 +94,40 @@ def compute_gae_advantage_return(token_level_rewards: torch.Tensor, values: torc
     return advantages, returns
 
 
+def compute_group_norm_advantage_return(token_level_rewards: torch.Tensor, eos_mask: torch.Tensor,
+                                 gamma: torch.Tensor, lam: torch.Tensor):
+    """
+    Args:
+        token_level_rewards: `(torch.Tensor)`
+            shape: (bs, response_length)
+        eos_mask: `(torch.Tensor)`
+            shape: (bs, response_length). [EOS] mask. The token after [EOS] have mask zero.
+        gamma: `(float)`
+            discounted factor used in RL
+        lam: `(float)`
+            lambda value when computing Generalized Advantage Estimation (https://arxiv.org/abs/1506.02438)
+
+
+    Returns:
+        advantages: `(torch.Tensor)`
+            shape: (bs, response_length)
+        Returns: `(torch.Tensor)`
+            shape: (bs, response_length)
+
+    """
+    response_length = token_level_rewards.size(1)
+    returns = torch.zeros_like(token_level_rewards)
+    cumulative_return = torch.zeros(token_level_rewards.size(0), device=token_level_rewards.device)
+
+    # Calculate returns by accumulating discounted rewards
+    for t in reversed(range(response_length)):
+        cumulative_return = token_level_rewards[:, t] + gamma * cumulative_return
+        returns[:, t] = cumulative_return
+    advantages = deepcopy(returns)
+    advantages = F.masked_whiten(advantages, eos_mask)
+    return advantages, returns
+
+
 def compute_policy_loss(old_log_prob, log_prob, advantages, eos_mask, cliprange):
     """
     Args:
@@ -123,6 +158,47 @@ def compute_policy_loss(old_log_prob, log_prob, advantages, eos_mask, cliprange)
 
     pg_loss = F.masked_mean(torch.max(pg_losses, pg_losses2), eos_mask)
     pg_clipfrac = F.masked_mean(torch.gt(pg_losses2, pg_losses).float(), eos_mask)
+    return pg_loss, pg_clipfrac, ppo_kl
+
+
+def compute_grpo_policy_loss(old_log_prob, log_prob, ref_log_prob, advantages, eos_mask, cliprange, kl_ctrl):
+    """
+    Args:
+        old_log_prob: `(torch.Tensor)`
+            shape: (bs, response_length)
+        log_prob: `(torch.Tensor)`
+            shape: (bs, response_length)
+        ref_log_prob `(torch.Tensor)`
+            shape: (bs, response_length)
+        advantages: `(torch.Tensor)`
+            shape: (bs, response_length)
+        eos_mask: `(torch.Tensor)`
+            shape: (bs, response_length)
+        cliprange: (float)
+            The clip range used in PPO. See https://arxiv.org/abs/1707.06347
+
+    Returns:
+        pg_loss: `a scalar torch.Tensor`
+            policy gradient loss computed via GRPO
+        pg_clipfrac: (float)
+            a float number indicating the fraction of policy gradient loss being clipped
+
+    """
+    negative_approx_kl = log_prob - old_log_prob
+    ratio = torch.exp(negative_approx_kl)
+    ppo_kl = F.masked_mean(-negative_approx_kl, eos_mask)
+
+    pg_losses = -advantages * ratio
+    pg_losses2 = -advantages * torch.clamp(ratio, 1.0 - cliprange, 1.0 + cliprange)
+
+    pg_loss = F.masked_mean(torch.max(pg_losses, pg_losses2), eos_mask)
+    pg_clipfrac = F.masked_mean(torch.gt(pg_losses2, pg_losses).float(), eos_mask)
+    
+    ref_approx_kl = ref_log_prob - log_prob
+    ratio_kl = torch.exp(ref_approx_kl)
+    kl_losses = ratio_kl - ref_approx_kl - 1
+    kl_loss = F.masked_mean(kl_losses, eos_mask)
+    pg_loss = pg_loss + kl_loss * kl_ctrl.value
     return pg_loss, pg_clipfrac, ppo_kl
 
 
@@ -216,7 +292,6 @@ def apply_kl_penalty(config, data: DataProto, kl_ctrl: AdaptiveKLController):
 
 
 def compute_advantage(data: DataProto, gamma, lam, adv_estimator):
-    values = data.batch['values']
     responses = data.batch['responses']
     response_length = responses.size(1)
     attention_mask = data.batch['attention_mask']
@@ -225,6 +300,7 @@ def compute_advantage(data: DataProto, gamma, lam, adv_estimator):
 
     # TODO: add other ways to estimate advantages
     if adv_estimator == 'gae':
+        values = data.batch['values']
         advantages, returns = compute_gae_advantage_return(token_level_rewards=token_level_rewards,
                                                            values=values,
                                                            eos_mask=response_mask,
@@ -232,8 +308,31 @@ def compute_advantage(data: DataProto, gamma, lam, adv_estimator):
                                                            lam=lam)
         data.batch['advantages'] = advantages
         data.batch['returns'] = returns
+    elif adv_estimator == 'group_norm':
+        advantages, returns = compute_group_norm_advantage_return(token_level_rewards=token_level_rewards,
+                                                                        eos_mask=response_mask,
+                                                                        gamma=gamma,
+                                                                        lam=lam)
+        data.batch['advantages'] = advantages
+        data.batch['returns'] = returns
     else:
         raise NotImplementedError
+    return data
+
+
+def get_last_reward(data, n_sample_batch):
+    responses = data.batch['responses']
+    response_length = responses.size(1)
+    attention_mask = data.batch['attention_mask']
+    response_mask = attention_mask[:, -response_length:]
+    rm_scores = data.batch['rm_scores']
+    eos_indices = response_mask.size(1) - 1 - response_mask.long().fliplr().argmax(dim=1, keepdim=True)
+    reward = rm_scores.gather(dim=1, index=eos_indices).squeeze(1)
+    reward = reward.reshape(-1, n_sample_batch)
+    reward = (reward - reward.mean(dim=1, keepdim=True)) / (reward.std(dim=1, keepdim=True) + 1e-8)
+    reward = reward.reshape(-1)
+    last_reward = torch.zeros_like(rm_scores).scatter_(dim=1, index=eos_indices, src=reward.unsqueeze(1).to(rm_scores.dtype))
+    data.batch['token_level_rewards'] = last_reward
     return data
 
 
@@ -308,6 +407,44 @@ def compute_data_online_dpo_metrics(batch):
         'reward/score/mean': torch.mean(sequence_score).detach().item(),
         'reward/score/max': torch.max(sequence_score).detach().item(),
         'reward/score/min': torch.min(sequence_score).detach().item(),
+        # response length
+        'response_length/mean': torch.mean(response_length).detach().item(),
+        'response_length/max': torch.max(response_length).detach().item(),
+        'response_length/min': torch.min(response_length).detach().item(),
+        # prompt length
+        'prompt_length/mean': torch.mean(prompt_length).detach().item(),
+        'prompt_length/max': torch.max(prompt_length).detach().item(),
+        'prompt_length/min': torch.min(prompt_length).detach().item(),
+    }
+    return metrics
+
+
+def compute_grpo_data_metrics(batch):
+    sequence_score = batch.batch['rm_scores'].sum(-1)
+    sequence_reward = batch.batch['token_level_rewards'].sum(-1)
+    response_length = batch.batch['responses'].shape[-1]
+    advantages = batch.batch['advantages']
+    prompt_mask = batch.batch['attention_mask'][:, :-response_length]
+    response_mask = batch.batch['attention_mask'][:, -response_length:]
+    prompt_length = prompt_mask.sum(-1).float()
+    response_length = response_mask.sum(-1).float()
+    returns = batch.batch['returns']
+    metrics = {
+        # score
+        'grpo/score/mean': torch.mean(sequence_score).detach().item(),
+        'grpo/score/max': torch.max(sequence_score).detach().item(),
+        'grpo/score/min': torch.min(sequence_score).detach().item(),
+        # reward
+        'grpo/rewards/mean': torch.mean(sequence_reward).detach().item(),
+        'grpo/rewards/max': torch.max(sequence_reward).detach().item(),
+        'grpo/rewards/min': torch.min(sequence_reward).detach().item(),
+        # adv
+        'grpo/advantages/mean': F.masked_mean(advantages, response_mask).detach().item(),
+        'grpo/advantages/max': torch.max(advantages[response_mask]).detach().item(),
+        'grpo/advantages/min': torch.min(advantages[response_mask]).detach().item(),
+        'grpo/returns/mean': F.masked_mean(returns, response_mask).detach().item(),
+        'grpo/returns/max': torch.max(returns[response_mask]).detach().item(),
+        'grpo/returns/min': torch.min(returns[response_mask]).detach().item(),
         # response length
         'response_length/mean': torch.mean(response_length).detach().item(),
         'response_length/max': torch.max(response_length).detach().item(),

@@ -14,7 +14,7 @@ from megatron.training import get_args, initialize_megatron, get_timers, get_tok
 from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
 from megatron.core import parallel_state as mpu, tensor_parallel
 from megatron.training.training import append_to_progress_log, build_train_valid_test_data_iterators, print_datetime
-from mindspeed_llm.tasks.posttrain.rlxf.training.core_algos import compute_policy_loss, find_first_eos_index
+from mindspeed_llm.tasks.posttrain.rlxf.training.core_algos import compute_policy_loss, find_first_eos_index, compute_grpo_policy_loss
 from mindspeed_llm.tasks.posttrain.rlxf.utils.torch_functional import split_dict_tensor_into_batches
 from mindspeed_llm.tasks.inference.infer_base import add_text_generate_args
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker import MegatronWorker
@@ -275,7 +275,8 @@ class PPOActorInferWorker(BaseTrainer):
             for j in range(args.num_samples_per_step):
                 tokens = self.get_batch(self.train_data_iterator)
                 tokens_list = tokens.view(-1).cpu().numpy().tolist()
-                idx_list_per_step.append(tokens_list)
+                for _ in range(args.n_samples_per_prompt):
+                    idx_list_per_step.append(copy.deepcopy(tokens_list))
                 if args.stage == "ray_online_dpo":
                     idx_list_per_step.append(copy.deepcopy(tokens_list))
 
@@ -303,7 +304,7 @@ class PPOActorInferWorker(BaseTrainer):
         if self.args.stage == "ray_online_dpo":
             batch_size = args.global_batch_size // args.data_parallel_size * 2
         else:
-            batch_size = args.global_batch_size // args.data_parallel_size
+            batch_size = args.global_batch_size // args.data_parallel_size * args.n_samples_per_prompt
 
 
         batch = TensorDict({
@@ -569,6 +570,48 @@ class MegatronPPOActor():
             }
             return policy_loss, stats
 
+        def loss_func_grpo(output, data, meta_info):
+            """
+            This loss_func has two modes
+            1. when forward_only is True: use post_process_fn to calculate the log_probs
+            2. when forward_only is False: calculate the policy loss
+            """
+            if forward_only:
+                if post_process_fn is None:
+                    return 1.0, {'logits': output}
+                else:
+                    return 1.0, post_process_fn(output, data)
+
+            responses = data['responses']
+            response_length = responses.size(1)
+            attention_mask = data['attention_mask']
+            response_mask = attention_mask[:, -response_length:]
+            old_log_prob = data['old_log_probs']
+            advantages = data['advantages']
+            ref_log_prob = data['ref_log_prob']
+            clip_ratio = meta_info['clip_ratio']
+
+            # compute policy loss
+            logits = output
+            logits = logits[:, -response_length - 1:-1]
+            _, _, log_prob = compute_log_probs(logits, responses, per_token=True)
+
+            pg_loss, pg_clipfrac, ppo_kl = compute_grpo_policy_loss(old_log_prob=old_log_prob,
+                                                                          log_prob=log_prob,
+                                                                          ref_log_prob=ref_log_prob,
+                                                                          advantages=advantages,
+                                                                          eos_mask=response_mask,
+                                                                          cliprange=clip_ratio,
+                                                                          kl_ctrl=self.args.kl_ctrl) 
+            policy_loss = pg_loss
+
+            stats = {
+                'actor/pg_loss': abs(pg_loss.detach().item()),
+                'actor/pg_clipfrac': pg_clipfrac.detach().item(),
+                'actor/ppo_kl': ppo_kl.detach().item()
+            }
+            return policy_loss, stats
+
         def loss_func_online_dpo(output, data, meta_info):
             """
             calculate the policy loss
@@ -658,6 +701,7 @@ class MegatronPPOActor():
             loss_funcs = {
                 "ray_ppo": loss_func_ppo,
                 "ray_online_dpo": loss_func_online_dpo,
+                "ray_grpo": loss_func_grpo
             }
 
             loss_func = loss_funcs.get(self.args.stage)
@@ -703,7 +747,8 @@ class MegatronPPOActor():
             for model_chunk in model:
                 model_chunk.zero_grad_buffer()
             optimizer.zero_grad()
-
+            if self.args.stage == 'ray_grpo':
+                self.args.kl_ctrl = data.meta_info['kl_ctrl']
             metric_micro_batch = self.forward_backward_batch(data)
 
             update_successful, grad_norm, num_zeros_in_grad = optimizer.step()

@@ -518,7 +518,7 @@ def _add_network_args(parser):
     group.add_argument(
         '--stage',
         default=None,
-        choices=["sft", "dpo", "orm", "prm", "simpo", "ray_ppo", "ray_online_dpo"],
+        choices=["sft", "dpo", "orm", "prm", "simpo", "ray_ppo", "ray_online_dpo", "ray_grpo"],
         help='Determine training mode'
     )
 
@@ -656,6 +656,12 @@ def _add_rl_args(parser):
     group.add_argument(
         "--missing-eos-penalty", default=0.0, type=float,
         help="eos penalty."
+    )
+    group.add_argument(
+        "--n-samples-per-prompt",
+        default=1,
+        type=int,
+        help="Number of samples per prompt in GRPO."
     )
     return parser
 
