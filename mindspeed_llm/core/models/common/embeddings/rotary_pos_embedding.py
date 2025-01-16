@@ -64,17 +64,19 @@ def rotary_embedding_init_wrapper(fn):
     @wraps(fn)
     def wrapper(self, *args, **kwargs):
         _args = get_args()
+        self.dim = kwargs['kv_channels']
         if _args.rotary_base:
             kwargs["rotary_base"] = _args.rotary_base
-
+        if _args.dynamic_factor and _args.dynamic_factor > 1:
+            seq_len = _args.seq_length if _args.seq_length is not None and _args.seq_length > _args.max_position_embeddings else _args.max_position_embeddings
+            kwargs["rotary_base"] = _args.rotary_base * ((_args.dynamic_factor * seq_len / _args.max_position_embeddings) - (_args.dynamic_factor - 1)) ** (self.dim / (self.dim - 2))
+        
         fn(self, *args, **kwargs)
-
-        self.dim = kwargs['kv_channels']
+        
         if hasattr(_args, "rope_scaling_type") and _args.rope_scaling_type == "llama3":
             self.inv_freq = apply_llama3_scaling(self.inv_freq)
         elif hasattr(_args, "rope_scaling_type") and _args.rope_scaling_type == "yarn":
             self.inv_freq = apply_yarn_scaling(self.inv_freq)
-
     return wrapper
 
 

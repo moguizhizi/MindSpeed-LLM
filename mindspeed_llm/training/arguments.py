@@ -457,6 +457,7 @@ def _add_network_size_args(parser):
 def _add_algorithm_args(parser):
     group = parser.add_argument_group(title='algorithm')
     group.add_argument('--rotary-base', type=float, help='rotary-base.')
+    group.add_argument('--dynamic-factor', type=float, default=1.0, help='dynamic-factor')  
     group.add_argument('--rope-scaling-type', type=str, default=None, choices=["llama3", "yarn", "longrope"],
                        help='The sub-variant of RoPE to use, support type llama3 and yarn and longrope.')
     group.add_argument('--longrope-freqs-type', type=str, default="mul", choices=["mul", "outer"],
