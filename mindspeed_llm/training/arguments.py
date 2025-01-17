@@ -70,6 +70,7 @@ def process_args(parser):
     parser = _add_hccl_group_buffer_args(parser)
     parser = _add_coc_args(parser)
     parser = _add_megatron2_args(parser)
+    parser = _add_inference_args(parser)
 
     return parser
 
@@ -521,7 +522,7 @@ def _add_network_args(parser):
     group.add_argument(
         '--stage',
         default=None,
-        choices=["sft", "dpo", "orm", "prm", "simpo", "ray_ppo", "ray_online_dpo", "ray_grpo"],
+        choices=["sft", "dpo", "orm", "prm", "simpo", "ray_ppo", "ray_online_dpo", "ray_grpo", "trl_ppo"],
         help='Determine training mode'
     )
 
@@ -621,7 +622,7 @@ def _add_rl_args(parser):
         help="Number of samples per step in generation."
     )
     group.add_argument(
-        "--cliprange-value", default=3.0, type=float,
+        "--cliprange-value", default=0.2, type=float,
         help="Clip range value."
     )
     group.add_argument(
@@ -666,6 +667,37 @@ def _add_rl_args(parser):
         type=int,
         help="Number of samples per prompt in GRPO."
     )
+    group.add_argument(
+        '--reward-tokens',
+        nargs='+',
+        type=str,
+        default=[],
+        help="The labels represent the correctness of each reasoning step in the entire reasoning process.",
+    )
+    group.add_argument(
+        '--reward-model',
+        default=False,
+        help="Path to the reference model used for the PPO training."
+    )
+    group.add_argument(
+        '--kl-coef',
+        default=0.3,
+        type=float,
+        help="KL coefficient in PPO training.",
+    )
+    group.add_argument(
+        '--gamma',
+        default=1.0,
+        type=float,
+        help="Discount factor in PPO training.",
+    )
+    group.add_argument(
+        '--lam',
+        default=0.95,
+        type=float,
+        help="Lambda value for GAE in PPO training.",
+    )
+
     return parser
 
 
@@ -677,6 +709,26 @@ def _add_megatron2_args(parser):
                        help='num of GPUs for inference in two megatrons, inference is set to the first group.')
     group.add_argument('--inference-tensor-model-parallel-size', type=int, default=1,
                        help='TP size for inference group in two megatron')
+    return parser
+
+
+def _add_inference_args(parser):
+    group = parser.add_argument_group(title='text generation')
+    group.add_argument("--task",
+                       nargs='*',
+                       default=None, help='The task id to run.')
+    group.add_argument("--top-p", type=float, default=0.95, help='Top p sampling.')
+    group.add_argument("--top-k", type=int, default=50, help='Top k sampling.')
+    group.add_argument("--temperature", type=float, default=0.7, help='Sampling temperature.')
+    group.add_argument("--max-length", type=int, default=256, help='Total length of text.')
+    group.add_argument("--max-new-tokens", type=int, default=128, help='Size of the output generated text.')
+    group.add_argument('--hf-chat-template', action='store_true', default=False,
+                       help="Using Huggingface chat template")
+    group.add_argument('--add-eos-token', nargs='+', type=str, default=[],
+                       help="Use additional eos tokens")
+    group.add_argument('--use-kv-cache', action="store_true", default=False,
+                       help="Use kv cache to accelerate inference")
+    group.add_argument('--history-turns', type=int, default=3, help='Chat turns of histories.')
     return parser
 
 
@@ -1085,12 +1137,6 @@ def _store_variables(args):
     variable_dict = dict()
     variable_dict["variable_seq_lengths"] = args.variable_seq_lengths
 
-    # Moe models require `--sequence-parallel` to be turned on before Megatron core_v0.7.0,
-    # which conflicted with the behavior of turning it off by default during inference and evaluation.
-    variable_dict["origin_sequence_parallel"] = args.sequence_parallel
-    if args.num_experts is not None and hasattr(args, "temperature") and args.temperature is not None:
-        args.sequence_parallel = True
-
     # to bypass megatron assertion of moe+spec
     variable_dict["spec"] = args.spec
     args.spec = None
@@ -1125,11 +1171,6 @@ def _restore_variables(args, variable_dict):
     if variable_dict.get("num_layers_per_virtual_pipeline_stage") and args.pipeline_model_parallel_size == 2:
         args.num_layers_per_virtual_pipeline_stage = variable_dict["num_layers_per_virtual_pipeline_stage"]
         args.overlap_p2p_comm = variable_dict["overlap_p2p_comm"]
-
-    # Moe models require `--sequence-parallel` to be turned on before Megatron core_v0.7.0,
-    # which conflicted with the behavior of turning it off by default during inference and evaluation.
-    if args.num_experts is not None and hasattr(args, "temperature") and args.temperature is not None:
-        args.sequence_parallel = variable_dict["origin_sequence_parallel"]
 
     # Bypass megatron validation for gradient reduce in fp32
     if args.o2_gradient:

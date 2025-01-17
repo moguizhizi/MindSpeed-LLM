@@ -16,7 +16,6 @@ from megatron.core import parallel_state as mpu, tensor_parallel
 from megatron.training.training import append_to_progress_log, build_train_valid_test_data_iterators, print_datetime
 from mindspeed_llm.tasks.posttrain.rlxf.training.core_algos import compute_policy_loss, find_first_eos_index, compute_grpo_policy_loss
 from mindspeed_llm.tasks.posttrain.rlxf.utils.torch_functional import split_dict_tensor_into_batches
-from mindspeed_llm.tasks.inference.infer_base import add_text_generate_args
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker import MegatronWorker
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.decorator import register, Dispatch, Execute
 from mindspeed_llm.tasks.posttrain.rlxf.training.parameter_mapping import sync_param_nums, run_auto_mapping, \
@@ -70,8 +69,7 @@ class PPOActorWorker(MegatronWorker):
         self.IGNORE_INDEX = -100
         os.environ['CUDA_DEVICE_MAX_CONNECTIONS'] = '1'
 
-        initialize_megatron(extra_args_provider=add_text_generate_args,
-                            args_defaults={'no_load_rng': True, 'no_load_optim': True},
+        initialize_megatron(args_defaults={'no_load_rng': True, 'no_load_optim': True},
                             role=self.role,
                             config=self.config,
                             two_megatron=True)

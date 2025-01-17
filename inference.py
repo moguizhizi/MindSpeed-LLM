@@ -25,7 +25,7 @@ from megatron.training.initialize import initialize_megatron
 from megatron.training.arguments import core_transformer_config_from_args
 from megatron.training.yaml_arguments import core_transformer_config_from_yaml
 
-from mindspeed_llm.tasks.inference.infer_base import task_factory, add_text_generate_args
+from mindspeed_llm.tasks.inference.infer_base import task_factory
 from mindspeed_llm.tasks.inference.module import GPTModelInfer, MegatronModuleForCausalLM
 
 
@@ -90,8 +90,7 @@ def model_provider(pre_process=True, post_process=True) -> Union[GPTModelInfer, 
 
 
 def main():
-    initialize_megatron(extra_args_provider=add_text_generate_args,
-                        args_defaults={'no_load_rng': True,
+    initialize_megatron(args_defaults={'no_load_rng': True,
                                        'no_load_optim': True})
 
     args = get_args()

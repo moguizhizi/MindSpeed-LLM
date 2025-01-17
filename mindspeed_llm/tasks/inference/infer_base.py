@@ -26,27 +26,6 @@ from torch import distributed as dist
 logging.basicConfig(format="")
 logging.getLogger().setLevel(logging.INFO)
 
-
-def add_text_generate_args(parser):
-    group = parser.add_argument_group(title='text generation')
-    group.add_argument("--task",
-                       nargs='*',
-                       default=None, help='The task id to run.')
-    group.add_argument("--top-p", type=float, default=0.95, help='Top p sampling.')
-    group.add_argument("--top-k", type=int, default=50, help='Top k sampling.')
-    group.add_argument("--temperature", type=float, default=0.7, help='Sampling temperature.')
-    group.add_argument("--max-length", type=int, default=256, help='Total length of text.')
-    group.add_argument("--max-new-tokens", type=int, default=128, help='Size of the output generated text.')
-    group.add_argument('--hf-chat-template', action='store_true', default=False,
-                        help="Using Huggingface chat template")
-    group.add_argument('--add-eos-token', nargs='+', type=str, default=[],
-                        help="Use additional eos tokens")
-    group.add_argument('--use-kv-cache', action="store_true", default=False,
-                       help="Use kv cache to accelerate inference")                                     
-    group.add_argument('--history-turns', type=int, default=3, help='Chat turns of histories.')
-    return parser
-
-
 def print_flush(prev_str, curr_str):
     difference = ''.join([char2 for char1, char2 in zip(prev_str, curr_str) if char1 != char2])
 
