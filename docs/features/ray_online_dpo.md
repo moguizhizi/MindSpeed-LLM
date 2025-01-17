@@ -12,7 +12,7 @@ Online DPO方法中包含了三个模型：Actor，Reference，Reward。其中Ac
 
 ## 数据预处理
 
-数据集转换参考脚本：MindSpeed-LLM\examples\mcore\llama3\data_convert_llama3_ppo.sh
+数据集转换参考脚本：MindSpeed-LLM/examples/mcore/llama3/data_convert_llama3_ppo.sh
 以 [descriptiveness 数据集](https://huggingface.co/datasets/trl-internal-testing/descriptiveness-sentiment-trl-style/tree/main/data) 为例。
 
 ```bash
@@ -28,7 +28,7 @@ python ./preprocess_data.py \
     --tokenizer-type PretrainedFromHF \
     --handler-name  PPOAlpacaStyleInstructionHandler \
     --prompt-type llama3 \
-    --map-keys '{"prompt":"prompt", "query":"", "response": "", "system":""}'
+    --map-keys '{"prompt":"prompt", "query":"", "response": "prompt", "system":""}'
 ```
 
 ## 模型权重转换
@@ -84,8 +84,7 @@ python ray_gpt.py --config-name online_dpo_trainer_llama3_8b
 1. defaults 负责引入模型配置文件，在 defaults 中应列举本配置文件中所需要用到的所有模型配置，模型配置可以在下方3个角色的具体配置中通过 model 字段进行选择。
 2. training 字段设置的参数为所有 3 个角色通用的默认参数，这些参数可以在下方进一步被角色的单独配置所覆盖。
 3. resource_pool 字段指定了各个角色所需的 NPU 资源数量。
-4. algorithm 字段配置计算PPO中advantages算法的相关参数。
-5. actor，reward，ref 字段分别指定了PPO算法中四个角色训练相关的参数配置。
+4. actor，reward，ref 字段分别指定了Online DPO算法中三个角色训练相关的参数配置。
 
 ## 参数解析
 
@@ -106,17 +105,6 @@ python ray_gpt.py --config-name online_dpo_trainer_llama3_8b
 * `shuffle_minibatch`：Actor 训练时是否对 minibatch 进行 shuffle，默认为 False；
 * `num_gpus_for_train` ：Actor 模型分配给训练部分的显卡数量；
 * `num_gpus_for_infer` ：Actor 模型分配给推理部分的显卡数量；
-* `missing_eos_penalty`：缺少序列结束符EOS时的惩罚系数；
-
-### `algorithm:`
-
-* `adv_estimator`：advantages计算的方式，通常采用gae(广义优势估计Generalized Advantage Estimation, GAE);
-* `gamma`：计算 advantage 时的折扣因子；
-* `lam`：GAE 优势计算的 lambda 值；
-* `kl_penalty`：KL 散度计算方式；
-* `kl_ctrl:`
-  * `kl_coef`：施加 KL 散度惩罚的系数；
-  * `type`：KL 散度惩罚的系数类型；
 * `missing_eos_penalty`：缺少序列结束符EOS时的惩罚系数；
 
 ### `resource_pool:`
