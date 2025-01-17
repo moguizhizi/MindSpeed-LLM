@@ -47,13 +47,13 @@ MindSpeed-LLM 已支持的大模型评估数据统计如下：
 | QWen2.5-7B           | MMLU   | 73.8%     | [74.2%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-14B      | MMLU   | 79.4%     | [79.7%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
 | QWen2.5-32B          | MMLU   | 83.3%     | [83.3%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-72B      | MMLU   | 85.59%    | [86.1%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
 | InternLM2.5-1.8b     | MMLU   | 51.3%     | [53.5%](https://huggingface.co/internlm/internlm2_5-1_8b)             | InternLM2.5-7B   | MMLU   | 69.7%     | [71.6%](https://huggingface.co/internlm/internlm2_5-7b)                            |
-| InternLM2.5-20b      | MMLU   | 73.3%     | [74.2%](https://huggingface.co/internlm/internlm2_5-20b)              | Yi1.5-6B         | MMLU   | 63.2%     | [63.5%](https://huggingface.co/01-ai/Yi-1.5-6B/tree/main)                          |
-| Yi1.5-9B             | MMLU   | 69.2%     | [69.5%](https://huggingface.co/01-ai/Yi-1.5-9B/tree/main)             | Yi1.5-34B        | MMLU   | 76.9%     | [77.1%](https://huggingface.co/01-ai/Yi-1.5-34B/tree/main)                         |
-| CodeQWen2.5-7B       | Human. | 66.5%     | [61.6%](https://modelscope.cn/models/Qwen/Qwen2.5-Coder-7B)           | Qwen2.5-Math-7B  |MMLU-STEM| 65.1%    | [67.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)                         |
-| Qwen2.5-Math-72B     |MMLU-STEM| 83.7%    | [82.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)            | MiniCPM3-4B | MMLU | 63.7% | 64.6% |
-| Phi-3.5-mini-instruct | MMLU   | 64.39%    | 64.34%                                                               | Phi-3.5-MoE-instruct | MMLU      | 78.5%         | [78.9%](https://huggingface.co/microsoft/Phi-3.5-MoE-instruct)         |
-| DeepSeek-Math-7B     |MMLU-STEM| 56.5%    | [56.5%](https://github.com/deepseek-ai/DeepSeek-Math)                 | DeepSeek-V2.5    | MMLU   | 79.3%     | [80.6%](https://github.com/deepseek-ai/DeepSeek-V3)                                |
-| DeepSeek-V2-236B | MMLU   | 78.1%     | [78.5%](https://huggingface.co/deepseek-ai/DeepSeek-V2)          |
+| InternLM2.5-20b      | MMLU   | 73.3%     | [74.2%](https://huggingface.co/internlm/internlm2_5-20b)              | InternLM3-8b     | MMLU   | 76.6%     | [76.6%](https://huggingface.co/internlm/internlm3-8b-instruct)                     |
+| Yi1.5-6B             | MMLU   | 63.2%     | [63.5%](https://huggingface.co/01-ai/Yi-1.5-6B/tree/main)             | Yi1.5-9B         | MMLU   | 69.2%     | [69.5%](https://huggingface.co/01-ai/Yi-1.5-9B/tree/main)                          |
+| Yi1.5-34B            | MMLU   | 76.9%     | [77.1%](https://huggingface.co/01-ai/Yi-1.5-34B/tree/main)            | CodeQWen2.5-7B   | Human. | 66.5%     | [61.6%](https://modelscope.cn/models/Qwen/Qwen2.5-Coder-7B)                        |
+| Qwen2.5-Math-7B      |MMLU-STEM| 65.1%    | [67.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)            | Qwen2.5-Math-72B |MMLU-STEM| 83.7%    | [82.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)                         |
+| MiniCPM3-4B          | MMLU   | 63.7%     | 64.6%                                                                 | Phi-3.5-mini-instruct | MMLU   | 64.39%    | 64.34%                                                                        |
+| Phi-3.5-MoE-instruct | MMLU   | 78.5%     | [78.9%](https://huggingface.co/microsoft/Phi-3.5-MoE-instruct)        | DeepSeek-Math-7B  |MMLU-STEM| 56.5%   | [56.5%](https://github.com/deepseek-ai/DeepSeek-Math)                              |
+| DeepSeek-V2.5        | MMLU   | 79.3%     | [80.6%](https://github.com/deepseek-ai/DeepSeek-V3)                   | DeepSeek-V2-236B | MMLU   | 78.1%     | [78.5%](https://huggingface.co/deepseek-ai/DeepSeek-V2)                            |
 
 ## 大模型分布式评估使用介绍
 

@@ -2,28 +2,12 @@
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
-IPs=('your ranks ip')
 NPUS_PER_NODE=16
-MASTER_ADDR=${IPs[0]} 
+MASTER_ADDR=localhost #主节点ip 
 MASTER_PORT=6000
 NNODES=16
-NODE_RANK=""
+NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
-
-for i in "${!IPs[@]}";
-do
-    if [ "$LOCAL_HOST" == "${IPs[$i]}" ];
-    then
-        echo "Node Rank : ${i}"
-        NODE_RANK=$i
-        break
-    fi
-done
-
-if [[ $NODE_RANK == "" ]];then
-    echo "[Error] para \"NODE_RANK\" must be confing"
-    exit 1
-fi
 
 CKPT_SAVE_DIR="your model save ckpt path"
 CKPT_LOAD_DIR="your model ckpt path"
@@ -111,7 +95,7 @@ GPT_ARGS="
     --no-gradient-accumulation-fusion \
     --group-query-attention \
     --num-query-groups 4 \
-    --expert-model-parallel-size ${EP} \    
+    --expert-model-parallel-size ${EP} \
     --lr-warmup-fraction 0.01 \
     --swap-attention \
     --recompute-method block \
@@ -144,7 +128,7 @@ OUTPUT_ARGS="
     --eval-iters 10 \
 "
 
-python -m torch.distributed.launch $DISTRIBUTED_ARGS pretrain_gpt.py \
+torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     ${GPT_ARGS} \
     ${MOE_ARGS} \
     ${CKPT_ARGS} \
