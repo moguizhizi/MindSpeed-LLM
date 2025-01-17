@@ -1,24 +1,9 @@
-# coding=utf-8
-# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
-
 import argparse
 import importlib
 import os
 import sys
 from functools import wraps
+import logging as logger
 import torch.multiprocessing as mp
 from mindspeed_llm import megatron_adaptor
 import pretrain_gpt
@@ -44,7 +29,7 @@ def load_plugin(plugin_type, name):
     if not hasattr(plugin, 'add_arguments'):
         sys.exit(f"{module_name} module is not a plugin. Exiting.")
 
-    print(f"Loaded {module_name} as the {plugin_type}.")
+    logger.info(f"Loaded {module_name} as the {plugin_type}.")
     return plugin
 
 
@@ -59,7 +44,7 @@ def main():
     parser.add_argument('--loader', type=str, default='megatron',
                         help='Module name to load checkpoint, should be on python path')
     parser.add_argument('--load-model-type', type=str, nargs='?',
-                        default=None, const=None, choices=['hf', 'mg'],
+                        default=None, const=None, choices=['hf', 'mg', 'optim'],
                         help='Module name to load checkpoint, should be on python path')
     parser.add_argument('--saver', type=str, default='megatron',
                         help='Module name to save checkpoint, should be on python path')
@@ -88,33 +73,40 @@ def main():
                         help='Specify the ORM ckpt conversion, convert additional rm_head layer in ORM.')
     known_args, _ = parser.parse_known_args()
 
-    use_saver = known_args.load_model_type is None
-    if use_saver:
-        loader = load_plugin('loader', known_args.loader)
-        saver = load_plugin('saver', known_args.saver)
-    else:
+
+    if known_args.load_model_type == 'optim':
         loader = load_plugin('loader', known_args.load_model_type)
-        saver = load_plugin('saver', '')
+        loader.add_arguments(parser)
+        args = parser.parse_args()
+        loader.load_checkpoint(model_provider, args)
+    else:
+        use_saver = known_args.load_model_type is None
+        if use_saver:
+            loader = load_plugin('loader', known_args.loader)
+            saver = load_plugin('saver', known_args.saver)
+        else:
+            loader = load_plugin('loader', known_args.load_model_type)
+            saver = load_plugin('saver', '')
 
-    loader.add_arguments(parser)
-    saver.add_arguments(parser)
+        loader.add_arguments(parser)
+        saver.add_arguments(parser)
 
-    args = parser.parse_args()
+        args = parser.parse_args()
 
-    queue = mp.Queue(maxsize=args.max_queue_size)
-    model_provider = ORMTrainer.model_provider if args.orm else pretrain_gpt.model_provider
-    if args.orm and not args.use_mcore_models:
-        raise AssertionError("Currently Outcome Reward Model only support Mcore models")
+        queue = mp.Queue(maxsize=args.max_queue_size)
+        model_provider = ORMTrainer.model_provider if args.orm else pretrain_gpt.model_provider
+        if args.orm and not args.use_mcore_models:
+            raise AssertionError("Currently Outcome Reward Model only support Mcore models")
 
-    print("Starting saver...")
-    saver_proc = mp.Process(target=saver.save_model_checkpoint, args=(model_provider, queue, args))
-    saver_proc.start()
+        logger.info("Starting saver...")
+        saver_proc = mp.Process(target=saver.save_model_checkpoint, args=(model_provider, queue, args))
+        saver_proc.start()
 
-    print("Starting loader...")
-    loader.load_checkpoint(model_provider, queue, args)
+        logger.info("Starting loader...")
+        loader.load_checkpoint(model_provider, queue, args)
 
-    print("Waiting for saver to complete...")
-    saver_proc.join()
+        logger.info("Waiting for saver to complete...")
+        saver_proc.join()
 
 
 if __name__ == '__main__':

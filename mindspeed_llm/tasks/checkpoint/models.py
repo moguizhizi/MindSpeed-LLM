@@ -770,6 +770,8 @@ class MegatronModel(ModelBase):
         self.check_for_args(queue, saver_megatron)
 
         self.args.model_type = ModelType.encoder_or_decoder
+        if saver_megatron:
+            self.args.iteration = self.md.iteration
         # Suppress warning about torch.distributed not being initialized.
         module.MegatronModule.embedding_warning_printed = True
         set_args(self.args)
@@ -933,6 +935,7 @@ class MegatronModel(ModelBase):
                            self.args_cmd.target_pipeline_parallel_size //
                            self.args_cmd.num_layers_per_virtual_pipeline_stage)
                 self.set_virtual_pipeline_model_parallel_world_size(vp_size)
+            self.args.dp_size = getattr(self.args_cmd, 'target_data_parallel_size', 1)
         else:
             self.set_tensor_model_parallel_world_size(self.args.tensor_model_parallel_size)
             self.set_pipeline_model_parallel_world_size(self.args.pipeline_model_parallel_size)
