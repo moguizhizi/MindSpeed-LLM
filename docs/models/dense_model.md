@@ -291,7 +291,7 @@
       <td><a href="https://huggingface.co/v2ray/Llama-3-70B/tree/main">70B</a></td>
       <td> 8K </td>
       <th>Mcore</th>
-      <td>8x8</td>
+      <td>4x8</td>
       <td>【GTS】</td>
       <td>【Test】</td>
     </tr>
@@ -334,7 +334,17 @@
       <td><a href="https://huggingface.co/unsloth/Llama-3.2-3B/tree/main">3B</a></td>
       <td> 8K </td>
       <th>Mcore</th>
-      <td>8x8</td>
+      <td>1x8</td>
+      <td>【GTS】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
+      <td rowspan="1"><a href="https://huggingface.co/meta-llama">LLaMA3.3</a></td>
+      <td><a href="https://huggingface.co/unsloth/Llama-3.3-70B-Instruct/tree/main">70B-Instruct</a></td>
+      <td rowspan="1"><a href="../../examples/mcore/llama33">llama33</a></td>
+      <td> 8K </td>
+      <th>Mcore</th>
+      <td> 4x8</td>
       <td>【GTS】</td>
       <td>【Test】</td>
     </tr>

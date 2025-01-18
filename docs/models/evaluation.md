@@ -54,6 +54,7 @@ MindSpeed-LLM 已支持的大模型评估数据统计如下：
 | MiniCPM3-4B          | MMLU   | 63.7%     | 64.6%                                                                 | Phi-3.5-mini-instruct | MMLU   | 64.39%    | 64.34%                                                                        |
 | Phi-3.5-MoE-instruct | MMLU   | 78.5%     | [78.9%](https://huggingface.co/microsoft/Phi-3.5-MoE-instruct)        | DeepSeek-Math-7B  |MMLU-STEM| 56.5%   | [56.5%](https://github.com/deepseek-ai/DeepSeek-Math)                              |
 | DeepSeek-V2.5        | MMLU   | 79.3%     | [80.6%](https://github.com/deepseek-ai/DeepSeek-V3)                   | DeepSeek-V2-236B | MMLU   | 78.1%     | [78.5%](https://huggingface.co/deepseek-ai/DeepSeek-V2)                            |
+| LLaMA3.3-70B-Instruct | MMLU   | 82.7%     | --                                                                    |
 
 ## 大模型分布式评估使用介绍
 
