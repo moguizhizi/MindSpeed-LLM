@@ -18,7 +18,7 @@ from megatron.training.global_vars import get_timers
 from megatron.training.training import compute_throughputs_and_append_to_progress_log
 from megatron.training.utils import unwrap_model, print_rank_0, append_to_progress_log
 from megatron.training.yaml_arguments import core_transformer_config_from_yaml
-from mindspeed_llm.tasks.posttrain.rm.rm_model import GPTRewardModel
+from mindspeed_llm.tasks.posttrain.orm.orm_model import GPTRewardModel
 
 
 def model_provider(is_reward_model=False, pre_process=True, post_process=True) -> Union[GPTModel]:

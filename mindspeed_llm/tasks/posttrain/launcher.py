@@ -11,6 +11,7 @@ from mindspeed_llm.tasks.posttrain.dpo import DPOTrainer
 from mindspeed_llm.tasks.posttrain.orm import ORMTrainer
 from mindspeed_llm.tasks.posttrain.prm import PRMTrainer
 from mindspeed_llm.tasks.posttrain.dpo import SimPOTrainer
+from mindspeed_llm.tasks.posttrain.trl_ppo import TrlPPOTrainer
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 def get_trainer(stage):
     """
     Factory function to select the appropriate trainer based on the 'stage' argument.
-    
+
     :param stage: A string representing the stage of the training.
     :return: An instance of the appropriate trainer class.
     """
@@ -36,6 +37,8 @@ def get_trainer(stage):
         return RayPPOTrainer
     elif stage == "ray_online_dpo":
         return RayOnlineDPOTrainer
+    elif stage == "trl_ppo":
+        return TrlPPOTrainer()
     elif stage == "ray_grpo":
         return RayGRPOTrainer
     else:
@@ -49,11 +52,11 @@ class AutoTrainer:
     It chooses the appropriate trainer (e.g., SFTTrainer, DPOTrainer, ORMTrainer...)
     based on the 'stage' argument.
     """
-    
+
     def __init__(self):
         """
         Initializes the AutoTrainer.
-        
+
         - Initializes the training system.
         - Retrieves the 'stage' argument.
         - Uses the 'stage' to select the correct trainer.

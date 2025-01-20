@@ -25,7 +25,7 @@ class ActorModel(MegatronModuleForCausalLM):
         input = [val[:context_lengths[i]] for i, val in enumerate(output)]
 
         if not self.include_input:
-            output = [val[context_lengths[i]:min(self.max_length, context_lengths[i]+self.max_new_tokens)] for i, val in enumerate(output)]
+            output = [val[context_lengths[i]:] for i, val in enumerate(output)]
 
         # When batch size > 1, you need truncate the tokens after eos_token_id
         self._truncate_in_multi_batch(output)

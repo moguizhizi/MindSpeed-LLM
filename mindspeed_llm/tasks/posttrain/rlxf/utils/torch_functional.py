@@ -46,9 +46,10 @@ def masked_var(values, mask, unbiased=True):
             raise ValueError("At least one element in the mask has to be 1.")
         # note that if mask_sum == 1, then there is a division by zero issue
         # to avoid it you just need to use a larger minibatch_size
-        if mask_sum == 1:
-            raise ValueError("The sum of the mask is one, which can cause a division by zero.")
-        bessel_correction = mask_sum / (mask_sum - 1)
+        elif mask_sum == 1:
+            bessel_correction = mask_sum
+        else:
+            bessel_correction = mask_sum / (mask_sum - 1)
         variance = variance * bessel_correction
     return variance
 
