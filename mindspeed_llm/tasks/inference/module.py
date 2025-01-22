@@ -167,6 +167,8 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
             beam_search_and_return_on_first_stage
         from megatron.inference.text_generation.tokenization import tokenize_prompts
         from megatron.inference.text_generation.communication import broadcast_float_list
+        from megatron.inference.text_generation.forward_step import ForwardStep
+        from megatron.inference.text_generation.generation import _build_attention_mask_and_position_ids
 
         args = get_args()
         args.max_tokens_to_oom = args.max_tokens_to_oom if hasattr(args, "max_tokens_to_oom") else 4096
@@ -181,6 +183,8 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
         self.beam_search_or_sampling = beam_search_and_return_on_first_stage
         self.tokenize_prompts = tokenize_prompts
         self.broadcast_float_list = broadcast_float_list
+        self.ForwardStep = ForwardStep
+        self.build_attention_mask_and_position_ids = _build_attention_mask_and_position_ids
 
     @staticmethod
     def _ids_check(ids, tokenizer):
@@ -292,6 +296,108 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
         # output texts/tokens
         # =======================================
         return self._token_generator(token_stream)
+
+    def score(self, input_ids=None, placeholder_token=None, reward_tokens=None, broadcast=False, **kwargs):
+        """
+        This function is used in the inference of PRM to perform a single forward pass and extract the scores
+        at the corresponding positions, instead of generating tokens one by one.
+
+        Parameters:
+        ----------
+        placeholder_token(str):
+            The delimiter used in the sentence to indicate the end of the reasoning step.
+        reward_tokens([str, str, ...]):
+            The identifier used to distinguish between correct reasoning steps and incorrect reasoning steps.
+        """
+
+        args = get_args()
+
+        if placeholder_token is None:
+            placeholder_token = args.placeholder_token
+            if placeholder_token is None:
+                raise ValueError("placeholder_token cannot be None")
+
+        if reward_tokens is None:
+            reward_tokens = args.reward_tokens
+            if reward_tokens is None:
+                raise ValueError("reward_tokens cannot be None")
+
+        # =======================================
+        # Add additional parameters to args which
+        # may be used in original logic of codes
+        # =======================================
+        for addition_key, addition_val in kwargs.items():
+            setattr(args, addition_key, addition_val)
+
+        # =======================================
+        # Initialize the tokenizer to choose
+        # whether to use customizing tokenizer
+        # =======================================
+        self._init_tokenizer(args)
+
+        # =======================================
+        # Tokenize the prompts
+        # =======================================
+        context_tokens_tensor, context_length_tensor = self.tokenize_prompts(
+            tokenizer=self.tokenizer,
+            prompts=input_ids,
+            tokens_to_generate=1,
+            max_generate_length=None,
+            add_BOS=False,
+            broadcast=broadcast
+        )
+
+        # =======================================
+        # Deal with PRM score process
+        # =======================================
+        placeholder_token = self.tokenizer.encode(placeholder_token, add_special_tokens=False)[0]
+
+        # If there is no placeholder_token, it should automatically add one at the end of the token.
+        need_to_add = ~torch.any(context_tokens_tensor == placeholder_token, dim=1).squeeze(-1)
+        context_tokens_tensor[need_to_add, context_length_tensor[need_to_add]] = placeholder_token
+
+        reward_tokens = [self.tokenizer.encode(val, add_special_tokens=False)[0] for val in reward_tokens]
+        placeholder_indices = torch.nonzero(context_tokens_tensor == placeholder_token)
+
+        if not args.use_mcore_models:
+            args.seq_length = context_tokens_tensor.shape[1]
+            args.max_position_embeddings = args.seq_length
+
+        logits = self._forward_step(context_tokens_tensor)
+
+        scores = []
+        for idx, _ in enumerate(range(logits.size(0))):
+            scores_per_sentence = []
+            for placeholder_idx in placeholder_indices:
+                if placeholder_idx[0] == idx:
+                    scores_per_sentence.append(logits[placeholder_idx[0], placeholder_idx[1] - 1, reward_tokens])
+
+            scores_per_sentence = torch.nn.functional.log_softmax(torch.stack(scores_per_sentence), dim=-1)
+            scores.append(torch.exp(scores_per_sentence[:, 0]))  # only select score in positive token
+
+        return scores
+
+    def _forward_step(self, tokens):
+        args = get_args()
+        model = args.model[0]
+
+        batch_size = tokens.size(0)
+        max_sequence_length = tokens.size(1)
+
+        if max_sequence_length > args.max_position_embeddings:
+            raise ValueError("Length of prompt + tokens_to_generate longer than allowed")
+
+        if max_sequence_length * batch_size > args.max_tokens_to_oom:
+            raise ValueError("Too many tokens.  " + str(max_sequence_length * batch_size) + " is greater than " + str(
+                args.max_tokens_to_oom))
+
+        forward_step = self.ForwardStep(model, batch_size, max_sequence_length)
+
+        with torch.no_grad():
+            attention_mask, position_ids = self.build_attention_mask_and_position_ids(tokens)
+            logits = forward_step(tokens, position_ids, attention_mask)
+
+        return logits
 
     def _init_tokenizer(self, args):
         self.tokenizer = self.tokenizer if self.tokenizer_new is None else self.tokenizer_new
