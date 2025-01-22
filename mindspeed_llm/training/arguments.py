@@ -69,9 +69,18 @@ def process_args(parser):
     parser = _add_2d_tp_args(parser)
     parser = _add_hccl_group_buffer_args(parser)
     parser = _add_coc_args(parser)
+    parser = _add_default_model_args(parser)
     parser = _add_megatron2_args(parser)
     parser = _add_inference_args(parser)
 
+    return parser
+
+
+def _add_default_model_args(parser):
+    group = parser.add_argument_group(title='default model mode')
+
+    group.add_argument('--use-mcore-models', action='store_true', dest='use_mcore_models',
+                       help='Use Megatron-Core models, will be DEPRECATED in future')
     return parser
 
 
@@ -457,8 +466,7 @@ def _add_network_size_args(parser):
 
 def _add_algorithm_args(parser):
     group = parser.add_argument_group(title='algorithm')
-    group.add_argument('--rotary-base', type=float, help='rotary-base.')
-    group.add_argument('--dynamic-factor', type=float, default=1.0, help='dynamic-factor')  
+    group.add_argument('--dynamic-factor', type=float, default=1.0, help='dynamic-factor')
     group.add_argument('--rope-scaling-type', type=str, default=None, choices=["llama3", "yarn", "longrope"],
                        help='The sub-variant of RoPE to use, support type llama3 and yarn and longrope.')
     group.add_argument('--longrope-freqs-type', type=str, default="mul", choices=["mul", "outer"],
@@ -882,6 +890,7 @@ def _add_hccl_group_buffer_args(parser):
     group = parser.add_argument_group(title='hccl-group-buffer')
     group.add_argument('--hccl-group-buffer', type=str, default=None,
                        help='the hccl buffer for group')
+
     return parser
 
 
@@ -976,8 +985,8 @@ def _validate_evaluation_args(args):
 
 
 def _validate_moe_args(args):
-    if not args.use_mcore_models and args.num_experts and args.num_experts > 1:
-        raise ValueError(f'MOE is not supported in legacy model. Please activate `--use-mcore-models` to enable moe features.')
+    if args.use_legacy_models and args.num_experts and args.num_experts > 1:
+        raise ValueError(f'MOE is not supported in legacy model. Please deactivate `--use-legacy-models` to enable moe features.')
     if args.moe_expert_capacity_factor is not None:
         if args.moe_token_dispatcher_type != "alltoall":
             raise ValueError(f'moe_expert_capacity_factor only works with alltoall token dispatcher')
@@ -1346,6 +1355,8 @@ def validate_args_decorator(megatron_validate_args):
         _restore_variables(args, variable_dict)
 
         args.use_mc2 = False
+        args.use_legacy_models = not args.use_mcore_models
+
 
         _validate_o2(args)
         _validate_varlen_fa_args(args)

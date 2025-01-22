@@ -101,13 +101,15 @@ def _transformer_block_build_layers(self):
         ]
     )
 
-    if self.post_process and self.post_layer_norm:
-        # Final layer norm before output.
-        self.final_layernorm = TENorm(
+    if self.submodules.layer_norm and self.post_process and self.post_layer_norm:
+        self.final_layernorm = build_module(
+            self.submodules.layer_norm,
             config=self.config,
             hidden_size=self.config.hidden_size,
             eps=self.config.layernorm_epsilon,
         )
+    else:
+        self.final_layernorm = None  # Either this or nn.Identity
 
 
 def transformer_block_checkpointed_forward_wrapper(forward_func):

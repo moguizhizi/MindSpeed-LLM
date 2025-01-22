@@ -83,7 +83,7 @@ GPT_ARGS="
     --load ${CKPT_LOAD_DIR} \
     --save ${CKPT_SAVE_DIR} \
     --bf16 \
-    --rotary-base 1000000.0 \
+    --rotary-base 1000000 \
     --use-mcore-models \
     --transformer-impl local
 "

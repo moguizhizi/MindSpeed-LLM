@@ -299,7 +299,13 @@ def initialize_model_parallel_2megatron(
             ), 'Data modulo expert group is already initialized'
             ps._DATA_MODULO_EXPERT_PARALLEL_GROUP = group
             ps._DATA_MODULO_EXPERT_PARALLEL_GROUP_GLOO = group_gloo
-
+    for ranks in rank_generator.get_ranks('dp-cp', independent_ep=True):
+        # Lazy initialization of the group
+        group = ps._DATA_MODULO_EXPERT_PARALLEL_GROUP
+        group_gloo = ps._DATA_MODULO_EXPERT_PARALLEL_GROUP_GLOO
+        if rank in ranks:
+            ps._DATA_MODULO_EXPERT_PARALLEL_GROUP_WITH_CP = group
+            ps._DATA_MODULO_EXPERT_PARALLEL_GROUP_WITH_CP_GLOO = group_gloo
     # Initialize global memory buffer
     # This isn't really "parallel state" but there isn't another good place to
     # put this. If we end up with a more generic initialization of megatron-core

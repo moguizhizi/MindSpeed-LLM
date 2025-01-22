@@ -58,6 +58,6 @@ torchrun $DISTRIBUTED_ARGS evaluation.py   \
        --add-qkv-bias \
        --make-vocab-size-divisible-by 1 \
        --seed 1234 \
-       --rotary-base 1000000.0 \
+       --rotary-base 1000000 \
        --padded-vocab-size 151936 \
        | tee logs/eval_mcore_qwen15_4b_full_${TASK}.log

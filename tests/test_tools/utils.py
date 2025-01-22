@@ -14,7 +14,8 @@ import pytest
 import torch
 import torch_npu
 import megatron.core.parallel_state as mpu
-from mindspeed.core.parallel_state import initialize_model_parallel, initialize_model_parallel_wrapper
+from megatron.core.parallel_state import initialize_model_parallel
+from mindspeed.core.parallel_state import initialize_model_parallel_wrapper
 from mindspeed_llm.core.parallel_state import initialize_model_parallel_decorator
 
 def judge_expression(expression):

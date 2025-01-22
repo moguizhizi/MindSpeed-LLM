@@ -74,7 +74,7 @@ MODEL_ARGS="
     --use-rotary-position-embeddings \
     --use-fused-rotary-pos-emb \
     --position-embedding-type rope \
-    --rotary-base 1000000.0 \
+    --rotary-base 1000000 \
     --init-method-std 0.02 \
     --untie-embeddings-and-output-weights \
     --no-masked-softmax-fusion \

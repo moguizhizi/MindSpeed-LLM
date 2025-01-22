@@ -61,7 +61,7 @@ torchrun $DISTRIBUTED_ARGS evaluation.py \
        --add-qkv-bias \
        --make-vocab-size-divisible-by 1 \
        --padded-vocab-size 152064 \
-       --rotary-base 1000000.0 \
+       --rotary-base 1000000 \
        --no-gradient-accumulation-fusion \
        --attention-softmax-in-fp32 \
        --seed 1234 \

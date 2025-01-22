@@ -86,6 +86,10 @@ class MegatronAdaptation:
             group.add_argument('--optimization-level', type=int, default=-1)
             group.add_argument('--o2-optimizer', action='store_true',
                                help='use bf16 exponential moving average to greatly save up memory.')
+            group.add_argument('--adaptive-recompute-device-size', type=int, default=-1)
+            group.add_argument('--adaptive-recompute-device-swap', type=bool, default=False)
+            group.add_argument('--swap-attention', action='store_true', default=False)
+            group.add_argument('--memory-fragmentation', type=bool, default=False)
             return parser
 
         def _get_dummy_args():
@@ -205,6 +209,7 @@ class CoreAdaptation(MegatronAdaptationABC):
         from mindspeed.core.models.common.embeddings.rotary_pos_embedding import get_pos_emb_on_this_cp_rank
         from mindspeed.core.models.common.embeddings.rotary_pos_embedding import rotary_embedding_get_rotary_seq_len_wrapper
         from mindspeed.core.models.common.embeddings.language_model_embedding import language_model_embedding_forward_wrapper
+        from mindspeed.core.data_parallel.distributed_data_parallel import distributed_data_parallel_init_with_cp
         from mindspeed.core.transformer.attention import attention_init, self_attention_init_wrapper
         from ..training.utils import get_batch_on_this_cp_rank, get_batch_on_this_tp_rank, get_device_wrapper
         from ..core import rotary_embedding_forward, apply_rotary_pos_emb_bshd
@@ -234,6 +239,8 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register(
             'megatron.core.models.common.embeddings.language_model_embedding.LanguageModelEmbedding.forward',
             language_model_embedding_forward_wrapper)
+        MegatronAdaptation.register('megatron.core.distributed.distributed_data_parallel.DistributedDataParallel.__init__',
+                            distributed_data_parallel_init_with_cp)
 
         # Attention
         MegatronAdaptation.register('megatron.core.transformer.attention.Attention.__init__',
@@ -276,6 +283,7 @@ class CoreAdaptation(MegatronAdaptationABC):
             transformer_block_checkpointed_forward_wrapper)
 
     def patch_core_transformers(self):
+        import megatron.core
         from mindspeed.core.transformer.moe.token_dispatcher import allgather_token_permutation, \
             allgather_token_unpermutation
         from mindspeed.core.transformer.moe.grouped_gemm_util import Ops, grouped_gemm_is_available, \
@@ -286,7 +294,7 @@ class CoreAdaptation(MegatronAdaptationABC):
         from ..core.transformer.moe.moe_layer import moe_layer_init_wrapper, moe_layer_forward
         from ..core.transformer.transformer_block import _transformer_block_build_layers
 
-        from ..core import (PTNorm, topk_router_forward, topk_router_routing, z_loss_func,
+        from ..core import (PTNorm, topk_router_forward, topk_router_routing, z_loss_func, topk_softmax_with_capacity,
                             get_num_layers_to_build_wrapper, TransformerLayer,
                             transformer_block_init_wrapper, transformer_block_forward, core_mlp_init)
         args = MegatronAdaptation.get_args()
@@ -295,10 +303,12 @@ class CoreAdaptation(MegatronAdaptationABC):
             MegatronAdaptation.register('megatron.core.transformer.transformer_config.TransformerConfig.__post_init__',
                                               transformer_config_post_init)
         MegatronAdaptation.register('torch.cuda.get_device_capability', get_device_capability)
+        megatron.core.transformer.transformer_block.LayerNormImpl = PTNorm
         MegatronAdaptation.register('megatron.core.transformer.transformer_block.TENorm', PTNorm)
         MegatronAdaptation.register('megatron.core.transformer.moe.router.TopKRouter.routing', topk_router_routing)
         MegatronAdaptation.register('megatron.core.transformer.moe.router.TopKRouter.forward', topk_router_forward)
         MegatronAdaptation.register('megatron.core.transformer.moe.router.z_loss_func', z_loss_func)
+        MegatronAdaptation.register('megatron.core.transformer.moe.moe_utils.topk_softmax_with_capacity', topk_softmax_with_capacity)
         MegatronAdaptation.register('megatron.core.transformer.transformer_block.get_num_layers_to_build',
                                     get_num_layers_to_build_wrapper)
         MegatronAdaptation.register('megatron.core.transformer.moe.grouped_gemm_util.ops', Ops)
@@ -394,15 +404,15 @@ class CoreAdaptation(MegatronAdaptationABC):
     def patch_tensor_parallel(self):
         from mindspeed.core.tensor_parallel.layers import vocab_parallel_embedding_forward
         from mindspeed.core.tensor_parallel.random import _set_cuda_rng_state
-        from mindspeed.core.tensor_parallel.cross_entropy import vocab_parallel_cross_entropy_forward
+        from mindspeed.core.tensor_parallel.cross_entropy import calculate_predicted_logits
         from ..core import vocab_embedding_forward_wrapper, vocab_embedding_init_wrapper, checkpoint_forward_wrapper, checkpoint_backward_wrapper
 
         # default_generators need replace after set_device
         MegatronAdaptation.register('megatron.core.tensor_parallel.random._set_cuda_rng_state', _set_cuda_rng_state)
         # change masked_target for better performance
         MegatronAdaptation.register(
-            'megatron.core.tensor_parallel.cross_entropy._VocabParallelCrossEntropy.forward',
-            vocab_parallel_cross_entropy_forward)
+            'megatron.core.tensor_parallel.cross_entropy.VocabParallelCrossEntropy.calculate_predicted_logits',
+            calculate_predicted_logits)
         MegatronAdaptation.register('megatron.core.tensor_parallel.layers.VocabParallelEmbedding.forward',
                                     vocab_parallel_embedding_forward)
         MegatronAdaptation.register('megatron.core.tensor_parallel.layers.VocabParallelEmbedding.forward',
@@ -462,7 +472,6 @@ class CoreAdaptation(MegatronAdaptationABC):
                                     destroy_model_parallel_wrapper)
         MegatronAdaptation.register('megatron.core.parallel_state.get_context_parallel_group_for_send_recv_overlap',
                                     get_context_parallel_group_for_send_recv_overlap)
-        MegatronAdaptation.register('megatron.core.mpu', megatron.core.parallel_state)
         MegatronAdaptation.register(
             'megatron.core.transformer.transformer_layer.TransformerLayer._get_layer_offset',
             get_layer_offset_wrapper)
@@ -694,7 +703,7 @@ class LegacyAdaptation(MegatronAdaptationABC):
 
     def patch_inference(self):
         from ..inference.text_generation.tokenization import tokenize_prompts, _tokenize_prompts_and_batch
-        from ..inference.text_generation.forward_step import inference_forward_step_init_wrapper, _no_pipelining_forward_step, _with_pipelining_forward_step
+        from ..inference.text_generation.forward_step import inference_forward_step_init_wrapper, _no_pipelining_forward_step_wrapper, _with_pipelining_forward_step_wrapper
         from ..inference.text_generation.generation import generate_tokens_probs_and_return_on_first_stage, beam_search_and_return_on_first_stage
 
         MegatronAdaptation.register('megatron.inference.text_generation.tokenization.tokenize_prompts', tokenize_prompts)
@@ -702,14 +711,14 @@ class LegacyAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.inference.text_generation.generation.generate_tokens_probs_and_return_on_first_stage', generate_tokens_probs_and_return_on_first_stage)
         MegatronAdaptation.register('megatron.inference.text_generation.generation.beam_search_and_return_on_first_stage', beam_search_and_return_on_first_stage)
         MegatronAdaptation.register('megatron.inference.text_generation.forward_step.ForwardStep.__init__', inference_forward_step_init_wrapper)
-        MegatronAdaptation.register('megatron.inference.text_generation.forward_step._no_pipelining_forward_step', _no_pipelining_forward_step)
-        MegatronAdaptation.register('megatron.inference.text_generation.forward_step._with_pipelining_forward_step', _with_pipelining_forward_step)
+        MegatronAdaptation.register('megatron.inference.text_generation.forward_step.ForwardStep._no_pipelining_forward_step', _no_pipelining_forward_step_wrapper)
+        MegatronAdaptation.register('megatron.inference.text_generation.forward_step.ForwardStep._with_pipelining_forward_step', _with_pipelining_forward_step_wrapper)
 
     def patch_miscellaneous(self):
         from mindspeed_llm.training.utils import print_args_wrapper
         from mindspeed_llm.training.arguments import validate_args_decorator
         from mindspeed_llm.training.arguments import core_transformer_config_from_args_wrapper
-        from ..training.checkpointing import _load_base_checkpoint_wrapper
+        from ..training.checkpointing import _load_base_checkpoint_wrapper, save_checkpoint_wrapper
         from ..training.tokenizer import build_tokenizer
         from ..training.arguments import parse_args_decorator
 
@@ -720,7 +729,7 @@ class LegacyAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.training.global_vars.build_tokenizer', build_tokenizer)
         MegatronAdaptation.register('megatron.training.checkpointing._load_base_checkpoint',
                                     _load_base_checkpoint_wrapper)
-
+        MegatronAdaptation.register('megatron.training.checkpointing.save_checkpoint', save_checkpoint_wrapper)
         # For transformer layer configuration
         MegatronAdaptation.register('megatron.training.arguments.core_transformer_config_from_args',
                                     core_transformer_config_from_args_wrapper)
@@ -729,11 +738,13 @@ class LegacyAdaptation(MegatronAdaptationABC):
     def patch_optimizer(self):
         args = MegatronAdaptation.get_args()
         if args.reuse_fp32_param and not args.enable_high_availability:
-            from mindspeed.optimizer.optimizer import mixed_precision_optimizer_step, reuse_fp32_param_init_wrapper, \
+            from mindspeed.optimizer.optimizer import step_with_ready_grads, prepare_grads, reuse_fp32_param_init_wrapper, \
                 optimizer_config_init_wrapper
             from mindspeed.optimizer.distrib_optimizer import reuse_fp32_param_distrib_optimizer_init_wrapper
-            MegatronAdaptation.register('megatron.core.optimizer.optimizer.MixedPrecisionOptimizer.step',
-                                        mixed_precision_optimizer_step)
+            MegatronAdaptation.register('megatron.core.optimizer.optimizer.MixedPrecisionOptimizer.prepare_grads',
+                                        prepare_grads)
+            MegatronAdaptation.register('megatron.core.optimizer.optimizer.MixedPrecisionOptimizer.step_with_ready_grads',
+                                        step_with_ready_grads)
             MegatronAdaptation.register(
                 'megatron.core.optimizer.optimizer.Float16OptimizerWithFloat16Params.__init__',
                 reuse_fp32_param_init_wrapper)

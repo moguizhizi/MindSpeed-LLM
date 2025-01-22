@@ -24,7 +24,8 @@ import torch_npu
 import torch.nn.functional as F
 from einops import rearrange
 
-from megatron.training import get_args, get_num_microbatches
+from megatron.training import get_args
+from megatron.core.num_microbatches_calculator import get_num_microbatches
 from megatron import core
 from megatron.core import tensor_parallel
 from megatron.core import parallel_state

@@ -71,7 +71,7 @@ GPT_ARGS="
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
     --adam-beta2 0.999 \
-    --rotary-base 1000000.0 \
+    --rotary-base 1000000 \
     --add-qkv-bias \
     --initial-loss-scale 8192 \
     --no-gradient-accumulation-fusion \

@@ -61,7 +61,7 @@ GPT_ARGS="
     --group-query-attention \
     --num-query-groups 8 \
     --vocab-size 32000 \
-    --rotary-base 1e6 \
+    --rotary-base 1000000 \
 
     --no-masked-softmax-fusion \
     --use-fused-rotary-pos-emb \

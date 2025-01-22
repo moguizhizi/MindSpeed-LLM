@@ -73,7 +73,7 @@ GPT_ARGS="
     --num-query-groups 8 \
     --no-position-embedding \
     --vocab-size 32000 \
-    --rotary-base 1000000.0 \
+    --rotary-base 1000000 \
     --norm-epsilon 1e-5 \
     --no-masked-softmax-fusion \
     --use-fused-rotary-pos-emb \

@@ -75,7 +75,7 @@ GPT_ARGS=(
     --num-query-groups 8
     --no-position-embedding
     --vocab-size 32000
-    --rotary-base 1e6
+    --rotary-base 1000000
 
     --no-masked-softmax-fusion
     --use-fused-rotary-pos-emb
@@ -123,4 +123,4 @@ torchrun ${DISTRIBUTED_ARGS[@]} $basepath/pretrain_gpt.py \
   ${GPT_ARGS[@]} \
   ${DATA_ARGS[@]} \
   ${OUTPUT_ARGS[@]} \
-  --distributed-backend nccl \
+  --distributed-backend nccl

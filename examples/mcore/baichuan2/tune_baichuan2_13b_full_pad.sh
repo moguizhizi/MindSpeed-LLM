@@ -82,7 +82,7 @@ GPT_ARGS="
     --no-load-optim \
     --no-load-rng \
     --bf16 \
-    --rotary-base 1000000.0 \
+    --rotary-base 1000000 \
 "
 DATA_ARGS="
     --data-path $DATA_PATH \

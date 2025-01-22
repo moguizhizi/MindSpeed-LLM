@@ -29,10 +29,11 @@ import torch_npu
 
 from megatron.training import get_args
 from megatron.training import get_timers
-from megatron.training import update_num_microbatches
 from megatron.training import get_signal_handler
 from megatron.training import get_tensorboard_writer
 from megatron.training import get_wandb_writer
+from megatron.training import one_logger_utils
+from megatron.core.num_microbatches_calculator import get_num_microbatches, update_num_microbatches
 from megatron.core import mpu
 from megatron.core.utils import get_model_config
 from megatron.core.enums import ModelType
@@ -41,7 +42,7 @@ from megatron.training.initialize import initialize_megatron
 from megatron.training.initialize import write_args_to_tensorboard
 from megatron.training.arguments import core_transformer_config_from_args
 from megatron.training.training import (
-    train_step, get_num_microbatches, calc_params_l2_norm,
+    train_step, calc_params_l2_norm,
     training_log, evaluate_and_print_results,
     save_checkpoint_and_time, print_datetime,
     num_floating_point_operations, get_one_logger,
@@ -232,20 +233,22 @@ def setup_model_and_optimizer_wrapper(fn):
 
 
 def build_train_args(*input_args):
-    args, timers, train_valid_test_dataset_provider, model_provider, model_type, forward_step_func, process_non_loss_data_func = input_args
+    args, timers, train_valid_test_dataset_provider, model_provider, model_type, forward_step_func, process_non_loss_data_func, app_metrics = input_args
 
     from megatron.training.training import setup_model_and_optimizer
     # Model, optimizer, and learning rate.
     timers('model-and-optimizer-setup', log_level=0).start(barrier=True)
+    app_metrics['app_build_optimizer_start_time'] = one_logger_utils.get_timestamp_in_ms()
     model, optimizer, opt_param_scheduler = setup_model_and_optimizer(
         model_provider, model_type)
-
     timers('model-and-optimizer-setup').stop()
     print_datetime('after model, optimizer, and learning rate '
                    'scheduler are built')
+    app_metrics['app_build_optimizer_finish_time'] = one_logger_utils.get_timestamp_in_ms()
     config = get_model_config(model[0])
 
     # Data stuff.
+    app_metrics['app_build_dataiters_start_time'] = one_logger_utils.get_timestamp_in_ms()
     timers('train/valid/test-data-iterators-setup', log_level=0).start(
         barrier=True)
     if args.virtual_pipeline_model_parallel_size is not None:
@@ -262,9 +265,15 @@ def build_train_args(*input_args):
     else:
         train_data_iterator, valid_data_iterator, test_data_iterator \
             = build_train_valid_test_data_iterators(
-            train_valid_test_dataset_provider)
+                train_valid_test_dataset_provider)
     timers('train/valid/test-data-iterators-setup').stop()
     print_datetime('after dataloaders are built')
+    app_metrics['app_build_dataiters_finish_time'] = one_logger_utils.get_timestamp_in_ms()
+
+    # Track if training is enabled. Can only be done once args.do_train is assigned after dataloader is built.
+    one_logger_utils.track_config_flags(args.train_iters, args.skip_train, args.do_train,
+                                        args.do_valid, args.do_test, args.dataloader_type,
+                                        args.retro_project_dir, args.retro_cyclic_train_iters)
 
     # Print setup timing.
     print_rank_0('done with setup ...')
@@ -322,7 +331,7 @@ def pretrain(train_valid_test_dataset_provider,
     timers = get_timers()
 
     if args.enable_high_availability:
-        raise AssertionError("High availability feature do not support core_r0.7.0")
+        raise AssertionError("High availability feature do not support core_r0.8.0")
 
     if args.log_progress:
         append_to_progress_log("Starting job")
@@ -340,23 +349,24 @@ def pretrain(train_valid_test_dataset_provider,
     torch.distributed.all_reduce(start_time_tensor,
                                  op=torch.distributed.ReduceOp.MIN)
     _TRAIN_START_TIME = start_time_tensor.item()
+
+    app_metrics = {}
+    app_metrics['app_start_time'] = round(_TRAIN_START_TIME * 1000.0)
+    app_metrics['app_model_init_start_time'] = round(_TRAIN_START_TIME * 1000.0)
+
     print_rank_0('time to initialize megatron (seconds): {:.3f}'.format(
         time.time() - _TRAIN_START_TIME))
     print_datetime('after megatron is initialized')
+    app_metrics['app_model_init_finish_time'] = one_logger_utils.get_timestamp_in_ms()
 
-    args = get_args()
-    timers = get_timers()
-
-    one_logger = get_one_logger()
-    if one_logger:
-        one_logger.log_metrics({
-            'train_iterations_warmup': 5
-        })
+    one_logger_utils.on_pretrain_start()
 
     train_args, test_data_iterator_list = build_train_args(args, timers, train_valid_test_dataset_provider,
                                                            model_provider,
-                                                           model_type, forward_step_func, process_non_loss_data_func)
-
+                                                           model_type, forward_step_func, process_non_loss_data_func,
+                                                           app_metrics)
+    one_logger = get_one_logger()
+    one_logger and one_logger.log_metrics(app_metrics)
     if not args.do_train and not args.do_valid and not args.do_test:
         raise RuntimeError('no data loaded, you might give wrong data path.')
 
@@ -386,6 +396,9 @@ def pretrain(train_valid_test_dataset_provider,
         if args.save and iteration != 0 and iteration % args.save_interval != 0:
             save_checkpoint(iteration, model, optimizer, opt_param_scheduler,
                             num_floating_point_operations_so_far)
+        one_logger and one_logger.log_metrics({
+            'app_train_loop_finish_time': one_logger_utils.get_timestamp_in_ms()
+        })
     else:
         print_rank_0('skipping training (--skip-train is on) ...')
 
@@ -405,6 +418,10 @@ def pretrain(train_valid_test_dataset_provider,
                                    iteration, process_non_loss_data_func, config,
                                    verbose=True, write_to_tensorboard=not args.skip_train)
 
+    one_logger and one_logger.log_metrics({
+        'app_finish_time': one_logger_utils.get_timestamp_in_ms()
+    })
+    one_logger_utils.finish()
 
 def train(forward_step_func, model, optimizer, opt_param_scheduler,
           train_data_iterator, valid_data_iterator,
@@ -412,6 +429,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
     """Train the model function."""
     args = get_args()
     timers = get_timers()
+    one_logger = get_one_logger()
 
     # Write args to tensorboard
     write_args_to_tensorboard()
@@ -425,17 +443,13 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
 
     # Iterations.
     iteration = args.iteration
-    one_logger = get_one_logger()
-    if one_logger:
-        iteration_start = iteration
-        train_samples_start = args.consumed_train_samples
-        train_samples_target = args.train_samples
-        one_logger.log_metrics({
-            'train_samples_start': args.consumed_train_samples,
-            'train_iterations_start': iteration,
-            'train_samples_target': train_samples_target,
-            'train_iterations_target': args.train_iters,
-        })
+
+    # Track E2E metrics at the start of training
+    one_logger_utils.on_train_start(iteration=iteration, consumed_train_samples=args.consumed_train_samples,
+                                    train_samples=args.train_samples, seq_length=args.seq_length,
+                                    train_iters=args.train_iters, save=args.save, async_save=args.async_save,
+                                    log_throughput=args.log_throughput,
+                                    num_floating_point_operations_so_far=args.num_floating_point_operations_so_far)
 
     num_floating_point_operations_so_far = 0
 
@@ -473,31 +487,29 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
         gc.disable()
         gc.collect()
 
+    total_flops = 0.0
     num_microbatches = get_num_microbatches()
     eval_duration = 0.0
     eval_iterations = 0
 
-    def track_e2e_metrics():
-        # Nested function to track a bunch of E2E APP metrics
-        if one_logger:
-            train_duration = timers('interval-time').active_time()  # overall_elapsed
-            train_samples = args.consumed_train_samples - train_samples_start
-            train_iterations = iteration - iteration_start
-            train_iterations_time_msecs_avg = (
-                                                          train_duration * 1000.0) / train_iterations if train_iterations > 0 else None
-            if eval_iterations > 0:
-                validation_iterations_time_msecs_avg = (eval_duration * 1000.0) / eval_iterations
-            else:
-                validation_iterations_time_msecs_avg = None
-
-            one_logger.log_metrics({
-                'train_iterations_end': iteration,
-                'train_samples_end': args.consumed_train_samples,
-                'train_iterations': train_iterations,
-                'train_samples': train_samples,
-                'train_iterations_time_msecs_avg': train_iterations_time_msecs_avg,
-                'validation_iterations_time_msecs_avg': validation_iterations_time_msecs_avg
-            })
+    def get_e2e_base_metrics():
+        """Get base metrics values for one-logger to calculate E2E tracking metrics.
+        """
+        return {
+            'iteration': iteration,
+            'train_duration': timers('interval-time').active_time(),
+            'eval_duration': eval_duration,
+            'eval_iterations': eval_iterations,
+            'total_flops': total_flops,
+            'num_floating_point_operations_so_far': num_floating_point_operations_so_far,
+            'consumed_train_samples': args.consumed_train_samples,
+            'world_size': args.world_size,
+            'seq_length': args.seq_length
+        }
+    # Cache into one-logger for callback
+    if one_logger:
+        with one_logger.get_context_manager():
+            one_logger.store_set('get_e2e_base_metrics', get_e2e_base_metrics)
 
     if is_profile_enabled():
         prof = get_profiler()
@@ -533,16 +545,15 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                      args.micro_batch_size * \
                      get_num_microbatches()
         args.consumed_train_samples += batch_size
-        num_floating_point_operations_so_far += num_floating_point_operations(args, batch_size)
+        num_fp_ops = num_floating_point_operations(args, batch_size)
+        num_floating_point_operations_so_far += num_fp_ops
+        total_flops += num_fp_ops
 
         # Logging.
         loss_scale = optimizer.get_loss_scale().item()
         params_norm = None
         if args.log_params_norm:
             params_norm = calc_params_l2_norm(model)
-
-        if iteration % args.log_interval == 0:
-            track_e2e_metrics()
 
         learning_rate = None
         decoupled_learning_rate = None
@@ -586,6 +597,8 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
             eval_duration += timers('eval-time').elapsed()
             eval_iterations += args.eval_iters
             timers('eval-time').stop()
+            one_logger_utils.track_e2e_metrics()
+
             if args.manual_gc and args.manual_gc_eval:
                 # Collect only the objects created and used in evaluation.
                 gc.collect(generation=0)
@@ -608,22 +621,21 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
 
         if args.save and args.save_interval and \
                 iteration % args.save_interval == 0:
-            timers('interval-time').stop()
             save_checkpoint_and_time(iteration, model, optimizer,
                                      opt_param_scheduler,
                                      num_floating_point_operations_so_far,
                                      checkpointing_context=None)
             saved_checkpoint = True
-            timers('interval-time', log_level=0).start(barrier=True)
 
         # Exiting based on duration
         if args.exit_duration_in_mins:
             train_time = (time.time() - _TRAIN_START_TIME) / 60.0
-            done_cuda = torch.cuda.IntTensor(
-                [train_time > args.exit_duration_in_mins])
+            done_npu = torch.tensor(
+                [train_time > args.exit_duration_in_mins],
+                dtype=torch.int, device='npu')
             torch.distributed.all_reduce(
-                done_cuda, op=torch.distributed.ReduceOp.MAX)
-            done = done_cuda.item()
+                done_npu, op=torch.distributed.ReduceOp.MAX)
+            done = done_npu.item()
             if done:
                 if not saved_checkpoint:
                     save_checkpoint_and_time(iteration, model, optimizer,
@@ -656,7 +668,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
     if is_profile_enabled():
         prof.stop()
 
-    track_e2e_metrics()
+    one_logger_utils.track_e2e_metrics()
 
     # Flush TensorBoard and WandB writers.
     writer = get_tensorboard_writer()

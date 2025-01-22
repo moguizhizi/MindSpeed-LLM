@@ -15,8 +15,8 @@ from megatron.training.utils import (
 from megatron.training.global_vars import (
     get_args,
     get_signal_handler,
-    get_timers,
-    get_num_microbatches)
+    get_timers)
+from megatron.core.num_microbatches_calculator import get_num_microbatches
 from megatron.training.training import (
     print_datetime,
     get_one_logger,

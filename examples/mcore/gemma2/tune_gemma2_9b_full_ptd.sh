@@ -87,7 +87,7 @@ GPT_ARGS="
     --variable-seq-lengths \
     --tokenizer-not-use-fast \
     --prompt-type gemma \
-    --rotary-base 10000.0
+    --rotary-base 10000
 "
 
 DATA_ARGS="

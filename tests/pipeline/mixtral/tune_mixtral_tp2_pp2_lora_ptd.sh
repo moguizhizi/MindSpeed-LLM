@@ -40,6 +40,7 @@ MOE_ARGS="
     --moe-permutation-async-comm \
     --moe-token-dispatcher-type alltoall \
     --use-fused-moe-token-permute-and-unpermute
+    --moe-router-pre-softmax
 "
 
 GPT_ARGS="
@@ -62,7 +63,7 @@ GPT_ARGS="
     --group-query-attention \
     --num-query-groups 8 \
     --vocab-size 32000 \
-    --rotary-base 1e6 \
+    --rotary-base 1000000 \
 
     --no-masked-softmax-fusion \
     --use-fused-rotary-pos-emb \

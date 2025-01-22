@@ -6,11 +6,11 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 source /usr/local/Ascend/nnal/atb/set_env.sh
 
 # 安装加速库
-git clone -b core_r0.7.0 https://gitee.com/ascend/MindSpeed.git
+git clone -b core_r0.8.0 https://gitee.com/ascend/MindSpeed.git
 cd MindSpeed
 
-# checkout commit from MindSpeed core_r0.7.0 in 2024.12.13
-git checkout 4045864e6df
+# checkout commit from MindSpeed core_r0.8.0 in 2024.12.25
+git checkout 9b3ad3fd928
 pip install -r requirements.txt
 pip3 install -e .
 cd ..
@@ -20,7 +20,7 @@ cd MindSpeed-LLM
 
 pip install -r requirements.txt
 
-# megatron core_r0.7.0
+# megatron core_r0.8.0
 cp -rf /home/master_branch/Megatron-LM/megatron ./
 
 # Main
@@ -31,7 +31,7 @@ BASELINE_DIR="$BASE_DIR/baseline"
 #mkdir cache to store product and will be removed after test
 mkdir -p "$BASE_DIR/pipe_cache"
 touch "$BASE_DIR/exec_results.log"
-echo "core0.7.0 Execution Results" > $BASE_DIR/exec_results.log
+echo "core0.8.0 Execution Results" > $BASE_DIR/exec_results.log
 
 GENERATE_LOG_DIR="$BASE_DIR/pipe_cache"
 GENERATE_JSON_DIR="$BASE_DIR/pipe_cache"

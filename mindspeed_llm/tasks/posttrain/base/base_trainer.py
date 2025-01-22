@@ -62,6 +62,11 @@ class BaseTrainer(ABC):
         set_jit_fusion_options()
         self.synchronize_start_time()
         print_rank_0('time to initialize megatron (seconds): {:.3f}'.format(time.time() - _TRAIN_START_TIME))
+
+        app_metrics = {}
+        app_metrics['app_start_time'] = round(_TRAIN_START_TIME * 1000.0)
+        app_metrics['app_model_init_start_time'] = round(_TRAIN_START_TIME * 1000.0)
+
         self.train_args, self.test_data_iterator_list = build_train_args(
             self.args,
             self.timers,
@@ -69,7 +74,8 @@ class BaseTrainer(ABC):
             self.model_provider,
             self.model_type,
             self.forward_step,
-            self.process_non_loss_data_func
+            self.process_non_loss_data_func,
+            app_metrics
         )
 
     def log_initialization(self):

@@ -54,6 +54,6 @@ torchrun $DISTRIBUTED_ARGS inference.py \
        --max-new-tokens 256 \
        --seed 1234 \
        --bf16 \
-       --rotary-base 1000000.0 \
+       --rotary-base 1000000 \
        --padded-vocab-size 151936 \
        | tee logs/generate_mcore_qwen15_4b_full.log

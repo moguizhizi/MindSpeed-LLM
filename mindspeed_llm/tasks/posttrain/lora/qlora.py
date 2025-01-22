@@ -199,8 +199,6 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
         model = [DDP(config,
                      ddp_config,
                      model_chunk,
-                     data_parallel_group=mpu.get_data_parallel_group(with_context_parallel=True),
-                     expert_data_parallel_group=mpu.get_data_modulo_expert_parallel_group(),
                      # Turn off bucketing for model_chunk 2 onwards, since communication for these
                      # model chunks is overlapped with compute anyway.
                      disable_bucketing=(model_chunk_idx > 0))

@@ -91,7 +91,9 @@ def rotary_embedding_forward(self, max_seq_len: int, offset: int = 0):
         Tensor: Embeddings after applying RoPE.
     """
     args = get_args()
-
+    if self.inv_freq.device.type == 'cpu':
+        # move `inv_freq` to GPU once at the first micro-batch forward pass
+        self.inv_freq = self.inv_freq.to(device=torch.cuda.current_device())
     seq = (
         torch.arange(max_seq_len, device=self.inv_freq.device, dtype=self.inv_freq.dtype)
         + offset
@@ -127,7 +129,12 @@ def rotary_embedding_forward(self, max_seq_len: int, offset: int = 0):
         if self.inv_freq.dtype in (torch.float16, torch.bfloat16, torch.int8):
             emb = emb.bfloat16() if self.inv_freq.dtype == torch.bfloat16 else emb.half()
     else:
-        emb = torch.cat((freqs, freqs), dim=-1)
+        if not self.rotary_interleaved:
+            emb = torch.cat((freqs, freqs), dim=-1)
+        else:
+            emb = torch.stack((freqs.view(-1, 1), freqs.view(-1, 1)), dim=-1).view(
+                freqs.shape[0], -1
+            )
     # emb [seq_length, .., dim]
     emb = emb[:, None, None, :]
     cp = parallel_state.get_context_parallel_world_size()

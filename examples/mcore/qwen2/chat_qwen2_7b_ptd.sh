@@ -40,7 +40,7 @@ torchrun $DISTRIBUTED_ARGS inference.py \
        --seq-length ${SEQ_LENGTH} \
        --make-vocab-size-divisible-by 1 \
        --padded-vocab-size 152064 \
-       --rotary-base 1000000.0 \
+       --rotary-base 1000000 \
        --untie-embeddings-and-output-weights \
        --micro-batch-size 1 \
        --swiglu \

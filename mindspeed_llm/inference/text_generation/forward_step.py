@@ -23,7 +23,7 @@ import torch
 
 from megatron.training import get_args
 from megatron.core import mpu, InferenceParams
-from megatron.inference.text_generation.forward_step import _forward_step_helper, _allocate_recv_buffer
+from megatron.inference.text_generation.forward_step import ForwardStep, _allocate_recv_buffer
 
 
 def inference_forward_step_init_wrapper(fn):
@@ -37,75 +37,78 @@ def inference_forward_step_init_wrapper(fn):
     return wrapper
 
 
-def _no_pipelining_forward_step(model, tokens, position_ids, attention_mask,
-                                inference_params, recv_buffer=None):
-    """If recv_buffer is none, we will allocate one on the fly."""
-    # Run a simple forward pass.
-    output_tensor = _forward_step_helper(model, tokens, position_ids,
-                                         attention_mask, inference_params,
-                                         recv_buffer=recv_buffer)
-    # Update the sequence length offset.
-    if inference_params:
-        inference_params.sequence_len_offset += tokens.size(1)
-
-    logits = None
-    if mpu.is_pipeline_last_stage():
-        logits = output_tensor
-
-    return logits
-
-
-def _with_pipelining_forward_step(model, tokens, position_ids, attention_mask,
-                                  inference_params, micro_batch_size):
-    """No interleaving is supported."""
-    sequence_length = tokens.size(1)
-    batch_size = tokens.size(0)
-
-    # Divide the batch dimension into micro batches.
-    num_micro_batches, last_chunk = divmod(batch_size,
-                                           micro_batch_size)
-    if last_chunk > 0:
-        num_micro_batches += 1
-
-    # Preallocate memory for output logits.
-    logits = None
-    if mpu.is_pipeline_last_stage():
-        args = get_args()
-        logits = torch.empty(
-            (batch_size, sequence_length, args.padded_vocab_size),
-            dtype=torch.float32, device=torch.cuda.current_device())
-
-    # Preallocate recv buffer.
-    recv_buffer = _allocate_recv_buffer(micro_batch_size, sequence_length)
-
-    for micro_batch_index in range(num_micro_batches):
-        # Slice among the batch dimenion.
-        start = micro_batch_index * micro_batch_size
-        end = min(start + micro_batch_size, batch_size)
-        this_micro_batch_size = end - start
-        tokens2use = tokens[start:end, ...]
-        position_ids2use = position_ids[start:end, ...]
-
+def _no_pipelining_forward_step_wrapper(_no_pipelining_forward_step):
+    @wraps(_no_pipelining_forward_step)
+    def wrapper(self, tokens, position_ids, attention_mask, recv_buffer=None):
+        """If recv_buffer is none, we will allocate one on the fly."""
         # Run a simple forward pass.
-        if this_micro_batch_size != micro_batch_size:
-            recv_buffer = None
-        output = _forward_step_helper(model, tokens2use, position_ids2use,
-                                      attention_mask, inference_params,
-                                      recv_buffer=recv_buffer)
+        output_tensor = self._forward_step_helper(tokens, position_ids,
+                                            attention_mask,
+                                            recv_buffer=recv_buffer)
+        # Update the sequence length offset.
+        if self.inference_params:
+            self.inference_params.sequence_len_offset += tokens.size(1)
 
-        if inference_params:
-            # Adjust the batch size offset to account for the micro-batch.
-            inference_params.batch_size_offset += this_micro_batch_size
-
-        # Copy logits.
+        logits = None
         if mpu.is_pipeline_last_stage():
-            logits[start:end, ...] = output
+            logits = output_tensor
+        return logits
+    return wrapper
 
-    if inference_params:
-        # Once we are done with all the micro-batches, we can
-        # adjust the sequence length offset.
-        inference_params.sequence_len_offset += sequence_length
-        # and reset the batch size offset
-        inference_params.batch_size_offset = 0
 
-    return logits
+def _with_pipelining_forward_step_wrapper(_with_pipelining_forward_step):
+    @wraps(_with_pipelining_forward_step)
+    def wrapper(self, tokens, position_ids, attention_mask, micro_batch_size):
+        """No interleaving is supported."""
+        sequence_length = tokens.size(1)
+        batch_size = tokens.size(0)
+
+        # Divide the batch dimension into micro batches.
+        num_micro_batches, last_chunk = divmod(batch_size,
+                                            micro_batch_size)
+        if last_chunk > 0:
+            num_micro_batches += 1
+
+        # Preallocate memory for output logits.
+        logits = None
+        if mpu.is_pipeline_last_stage():
+            args = get_args()
+            logits = torch.empty(
+                (batch_size, sequence_length, args.padded_vocab_size),
+                dtype=torch.float32, device=torch.cuda.current_device())
+
+        # Preallocate recv buffer.
+        recv_buffer = _allocate_recv_buffer(micro_batch_size, sequence_length)
+
+        for micro_batch_index in range(num_micro_batches):
+            # Slice among the batch dimenion.
+            start = micro_batch_index * micro_batch_size
+            end = min(start + micro_batch_size, batch_size)
+            this_micro_batch_size = end - start
+            tokens2use = tokens[start:end, ...]
+            position_ids2use = position_ids[start:end, ...]
+
+            # Run a simple forward pass.
+            if this_micro_batch_size != micro_batch_size:
+                recv_buffer = None
+            output = self._forward_step_helper(tokens2use, position_ids2use,
+                                        attention_mask,
+                                        recv_buffer=recv_buffer)
+
+            if self.inference_params:
+                # Adjust the batch size offset to account for the micro-batch.
+                self.inference_params.batch_size_offset += this_micro_batch_size
+
+            # Copy logits.
+            if mpu.is_pipeline_last_stage():
+                logits[start:end, ...] = output
+
+        if self.inference_params:
+            # Once we are done with all the micro-batches, we can
+            # adjust the sequence length offset.
+            self.inference_params.sequence_len_offset += sequence_length
+            # and reset the batch size offset
+            self.inference_params.batch_size_offset = 0
+
+        return logits
+    return wrapper

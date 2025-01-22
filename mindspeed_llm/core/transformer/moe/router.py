@@ -21,7 +21,7 @@ from megatron.core.tensor_parallel import gather_from_sequence_parallel_region
 from megatron.training import get_args
 from megatron.core.transformer.moe.moe_utils import MoEAuxLossAutoScaler, save_to_aux_losses_tracker
 from megatron.core import parallel_state
-from .moe_utils import topk_softmax_with_capacity, switch_load_balancing_loss_func
+from megatron.core.transformer.moe.moe_utils import topk_softmax_with_capacity, switch_load_balancing_loss_func
 from mindspeed_llm.tasks.models.common.pai_megatron import pai_megatron_aux_loss
 
 def group_limited_greedy_topKgating(self, logits: torch.Tensor):
@@ -381,6 +381,7 @@ def topk_router_routing(self, logits: torch.Tensor):
             capacity_factor=self.config.moe_expert_capacity_factor,
             pad_to_capacity=self.config.moe_pad_expert_input_to_capacity,
             drop_policy=self.config.moe_token_drop_policy,
+            use_pre_softmax=self.config.moe_router_pre_softmax,
         )
     else:
         raise ValueError(f"Unsupported MoE routing type: {self.routing_type}")
@@ -425,60 +426,4 @@ def topk_router_forward(self, input: torch.Tensor):
 
     return scores, indices
 
-
-def aux_loss_load_balancing(self, logits: torch.Tensor):
-    """Apply loss-based load balancing to the logits tensor.
-
-        Args:
-            logits (torch.Tensor): the logits tensor after gating, shape: [num_tokens, num_experts].
-
-        Returns:
-            probs (torch.Tensor): the probabilities tensor after load balancing.
-            indices (torch.Tensor): the indices tensor after top-k selection.
-    """
-    probs, indices, tokens_per_expert = topk_softmax_with_capacity(
-        logits,
-        self.topk,
-        capacity_factor=self.config.moe_expert_capacity_factor,
-        pad_to_capacity=self.config.moe_pad_expert_input_to_capacity,
-        drop_policy=self.config.moe_token_drop_policy,
-    )
-
-    # Apply load balancing loss
-    scores = torch.softmax(logits, dim=-1, dtype=torch.float32)
-    probs = self.apply_load_balancing_loss(scores, tokens_per_expert, activation=probs)
-    return probs, indices
-
-
-def apply_load_balancing_loss(
-    self,
-    probs: torch.Tensor,
-    num_local_tokens_per_expert: torch.Tensor,
-    activation: torch.Tensor,
-):
-    """Applies auxiliary loss to the MoE layer.
-
-    Args:
-        probs (torch.Tensor): The probabilities output by the MoE layer.
-        num_local_tokens_per_expert (torch.Tensor): The number of tokens per expert.
-        activation (torch.Tensor): The activation tensor to attach the gradient function to.
-
-    Returns:
-        torch.Tensor: The activation tensor with the attached gradient function.
-    """
-    moe_aux_loss_coeff = (
-            self.config.moe_aux_loss_coeff / parallel_state.get_tensor_model_parallel_world_size()
-    )
-    aux_loss = switch_load_balancing_loss_func(
-        probs, num_local_tokens_per_expert, self.topk, moe_aux_loss_coeff
-    )
-    save_to_aux_losses_tracker(
-        "load_balancing_loss",
-        aux_loss / moe_aux_loss_coeff,
-        self.layer_number,
-        self.config.num_layers,
-    )
-    activation = MoEAuxLossAutoScaler.apply(activation, aux_loss)
-
-    return activation
 

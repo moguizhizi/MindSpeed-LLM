@@ -50,7 +50,7 @@ GPT_ARGS="
     --global-batch-size 256 \
     --make-vocab-size-divisible-by 1 \
     --padded-vocab-size 152064 \
-    --rotary-base 1000000.0 \
+    --rotary-base 1000000 \
     --lr 1.25e-6 \
     --min-lr 1.25e-7 \
     --train-iters 2000 \

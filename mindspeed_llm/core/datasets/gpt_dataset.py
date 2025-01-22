@@ -80,7 +80,9 @@ def _build_document_sample_shuffle_indices(
             logging.INFO,
             f"Build and save the {type(self).__name__} {self.index_split.name} indices",
         )
+        self.built_anew_on_cache_miss = True
         t_beg = time.time()
+
 
         sequence_length = self.config.sequence_length
         num_tokens_per_epoch = self._get_num_tokens_per_epoch()
@@ -145,8 +147,17 @@ def _build_document_sample_shuffle_indices(
 
         assert document_index.dtype == numpy.int32
         assert self.dataset.sequence_lengths.dtype == numpy.int32
+        if len(document_index) * 2 > len(self.dataset.sequence_lengths):
+            # Heuristic: if "access density" of sequence_lengths is relatively high,
+            # force loading the mmap-ed array into memory by taking a copy.
+            # System performance benefits come from two aspects:
+            # 1. **sequentially** pre-loading the whole file if we're gonna read a large fraction anyways.
+            # 2. GIL is held when calling into c++ code; making the c++ func faster improves parallelism.
+            sequence_lengths_for_cpp = self.dataset.sequence_lengths.copy()
+        else:
+            sequence_lengths_for_cpp = self.dataset.sequence_lengths
         sample_index = helpers.build_sample_idx(
-            self.dataset.sequence_lengths,
+            sequence_lengths_for_cpp,
             document_index,
             sequence_length,
             num_epochs,
