@@ -42,7 +42,8 @@ GPT_ARGS="
     --pipeline-model-parallel-size ${PP} \
     --task $TASK \
     --task-data-path $DATA_PATH \
-    --max-new-tokens 1 \
+    --max-new-tokens 2 \
+    --alternative-prompt \
     --num-layers 32 \
     --hidden-size 4096 \
     --ffn-hidden-size 14336 \

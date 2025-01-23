@@ -38,6 +38,7 @@ torchrun ${DISTRIBUTED_ARGS} evaluation.py   \
        --rotary-base 50000000 \
        --seq-length 4096 \
        --max-new-tokens 192 \
+       --alternative-prompt \
        --micro-batch-size 1 \
        --num-attention-heads 32 \
        --max-position-embeddings 32768 \

@@ -46,4 +46,8 @@ def add_text_generate_args(parser):
                         choices=['en', 'zh'], help="Language used by evaluation")
     group.add_argument('--max-eval-samples', type=int, default=None,
                         help="Max sample each dataset, for debug")
+    group.add_argument('--alternative-prompt', action="store_true", default=False,
+                    help="enable another alternative prompt to evaluate")
+    group.add_argument('--origin-postprocess', action="store_true", default=False,
+                    help="use original method to get the answer")
     return parser

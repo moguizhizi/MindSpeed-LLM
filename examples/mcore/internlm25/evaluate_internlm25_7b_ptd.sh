@@ -28,8 +28,9 @@ torchrun ${DISTRIBUTED_ARGS} evaluation.py   \
        --task-data-path ${DATA_PATH} \
        --task ${TASK} \
        --use-mcore-models \
-       --tensor-model-parallel-size 8  \
+       --tensor-model-parallel-size 1  \
        --pipeline-model-parallel-size 1  \
+       --alternative-prompt \
        --num-layers 32  \
        --hidden-size 4096 \
        --ffn-hidden-size 14336 \
@@ -39,7 +40,7 @@ torchrun ${DISTRIBUTED_ARGS} evaluation.py   \
        --norm-epsilon 1e-5 \
        --rotary-base 50000000 \
        --seq-length 32768 \
-       --max-new-tokens 1 \
+       --max-new-tokens 128 \
        --micro-batch-size 1 \
        --num-attention-heads 32 \
        --max-position-embeddings 32768 \

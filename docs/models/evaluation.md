@@ -31,7 +31,7 @@ MindSpeed-LLM 已支持的大模型评估数据统计如下：
 | LLaMA3-8B            | MMLU   | 65.2%     | --                                                                    | LLaMA3-70B       | BoolQ  | 78.4%     | --                                                                                 |
 | LLaMA3.1-8B          | MMLU   | 65.3%     | --                                                                    | LLaMA3.1-70B     | MMLU   | 81.8%     | --                                                                                 |
 | LLaMA3.2-1B          | MMLU   | 31.8%     | [32.2%](https://modelscope.cn/models/LLM-Research/Llama-3.2-1B)       | LLaMA3.2-3B      | MMLU   | 56.3%     | [58.0%](https://modelscope.cn/models/LLM-Research/Llama-3.2-3B)                    |
-| Mistral-7B           | MMLU   | 56.3%     | --                                                                    | Mixtral-8x7B     | MMLU   | 69.9%     | [70.6%](https://paperswithcode.com/sota/multi-task-language-understanding-on-mmlu) |
+| Mistral-7B           | MMLU   | 56.3%     | --                                                                    | Mixtral-8x7B     | MMLU   | 70.6%     | [70.6%](https://paperswithcode.com/sota/multi-task-language-understanding-on-mmlu) |
 | Mistral-8x22B        | MMLU   | 77%       | [77.8%](https://mistral.ai/news/mixtral-8x22b/)                       | MiniCPM-MoE-8x2B | BoolQ  | 83.9%     | --                                                                                 |
 | QWen-7B              | MMLU   | 58.1%     | [58.2%](https://huggingface.co/Qwen/Qwen-7B)                          | Qwen-14B         | MMLU   | 65.3%     | [66.3%](https://huggingface.co/Qwen/Qwen-14B)                                      |
 | QWen-72B             | MMLU   | 74.6%     | [77.4%](https://huggingface.co/Qwen/Qwen-72B)                         | QWen1.5-0.5B     | MMLU   | 39.1%     | --                                                                                 |
@@ -42,15 +42,15 @@ MindSpeed-LLM 已支持的大模型评估数据统计如下：
 | QWen2-0.5B           | MMLU   | 44.6%     | [45.4%](https://qwenlm.github.io/zh/blog/qwen2/)                      | QWen2-1.5B       | MMLU   | 54.7%     | [56.5%](https://qwenlm.github.io/zh/blog/qwen2/)                                   |
 | QWen2-7B             | MMLU   | 70.3%     | [70.3%](https://qwenlm.github.io/zh/blog/qwen2/)                      | QWen2-57B-A14B   | MMLU   | 75.6%     | [76.5%](https://qwenlm.github.io/zh/blog/qwen2/)                                   |
 | QWen2-72B            | MMLU   | 83.6%     | [84.2%](https://qwenlm.github.io/zh/blog/qwen2/)                      | MiniCPM-2B       | MMLU   | 51.6%     | [53.4%](https://github.com/OpenBMB/MiniCPM?tab=readme-ov-file#3)                   |
-| DeepSeek-V2-Lite-16B | MMLU   | 57.4%     | [58.3%](https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite)          | QWen2.5-0.5B     | MMLU   | 47.67%    | [47.5%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
+| DeepSeek-V2-Lite-16B | MMLU   | 58.1%     | [58.3%](https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite)          | QWen2.5-0.5B     | MMLU   | 47.67%    | [47.5%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
 | QWen2.5-1.5B         | MMLU   | 59.4%     | [60.9%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-3B       | MMLU   | 65.6%     | [65.6%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
 | QWen2.5-7B           | MMLU   | 73.8%     | [74.2%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-14B      | MMLU   | 79.4%     | [79.7%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
 | QWen2.5-32B          | MMLU   | 83.3%     | [83.3%](https://qwenlm.github.io/blog/qwen2.5-llm/)                   | QWen2.5-72B      | MMLU   | 85.59%    | [86.1%](https://qwenlm.github.io/blog/qwen2.5-llm/)                                |
-| InternLM2.5-1.8b     | MMLU   | 51.3%     | [53.5%](https://huggingface.co/internlm/internlm2_5-1_8b)             | InternLM2.5-7B   | MMLU   | 69.7%     | [71.6%](https://huggingface.co/internlm/internlm2_5-7b)                            |
+| InternLM2.5-1.8b     | MMLU   | 51.3%     | [53.5%](https://huggingface.co/internlm/internlm2_5-1_8b)             | InternLM2.5-7B   | MMLU   | 71.6%     | [71.6%](https://huggingface.co/internlm/internlm2_5-7b)                            |
 | InternLM2.5-20b      | MMLU   | 73.3%     | [74.2%](https://huggingface.co/internlm/internlm2_5-20b)              | InternLM3-8b     | MMLU   | 76.6%     | [76.6%](https://huggingface.co/internlm/internlm3-8b-instruct)                     |
 | Yi1.5-6B             | MMLU   | 63.2%     | [63.5%](https://huggingface.co/01-ai/Yi-1.5-6B/tree/main)             | Yi1.5-9B         | MMLU   | 69.2%     | [69.5%](https://huggingface.co/01-ai/Yi-1.5-9B/tree/main)                          |
 | Yi1.5-34B            | MMLU   | 76.9%     | [77.1%](https://huggingface.co/01-ai/Yi-1.5-34B/tree/main)            | CodeQWen2.5-7B   | Human. | 66.5%     | [61.6%](https://modelscope.cn/models/Qwen/Qwen2.5-Coder-7B)                        |
-| Qwen2.5-Math-7B      |MMLU-STEM| 65.1%    | [67.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)            | Qwen2.5-Math-72B |MMLU-STEM| 83.7%    | [82.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)                         |
+| Qwen2.5-Math-7B      |MMLU-STEM| 67.8%    | [67.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)            | Qwen2.5-Math-72B |MMLU-STEM| 83.7%    | [82.8%](https://github.com/QwenLM/Qwen2.5-Math/tree/main/)                         |
 | MiniCPM3-4B          | MMLU   | 63.7%     | 64.6%                                                                 | Phi-3.5-mini-instruct | MMLU   | 64.39%    | 64.34%                                                                        |
 | Phi-3.5-MoE-instruct | MMLU   | 78.5%     | [78.9%](https://huggingface.co/microsoft/Phi-3.5-MoE-instruct)        | DeepSeek-Math-7B  |MMLU-STEM| 56.5%   | [56.5%](https://github.com/deepseek-ai/DeepSeek-Math)                              |
 | DeepSeek-V2.5        | MMLU   | 79.3%     | [80.6%](https://github.com/deepseek-ai/DeepSeek-V3)                   | DeepSeek-V2-236B | MMLU   | 78.1%     | [78.5%](https://huggingface.co/deepseek-ai/DeepSeek-V2)                            |
@@ -123,43 +123,5 @@ bash examples/legacy/llama2/evaluate_llama2_7B_full_mmlu_ptd.sh
 bash examples/legacy/llama2/evaluate_llama2_7B_lora_mmlu_ptd.sh
 ```
 
-## 社区BUG列表
-
-1.Qwen2.5-Math:评估集使用MMLU-STEM评估集，MMLU-STEM为MMLU评估集的子集，可以在下载MMLU评估集后自行删除无关学科，并将评估脚本`TASK`配置设置为**mmlu**进行评估任务。
-按照Qwen2.5-Math官方评估代码中的定义，MMLU-STEM的学科范围如下:
-
-> abstract_algebra(抽象代数)
-> 
-> astronomy(天文学)
-> 
-> college_biology(大学生物学)
-> 
-> college_chemistry(大学化学)
-> 
-> college_computer_science(大学计算机科学)
-> 
-> college_mathematics(大学数学)
-> 
-> college_physics(大学物理学)
-> 
-> computer_security(计算机安全)
-> 
-> conceptual_physics(概念物理学)
-> 
-> electrical_engineering(电气工程学)
-> 
-> elementary_mathematics(初等数学)
-> 
-> high_school_biology(高中生物学)
-> 
-> high_school_chemistry(高中化学)
-> 
-> high_school_computer_science(高中计算机科学)
-> 
-> high_school_mathematics(高中数学)
-> 
-> high_school_physics(高中物理学)
-> 
-> high_school_statistics(高中统计学)
-> 
-> machine_learning(机器学习)
+## 评估介绍
+[mmlu评估介绍](../../docs/features/mmlu-evalution.md)

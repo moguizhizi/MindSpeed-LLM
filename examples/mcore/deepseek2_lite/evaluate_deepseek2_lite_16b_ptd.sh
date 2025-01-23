@@ -31,7 +31,8 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS evaluation.py \
     --task $TASK\
     --load "${CHECKPOINT}" \
     --no-chat-template \
-    --max-new-tokens 1 \
+    --max-new-tokens 2 \
+    --alternative-prompt \
     --use-mcore-models \
     --moe-grouped-gemm \
     --tensor-model-parallel-size ${TP} \

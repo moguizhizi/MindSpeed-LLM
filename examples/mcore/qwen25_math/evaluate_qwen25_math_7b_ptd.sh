@@ -56,7 +56,8 @@ torchrun $DISTRIBUTED_ARGS evaluation.py \
        --make-vocab-size-divisible-by 1 \
        --padded-vocab-size 152064 \
        --micro-batch-size 1  \
-       --max-new-tokens 1 \
+       --max-new-tokens 192 \
+       --alternative-prompt \
        --tokenizer-type PretrainedFromHF  \
        --tokenizer-name-or-path ${TOKENIZER_PATH} \
        --tokenizer-not-use-fast \

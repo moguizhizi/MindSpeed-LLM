@@ -74,7 +74,7 @@ class TestEvaluate(DistributedTest):
             print(log_capture)
 
             expected_score = acquire_score(log_capture)
-            assert math.isclose(expected_score,  0.543859, abs_tol=1e-2), f"score {expected_score}, forward pass has been changed, check it!"
+            assert math.isclose(expected_score,  0.587719, abs_tol=1e-2), f"score {expected_score}, forward pass has been changed, check it!"
 
     @pytest.mark.parametrize("params", test_config["test_llama2_mcore_agieval_evaluate"])
     def test_llama2_mcore_agieval_evaluate(self, build_args, params):

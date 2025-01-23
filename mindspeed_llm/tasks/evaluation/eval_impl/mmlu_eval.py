@@ -20,11 +20,17 @@ import json
 import pandas as pd
 import tqdm
 
+import torch
 from torch import distributed as dist
+
+from megatron.core import mpu
+from megatron.training import get_args
 from .template import MMLU_TEMPLATE_DIR, get_eval_template
 from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
 from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
+from mindspeed_llm.tasks.evaluation.eval_utils.mmlu_utils import _format_example, postprocess, get_final_dataset
+
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +63,8 @@ class MmluEval(DatasetEval):
         rank = None
         with open(MMLU_TEMPLATE_DIR, encoding='utf-8') as f:
             mmlu_few_shot_template = json.load(f)
+        
+        args = get_args()
 
         if self.rank == 0:
             self.file_pbar = tqdm.tqdm(total=len(os.listdir(self.test_dir)), desc="total")
@@ -90,12 +98,15 @@ class MmluEval(DatasetEval):
                     self.file_pbar.update()
                 continue
 
+            data_df, all_data_parallel_group_ranks = get_final_dataset(data_df, dist.get_world_size(), args.tensor_model_parallel_size, args.pipeline_model_parallel_size)
+
             if self.rank == 0:
                 self.task_pbar = tqdm.tqdm(total=len(data_df), desc=file, leave=False)
 
-            for idx, row in data_df.iterrows():
+            idx = 0
+            for _, row in data_df.iterrows():
                 instruction = None
-                if self.prompt_type is not None:
+                if self.prompt_type is not None or args.alternative_prompt:
                     train_dir = os.path.dirname(self.test_dir) + "/dev/"
                     train_file_path = os.path.join(train_dir, subject_name + "_dev.csv")
 
@@ -104,13 +115,21 @@ class MmluEval(DatasetEval):
 
                     train_data_df = pd.read_csv(train_file_path, names=['question', 'A', 'B', 'C', 'D', 'answer'])
                     support_set = (
-                        train_data_df.sample(min(5, len(train_data_df)))
+                        train_data_df.sample(min(5, len(train_data_df)), random_state=args.seed)
                     )
-                    instruction = self.eval_template.format_example(
-                        target_data=row,
-                        support_set=support_set,
-                        subject_name=subject_name,
-                    )
+
+                    if not args.alternative_prompt:
+                        instruction = self.eval_template.format_example(
+                            target_data=row,
+                            support_set=support_set,
+                            subject_name=subject_name,
+                        )
+                    else:
+                        instruction = _format_example(
+                            target_data=row,
+                            support_set=train_data_df,
+                            subject_name=subject_name,
+                        )
                 else:
                     test_question = f"{row['question']}\nA. {row['A']}\nB. {row['B']}\nC. {row['C']}\nD. {row['D']}"
                     instruction = self.instruction_template.format(few_shot_examples=mmlu_few_shot_template[subject_name],
@@ -123,17 +142,15 @@ class MmluEval(DatasetEval):
                     chat_results, rank = chat.chat(instruction=instructions, history=[])
                     if chat_results:
                         for index, chat_result in enumerate(chat_results):
-                            answer = chat_result[0].lstrip()
                             try:
-                                if rank == 0:
-                                    logger.info(instruction)
+                                answer = chat_result[0].lstrip() if not args.alternative_prompt else postprocess(chat_result, 'ABCD', corrects[index], args.origin_postprocess)
+                                if rank in all_data_parallel_group_ranks[0]:
                                     match_flag = False
                                     for template_idx, template in enumerate(self.output_template):
                                         try:
-                                            result = re.match(template, answer)
-                                            logger.info(f"correct: {corrects[index]}, AI: {result.group('answer')}")
-                                            subject_result[str(idx - len(chat_results) + index + 1)] = result.group(
-                                                "answer")
+                                            result = re.match(template, answer).group('answer') if not args.alternative_prompt else answer
+                                            logger.info(f"correct: {corrects[index]}, AI: {result}, rank: {dist.get_rank()}")
+                                            subject_result[str(idx - len(chat_results) + index + 1)] = result
                                             if subject_result[str(idx - len(chat_results) + index + 1)] == corrects[
                                                 index]:
                                                 acc_n += 1
@@ -146,29 +163,34 @@ class MmluEval(DatasetEval):
                                     if not match_flag:
                                         logger.info("xx. AI answer: %s", answer)
                             except Exception as e:
-                                if rank == 0:
+                                if dist.get_rank() in all_data_parallel_group_ranks[0]:
                                     logger.info(e)
-                                subject_result[str(idx - len(chat_results) + index + 1)] = str(
-                                    e) + ". AI answer:" + answer
                     instructions = []
                     corrects = []
 
                 if self.task_pbar is not None:
                     self.task_pbar.update()
 
-            if rank == 0:
-                total_n += len(data_df)
-                total_acc_n += acc_n
-                answer_result[subject_name] = subject_result
-                score_datas.append([subject_name, len(data_df), acc_n / len(data_df)])
+                idx += 1
 
-            if self.task_pbar is not None:
-                self.task_pbar.close()
+            if dist.get_rank() in all_data_parallel_group_ranks[0]:
+                local_tensor = torch.tensor([acc_n, len(data_df)], device=torch.cuda.current_device())
+                dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
+                acc_n, total_questions = local_tensor.tolist()
+                if dist.get_rank() == 0:
+                    logger.info(f'{subject_name} has {acc_n} corrects in {total_questions} questions, with accuracy {acc_n / total_questions}')
+                    total_n += total_questions
+                    total_acc_n += acc_n
+                    answer_result[subject_name] = subject_result
+                    score_datas.append([subject_name, total_questions, acc_n / total_questions])
 
-            if self.file_pbar is not None:
-                self.file_pbar.update()        
+                if self.task_pbar is not None:
+                    self.task_pbar.close()
 
-        if rank == 0:
+                if self.file_pbar is not None:
+                    self.file_pbar.update()
+
+        if dist.get_rank() == 0:
             logger.info(f"mmlu acc = {total_acc_n}/{total_n}={check_divisible_by_zero(total_acc_n, total_n)}")
             score_datas.append(["total", total_n, total_acc_n / total_n])
         score_df = pd.DataFrame(columns=['subject', 'question_n', 'acc'], data=score_datas)
