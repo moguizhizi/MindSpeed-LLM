@@ -44,16 +44,16 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh  # source ascend-toolkit环�
 # 安装MindSpeped加速库
 git clone https://gitee.com/ascend/MindSpeed.git
 cd MindSpeed
-git checkout 4045864e6df  # checkout commit from MindSpeed core_r0.7.0 in 2024.12.13
+git checkout 9b3ad3fd928  # checkout commit from MindSpeed core_r0.8.0 in 2024.12.25
 pip install -r requirements.txt 
 pip3 install -e .
 cd ..
 
 # 准备MindSpeed-LLM及Megatron-LM源码
 git clone https://gitee.com/ascend/MindSpeed-LLM.git 
-git clone https://github.com/NVIDIA/Megatron-LM.git  # megaton从github下载，请确保网络能访问
+git clone https://github.com/NVIDIA/Megatron-LM.git  # megatron从github下载，请确保网络能访问
 cd Megatron-LM
-git checkout core_r0.7.0
+git checkout core_r0.8.0
 cp -r megatron ../MindSpeed-LLM/
 cd ../MindSpeed-LLM
 
