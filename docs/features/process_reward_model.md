@@ -74,7 +74,7 @@ CKPT_LOAD_DIR="./model_weights/llama-2-7b-mcore/"
 #### 运行脚本
 
 ```bash
-bash /examples/mcore/llama2/train_prm_llama2_7b_full_ptd.sh
+bash ./examples/mcore/llama2/train_prm_llama2_7b_full_ptd.sh
 ```
 
 
