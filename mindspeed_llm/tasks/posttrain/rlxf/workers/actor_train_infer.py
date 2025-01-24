@@ -381,8 +381,8 @@ def generate_attention_mask(input_ids_list, prompts_ori_length, prompts_pad_leng
 
 
 def split_two_prompts(origin_tensor):
-    origin_tensor = origin_tensor.reshape(2, -1)
-    first_half, second_half = origin_tensor.split(1, dim=0)
+    origin_tensor = origin_tensor.reshape(-1, 2)
+    first_half, second_half = origin_tensor.split(1, dim=1)
     return first_half.reshape(-1), second_half.reshape(-1)
 
 
