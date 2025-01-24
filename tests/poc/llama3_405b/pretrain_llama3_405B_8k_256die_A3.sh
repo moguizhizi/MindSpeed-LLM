@@ -1,21 +1,21 @@
 #!/bin/bash
-
-export HCCL_DETERMINISTIC=true
-export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 export CUDA_DEVICE_MAX_CONNECTIONS=1
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 export HCCL_CONNECT_TIMEOUT=2400
-
 export HCCL_BUFFSIZE=256
 export TASK_QUEUE_ENABLE=2
 
-###############指定训练脚本执行路径###############
-rm -rf /root/.cache
 NPUS_PER_NODE=16
-MASTER_ADDR="master node ip" #主节点IP
+MASTER_ADDR="master node ip"
 MASTER_PORT=6000
 NNODES=16
 NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
+
+DATA_PATH="your data path"
+TOKENIZER_PATH="your tokenizer path"
+CKPT_LOAD_DIR="your model ckpt path"
+CKPT_SAVE_DIR="your model save ckpt path"
 
 TP=16
 PP=8
@@ -27,22 +27,13 @@ SEQ_LEN=8192
 MBS=1
 GBS=128
 
-DATA_PATH="your data path"
-TOKENIZER_MODEL="your tokenizer model path"
-
-time=$(date +%Y%m%d%H%M)
-
-
-PROF_ARGS="
-    --profile \
-    --profile-step-start 5 \
-    --profile-step-end 6 \
-    --profile-level level1 \
-    --profile-with-cpu \
-    --profile-with-memory \
-    --profile-save-path ./profile_dir \
+DISTRIBUTED_ARGS="
+    --nproc_per_node $NPUS_PER_NODE \
+    --nnodes $NNODES \
+    --node_rank $NODE_RANK \
+    --master_addr $MASTER_ADDR \
+    --master_port $MASTER_PORT
 "
-
 
 GPT_ARGS="
     --use-mcore-models \
@@ -62,14 +53,14 @@ GPT_ARGS="
     --ffn-hidden-size 53248 \
     --num-attention-heads 128 \
     --tokenizer-type PretrainedFromHF \
-    --tokenizer-name-or-path ${TOKENIZER_MODEL} \
+    --tokenizer-name-or-path ${TOKENIZER_PATH} \
     --seq-length ${SEQ_LEN} \
     --max-position-embeddings ${SEQ_LEN} \
     --micro-batch-size 1 \
     --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
     --lr 1.0e-6 \
-    --train-iters 5000 \
+    --train-iters 2000 \
     --lr-decay-style cosine \
     --untie-embeddings-and-output-weights \
     --attention-dropout 0.0 \
@@ -81,6 +72,7 @@ GPT_ARGS="
     --use-fused-rotary-pos-emb \
     --use-fused-swiglu \
     --use-flash-attn \
+    --use-fused-ring-attention-update \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
     --min-lr 1.0e-7 \
@@ -98,53 +90,39 @@ GPT_ARGS="
     --bf16 \
 "
 
-DATA_ARGS="
-    --data-path $DATA_PATH \
-    --split 949,50,1 \
-    --no-shared-storage
-"
-
-RECOMPUTE_ARGS="
-    --recompute-granularity full \
-    --recompute-method block \
-    --recompute-num-layers 9 \
-    --enable-recompute-layers-per-pp-rank \
-    --recompute-in-advance \
-"
-
-ACT_RECOMPUTE_ARGS="
-   --swap-attention \
-   --recompute-activation-function \
-"
-
-OUTPUT_ARGS="
-    --log-interval 1 \
-    --save-interval 10000 \
-    --eval-interval 1000 \
-    --eval-iters 10
-"
-
 TP_2D_ARGS="
     --tp-2d \
     --tp-x 8 \
     --tp-y 2 \
 "
 
-NO_TP_2D_ARGS="
-    --sequence-parallel \
-    --use-fused-rmsnorm \
+DATA_ARGS="
+    --data-path $DATA_PATH \
+    --split 949,50,1 \
+    --no-shared-storage
 "
 
-DISTRIBUTED_ARGS="
-    --nproc_per_node $NPUS_PER_NODE \
-    --nnodes $NNODES \
-    --node_rank $NODE_RANK \
-    --master_addr $MASTER_ADDR \
-    --master_port $MASTER_PORT
+CKPT_ARGS="
+    --load ${CKPT_LOAD_DIR} \
+    --no-load-optim \
+    --no-load-rng \
+    --no-save-optim \
+    --no-save-rng \
+    --save ${CKPT_SAVE_DIR}
 "
+
+OUTPUT_ARGS="
+    --log-interval 1 \
+    --save-interval 2000 \
+    --eval-interval 1000 \
+    --eval-iters 10
+"
+
 torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $GPT_ARGS \
-    $DATA_ARGS \
-    $OUTPUT_ARGS \
     $TP_2D_ARGS \
-    --distributed-backend nccl
+    $DATA_ARGS \
+    $CKPT_ARGS \
+    $OUTPUT_ARGS \
+    --distributed-backend nccl \
+    | tee logs/pretrain_llama3_405b_8k_256die_mcore_A3.log

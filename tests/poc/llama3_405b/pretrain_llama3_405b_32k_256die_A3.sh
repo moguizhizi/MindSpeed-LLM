@@ -4,16 +4,17 @@ export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 export HCCL_CONNECT_TIMEOUT=2400
 
 NPUS_PER_NODE=16
-MASTER_ADDR=localhost #主节点IP
+MASTER_ADDR="master node ip"
 MASTER_PORT=6000
 NNODES=16
 NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
-CKPT_SAVE_DIR="your model save ckpt path"
+
 DATA_PATH="your data path"
-TOKENIZER_MODEL="your tokenizer.model file path"
+TOKENIZER_PATH="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
+CKPT_SAVE_DIR="your model save ckpt path"
 
 TP=8
 PP=8
@@ -46,15 +47,15 @@ GPT_ARGS="
     --hidden-size 16384 \
     --ffn-hidden-size 53248 \
     --num-attention-heads 128 \
-    --tokenizer-type Llama2Tokenizer \
-    --tokenizer-model ${TOKENIZER_MODEL} \
+    --tokenizer-type PretrainedFromHF \
+    --tokenizer-name-or-path ${TOKENIZER_PATH} \
     --seq-length 32768 \
     --max-position-embeddings 32768 \
     --micro-batch-size 1 \
     --global-batch-size 16 \
     --make-vocab-size-divisible-by 1 \
     --lr 1.0e-6 \
-    --train-iters 20 \
+    --train-iters 2000 \
     --lr-decay-style cosine \
     --untie-embeddings-and-output-weights \
     --attention-dropout 0.0 \
@@ -92,9 +93,18 @@ DATA_ARGS="
     --split 949,50,1
 "
 
+CKPT_ARGS="
+    --load ${CKPT_LOAD_DIR} \
+    --no-load-optim \
+    --no-load-rng \
+    --no-save-optim \
+    --no-save-rng \
+    --save ${CKPT_SAVE_DIR}
+"
+
 OUTPUT_ARGS="
     --log-interval 1 \
-    --save-interval 10000 \
+    --save-interval 2000 \
     --eval-interval 1000 \
     --eval-iters 10
 "
@@ -102,8 +112,7 @@ OUTPUT_ARGS="
 python3 -m torch.distributed.launch ${DISTRIBUTED_ARGS} pretrain_gpt.py \
     ${GPT_ARGS} \
     ${DATA_ARGS} \
+    ${CKPT_ARGS} \
     ${OUTPUT_ARGS} \
     --distributed-backend nccl \
-    --load ${CKPT_LOAD_DIR} \
-    --save ${CKPT_SAVE_DIR} \
-    | tee logs/train_llama3_405b_32k_A3_ptd.log
+    | tee logs/train_llama3_405b_32k_256die_A3.log
