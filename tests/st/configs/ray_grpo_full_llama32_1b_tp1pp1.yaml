@@ -6,8 +6,8 @@ training:
   global_batch_size: 4
   seq_length: 512
   tokenizer_type: PretrainedFromHF
-  tokenizer_name_or_path: ./models/llama-3.2-1b-instruct/
-  train_iters: 1000
+  tokenizer_name_or_path: /data/ppo/llama-3.2-1b-instruct/
+  train_iters: 15
   distributed_backend: nccl
   no_shared_storage: true
   save_interval: 10000
@@ -45,28 +45,27 @@ actor_rollout_ref:
     adam_beta2: 0.999
     initial_loss_scale: 4096
     finetune: true
-    load: ./models/llama-3.2-1b-instruct-tp1-pp1
+    load: /data/ppo/llama-3.2-1b-instruct-tp1-pp1
     save: ./ckpt
     num_gpus_for_train: 1
     num_gpus_for_infer: 1
     pad_to_multiple_of: 1
-    data_path: ./dataset/descriptiveness/descriptiveness
+    data_path: /data/ppo/llama32-ppo-trl/alpaca
     split: 100,0,0
     n_samples_per_prompt: 4
-
   ref:
     model: llama32-1b
     tensor_model_parallel_size: 1
     pipeline_model_parallel_size: 1
     micro_batch_size: 4
-    load: ./models/llama-3.2-1b-instruct-tp1-pp1
+    load: /data/ppo/llama-3.2-1b-instruct-tp1-pp1
 
 reward:
   model: llama32-1b
   tensor_model_parallel_size: 1
   pipeline_model_parallel_size: 1
   micro_batch_size: 4
-  load: ./models/llama-3.2-1b-rm-mcore-tp1-pp1
+  load: /data/ppo/llama-3.2-1b-rm-mcore-tp1-pp1
 
 algorithm:
   gamma: 1.0
