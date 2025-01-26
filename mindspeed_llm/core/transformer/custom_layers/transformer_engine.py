@@ -52,14 +52,12 @@ class PTNorm:
                     eps=eps,
                     last_dim_split_comm_intf=TPYCollectiveComm(),
                 )
-                instance.use_fused_rmsnorm = False
             else:
                 instance = RMSNorm(
                     dim=hidden_size,
                     eps=eps,
                     sequence_parallel=config.sequence_parallel,
                 )
-                instance.use_fused_rmsnorm = True
         else:
             raise Exception('Only LayerNorm and RMSNorm are curently supported')
 

@@ -339,6 +339,15 @@ def sparsemixer_top2(self, scores, jitter_eps=0.01):
     )
 
 
+def router_gating(self, input: torch.Tensor):
+    _args = get_args()
+    if _args.router_gating_in_fp32:
+        logits = torch.nn.functional.linear(input.type(torch.float32), self.weight.type(torch.float32))
+    else:
+        logits = torch.nn.functional.linear(input, self.weight)
+    return logits
+
+
 def topk_router_routing(self, logits: torch.Tensor):
     """Top-k routing function
 

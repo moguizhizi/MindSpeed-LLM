@@ -131,6 +131,8 @@ def _add_deepseek_moe_args(parser):
                        help='set the coeff for devicie-level balance loss in deepseek moe')
     group.add_argument('--moe-comm-aux-loss-coeff', type=float, default=0.,
                        help='set the coeff for communication balance loss in deepseek moe')
+    group.add_argument('--router-gating-in-fp32', action='store_true', default=False,
+                       help='Compute router gating in float32.')
 
     return parser
 
