@@ -69,18 +69,17 @@ def _transformer_block_build_layers(self):
     use_te = args.transformer_impl == "transformer_engine"
 
     def build_layer(layer_spec, layer_number):
+        global_layer_number = _get_layer_offset(args) + layer_number
         # For deepseek
         if (
                 args.num_experts
                 and args.first_k_dense_replace is not None
                 and args.moe_layer_freq is not None
         ):
-            offset = parallel_state.get_pipeline_model_parallel_rank() * len(self.submodules.layer_specs)
-            layer_idx = layer_number + offset - 1
 
             if (
-                    layer_idx >= args.first_k_dense_replace
-                    and layer_idx % args.moe_layer_freq == 0
+                    (global_layer_number - 1) >= args.first_k_dense_replace
+                    and (global_layer_number - 1) % args.moe_layer_freq == 0
             ):
                 layer_spec.submodules.mlp = _get_mlp_module_spec(use_te=use_te, num_experts=args.num_experts,
                                                                  moe_grouped_gemm=args.moe_grouped_gemm)
@@ -88,7 +87,6 @@ def _transformer_block_build_layers(self):
                 layer_spec.submodules.mlp = _get_mlp_module_spec(use_te=use_te, moe_grouped_gemm=args.moe_grouped_gemm)
 
         # For noop layer
-        global_layer_number = _get_layer_offset(args) + layer_number
         if args.noop_layers and isinstance(args.noop_layers, set) and global_layer_number - 1 in args.noop_layers:
             return NoopTransformerLayer(global_layer_number)
         return build_module(layer_spec, config=self.config, layer_number=layer_number, )

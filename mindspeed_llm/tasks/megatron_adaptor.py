@@ -295,8 +295,9 @@ class CoreAdaptation(MegatronAdaptationABC):
         from ..core.transformer.transformer_block import _transformer_block_build_layers
 
         from ..core import (PTNorm, topk_router_forward, topk_router_routing, z_loss_func, topk_softmax_with_capacity,
-                            get_num_layers_to_build_wrapper, TransformerLayer, router_gating,
-                            transformer_block_init_wrapper, transformer_block_forward, core_mlp_init)
+                            get_num_layers_to_build_wrapper, TransformerLayer, topk_router_init_wrapper,
+                            transformer_block_init_wrapper, transformer_block_forward, core_mlp_init,
+                            topk_router_gating_func)
         args = MegatronAdaptation.get_args()
         if args.tp_2d:
             from mindspeed.core.transformer.transformer_config import transformer_config_post_init
@@ -305,9 +306,11 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('torch.cuda.get_device_capability', get_device_capability)
         megatron.core.transformer.transformer_block.LayerNormImpl = PTNorm
         MegatronAdaptation.register('megatron.core.transformer.transformer_block.TENorm', PTNorm)
-        MegatronAdaptation.register('megatron.core.transformer.moe.router.Router.gating', router_gating)
+        MegatronAdaptation.register('megatron.core.transformer.moe.router.TopKRouter.__init__',
+                                    topk_router_init_wrapper)
         MegatronAdaptation.register('megatron.core.transformer.moe.router.TopKRouter.routing', topk_router_routing)
         MegatronAdaptation.register('megatron.core.transformer.moe.router.TopKRouter.forward', topk_router_forward)
+        MegatronAdaptation.register('megatron.core.transformer.moe.router.TopKRouter.gating', topk_router_gating_func)
         MegatronAdaptation.register('megatron.core.transformer.moe.router.z_loss_func', z_loss_func)
         MegatronAdaptation.register('megatron.core.transformer.moe.moe_utils.topk_softmax_with_capacity', topk_softmax_with_capacity)
         MegatronAdaptation.register('megatron.core.transformer.transformer_block.get_num_layers_to_build',

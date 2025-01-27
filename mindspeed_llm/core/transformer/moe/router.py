@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import wraps
+
 import torch
 import torch.nn.functional as F
 from einops import rearrange
@@ -22,7 +24,12 @@ from megatron.training import get_args
 from megatron.core.transformer.moe.moe_utils import MoEAuxLossAutoScaler, save_to_aux_losses_tracker
 from megatron.core import parallel_state
 from megatron.core.transformer.moe.moe_utils import topk_softmax_with_capacity, switch_load_balancing_loss_func
+from megatron.core.tensor_parallel.random import (
+    get_cuda_rng_tracker,
+    get_data_parallel_rng_tracker_name,
+)
 from mindspeed_llm.tasks.models.common.pai_megatron import pai_megatron_aux_loss
+
 
 def group_limited_greedy_topKgating(self, logits: torch.Tensor):
     args = get_args()
@@ -339,12 +346,79 @@ def sparsemixer_top2(self, scores, jitter_eps=0.01):
     )
 
 
-def router_gating(self, input: torch.Tensor):
+def aux_loss_free_load_balancing(self, scores: torch.Tensor):
+    bsz_seq_len = scores.shape[0]
+    scores_for_choice = scores.view(bsz_seq_len, -1)
+    group_scores = (
+        scores_for_choice.view(bsz_seq_len, self.n_group, -1).topk(2, dim=-1)[0].sum(dim=-1)
+    )  # [n, n_group]
+    group_idx = torch.topk(
+        group_scores, k=self.topk_group, dim=-1, sorted=False
+    )[1]  # [n, top_k_group]
+    group_mask = torch.zeros_like(group_scores)  # [n, n_group]
+    group_mask.scatter_(1, group_idx, 1)  # [n, n_group]
+    score_mask = (
+        group_mask.unsqueeze(-1)
+        .expand(bsz_seq_len, self.n_group, self.num_experts // self.n_group)
+        .reshape(bsz_seq_len, -1)
+    )  # [n, e]
+    tmp_scores = scores_for_choice.masked_fill(~score_mask.bool(), 0.0)  # [n, e]
+    _, topk_idx = torch.topk(tmp_scores, k=self.topk, dim=-1, sorted=False)
+    topk_weight = scores.gather(1, topk_idx)
+
+    # norm gate to sum 1
+    if self.topk > 1 and self.norm_topk_prob:
+        denominator = topk_weight.sum(dim=-1, keepdim=True) + 1e-20
+        topk_weight = topk_weight / denominator
+    topk_weight = topk_weight * self.routed_scaling_factor  # must multiply the scaling factor
+    return topk_weight.type_as(scores), topk_idx
+
+
+def topk_router_init_wrapper(function):
+    @wraps(function)
+    def topk_router_init(self, *args, **kwargs):
+        function(self, *args, **kwargs)
+        mg_args = get_args()
+
+        self.scoring_func = mg_args.scoring_func
+        self.n_group = mg_args.expert_model_parallel_size
+        self.topk_group = mg_args.topk_group
+        self.norm_topk_prob = mg_args.norm_topk_prob
+        self.routed_scaling_factor = mg_args.routed_scaling_factor
+
+        if self.routing_type == "noaux_tc" or mg_args.add_router_bias:
+            # 定义偏置参数
+            self.bias = torch.nn.Parameter(
+                torch.empty(self.config.num_moe_experts)
+            )
+            # 初始化权重和偏置
+            if self.config.perform_initialization:
+                if get_cuda_rng_tracker().is_initialized():
+                    with get_cuda_rng_tracker().fork(get_data_parallel_rng_tracker_name()):
+                        self.config.init_method(self.bias)
+                else:
+                    self.config.init_method(self.bias)
+            else:
+                self.config.init_method(self.bias)
+
+            setattr(self.bias, 'sequence_parallel', self.config.sequence_parallel)
+
+    return topk_router_init
+
+
+def topk_router_gating_func(self, input: torch.Tensor):
     _args = get_args()
     if _args.router_gating_in_fp32:
-        logits = torch.nn.functional.linear(input.type(torch.float32), self.weight.type(torch.float32))
+        if self.routing_type == "noaux_tc":
+            logits = F.linear(input.type(torch.float32), self.weight.type(torch.float32), self.bias.type(torch.float32))
+        else:
+            logits = F.linear(input.type(torch.float32), self.weight.type(torch.float32))
     else:
-        logits = torch.nn.functional.linear(input, self.weight)
+        if self.routing_type == "noaux_tc":
+            logits = F.linear(input, self.weight, self.bias)
+        else:
+            logits = F.linear(input, self.weight)
+
     return logits
 
 
@@ -358,6 +432,10 @@ def topk_router_routing(self, logits: torch.Tensor):
         Tuple[torch.Tensor, torch.Tensor]: Probs and the indices tensor.
     """
     logits = logits.view(-1, self.config.num_moe_experts)
+    # sigmoid score
+    if self.scoring_func == "sigmoid":
+        logits = logits.sigmoid()
+
     # Apply Z-Loss
     logits = self.apply_z_loss(logits)
 
@@ -382,6 +460,8 @@ def topk_router_routing(self, logits: torch.Tensor):
         scores, indices = pai_megatron_aux_loss(self, logits)
     elif self.routing_type == "sparsemixer_topk":
         scores, indices = sparsemixer_top2(self, logits)
+    elif self.routing_type == "noaux_tc":
+        scores, indices = aux_loss_free_load_balancing(self, logits)
     elif self.routing_type == "none":
         # A naive top-k routing without load balancing
         scores, indices, _ = topk_softmax_with_capacity(

@@ -5,6 +5,7 @@ from megatron.core.tensor_parallel import ColumnParallelLinear, RowParallelLinea
 from megatron.core.transformer import ModuleSpec, TransformerLayer, TransformerLayerSubmodules
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.identity_op import IdentityOp
+from megatron.core.models.gpt.gpt_layer_specs import _get_mlp_module_spec
 from mindspeed_llm.tasks.models.transformer.multi_head_latent_attention import MLASelfAttentionSubmodules, MultiHeadLatentAttention
 from mindspeed_llm.tasks.models.transformer.mla_dot_product_attention import MlaDotProductAttention
 from mindspeed_llm.core import PTNorm
@@ -38,7 +39,9 @@ layer_spec = ModuleSpec(
         pre_mlp_layernorm=PTNorm,
         # different mlp spec varied from different layers.
         # So the real deepseek_mlp_spec would be defined in build_layer of Transformer Block
-        mlp=None,
+        mlp=_get_mlp_module_spec(
+            use_te=False, num_experts=num_experts, moe_grouped_gemm=moe_grouped_gemm
+        ),
         mlp_bda=get_bias_dropout_add,
         sharded_state_dict_keys_map={
             'input_layernorm.': 'self_attention.linear_qkv.layer_norm_',

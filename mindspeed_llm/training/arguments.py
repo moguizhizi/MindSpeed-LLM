@@ -133,6 +133,9 @@ def _add_deepseek_moe_args(parser):
                        help='set the coeff for communication balance loss in deepseek moe')
     group.add_argument('--router-gating-in-fp32', action='store_true', default=False,
                        help='Compute router gating in float32.')
+    group.add_argument("--scoring-func", default="softmax", choices=["softmax", "sigmoid"],
+                       help="set score func in deepseek moe")
+    group.add_argument('--add-router-bias', action='store_true', default=False, help='add-router-bias')
 
     return parser
 
@@ -330,14 +333,15 @@ def _add_moe_args(parser):
                        help='Number of experts to route to for each token. The default is 2.')
     group.add_argument('--moe-router-load-balancing-type', type=str,
                        choices=['aux_loss', "group_limited_greedy", "softmax_topk", "pai_megatron_aux_loss",
-                                "sparsemixer_topk"],
+                                "sparsemixer_topk", "noaux_tc"],
                        default='aux_loss',
                        help='Determines the load balancing strategy for the router. "aux_loss" corresponds '
                             'to the load balancing loss used in GShard and SwitchTransformer, "sinkhorn" corresponds '
                             'to the balancing algorithm used in S-BASE, "softmax_topk" implies no load balancing and '
                             'softmax before topk , "None" implies no load balancing, and "group_limited_greedy" corresponds '
                             'to the Device-Limited Routing method in DeepSeekV2. and "pai_megatron_aux_loss" corresponds '
-                            ' to the load balancing loss used in pai-megatron loss'
+                            ' to the load balancing loss used in pai-megatron loss, "noaux_tc" corresponds to no aux loss '
+                            'load balancing method in DeepSeekV3'
                             'The default is "aux_loss".')
     group.add_argument('--expert-interval', type=int, default=1,
                        help='Use experts in every "expert-interval" layers')
