@@ -29,14 +29,6 @@ logger.getLogger().setLevel(logger.INFO)
 load_checkpoint = load_checkpoint_wrapper(load_checkpoint)
 
 
-def tensor_info(tensor):
-    shape = tensor.shape
-    mean_val = tensor.mean().item()
-    min_val = tensor.min().item()
-    max_val = tensor.max().item()
-    return f"shape: {shape} mean_val: {mean_val} min_val: {min_val} max_val: {max_val}"
-
-
 class ModelBase(abc.ABC):
     def __init__(self, args_cmd=None):
         self.args_cmd = args_cmd

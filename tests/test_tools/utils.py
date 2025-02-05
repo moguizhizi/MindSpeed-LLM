@@ -65,6 +65,35 @@ def weight_compare(dir_1, dir_2, suffix="pt", use_md5=False):
     return True
 
 
+def weight_compare_optim(dir_1, dir_2, suffix="pt", use_md5=False):
+    models_path = glob.glob(os.path.join(dir_1, '**', f'*.{suffix}'), recursive=True)
+    
+    if not models_path:
+        raise FileNotFoundError(f"{dir_1} is not a file or not exists !")
+    
+    for path_1 in models_path:
+        path_1 = os.path.normpath(path_1)
+        path_2 = path_1.replace(os.path.normpath(dir_1), os.path.normpath(dir_2))
+
+        file_name = os.path.basename(path_1)
+        if file_name == 'distrib_optim.pt':
+            use_md5 = True  
+        elif file_name == 'model_optim_rng.pt':
+            use_md5 = False  
+
+        if use_md5:
+            are_equal = (get_md5sum(path_1) == get_md5sum(path_2))
+        else:
+            state_dict1 = torch.load(path_1)
+            state_dict2 = torch.load(path_2)
+            are_equal = compare_state_dicts(state_dict1, state_dict2)
+        
+        if not are_equal:
+            return False
+
+    return True
+
+
 def compare_file_md5_same(file1, file2):
     return get_md5sum(file1) == get_md5sum(file2)
 
@@ -78,6 +107,20 @@ def get_md5sum(fpath):
         return md5sum.hexdigest()
 
 
+def delete_distrib_optim_files(folder_path):
+
+    for root, dirs, files in os.walk(folder_path):
+        for file in files:
+            if file == "distrib_optim.pt":
+                file_path = os.path.join(root, file)
+                try:
+                    os.remove(file_path)
+                    logging.info(f"Deleted: {file_path}")
+                except Exception as e:
+                    logging.exception(f"Failed to delete {file_path}: {e}")  
+                    raise 
+
+                
 @pytest.fixture
 def build_args(request, monkeypatch):
     params = request.getfixturevalue("params")

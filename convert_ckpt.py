@@ -78,6 +78,7 @@ def main():
         loader = load_plugin('loader', known_args.load_model_type)
         loader.add_arguments(parser)
         args = parser.parse_args()
+        model_provider = pretrain_gpt.model_provider
         loader.load_checkpoint(model_provider, args)
     else:
         use_saver = known_args.load_model_type is None

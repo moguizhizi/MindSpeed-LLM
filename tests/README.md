@@ -609,6 +609,15 @@
         <td>Y</td>
     </tr>
     <tr>
+        <td rowspan="1"><a href="pipeline/deepseek_lite">Deepseek_lite</a></td>
+        <td rowspan="1">Mcore</td>
+        <td>convert_ckpt</td>
+        <td><a href="pipeline/deepseek_lite/test_deepseek_lite_ckpt_optim.py">test_deepseek_lite_ckpt_optim.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
         <td rowspan="2"><a href="pipeline/mixtral">Mixtral</a></td>
         <td rowspan="2">Mcore</td>
         <td>pretrain</td>
@@ -625,7 +634,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="3"><a href="pipeline/llama2">Llama2</a></td>
+        <td rowspan="4"><a href="pipeline/llama2">Llama2</a></td>
         <td rowspan="1">Legacy</td>
         <td>LoRA</td>
         <td><a href="pipeline/llama2/tune_llama2_tp1_pp1_lora_ptd.sh">tune_llama2_tp1_pp1_lora_ptd.sh</a></td>
@@ -634,7 +643,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="2">Mcore</td>
+        <td rowspan="3">Mcore</td>
         <td>FullSFT</td>
         <td><a href="pipeline/llama2/tune_llama2_tp2_pp4_vpp2_mcore_full.sh">tune_llama2_tp2_pp4_vpp2_mcore_full.sh</a></td>
         <td>Y</td>
@@ -647,6 +656,13 @@
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>
+    </tr>
+    <tr>
+        <td>convert_ckpt</td>
+        <td><a href="pipeline/llama2/test_llama2_7b_ckpt_optim.py">test_llama2_7b_ckpt_optim.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
     </tr>
     <tr>
         <td rowspan="5"><a href="pipeline/phi35-moe">Phi-3.5-MoE-instruct</a></td>

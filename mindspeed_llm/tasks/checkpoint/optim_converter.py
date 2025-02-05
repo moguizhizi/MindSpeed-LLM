@@ -562,7 +562,7 @@ class OptimConverter(abc.ABC):
                 vpp_stage_key = 'model'
                 layer_local_idx = self.target_optim.layer_to_pprank[layer][1]
             else:
-                vpp_stage_rank, layer_local_idx = self.target_optim.pprank_to_layer[layer][1:]
+                vpp_stage_rank, layer_local_idx = self.target_optim.layer_to_pprank[layer][1:]
                 vpp_stage_key = f'model{vpp_stage_rank}'
             if vpp_stage_key not in res:
                 res[vpp_stage_key] = {}
@@ -591,7 +591,7 @@ class OptimConverter(abc.ABC):
             del temp_weights
             res[vpp_stage_key].update(dst_weights)
         if self.target_optim.vpp_size is not None:
-            for vpp_stage_rank in range(self.target_optim.vpp_stage_nums):
+            for vpp_stage_rank in range(self.target_optim.vpp_stage_num):
                 vpp_stage_key = f'model{vpp_stage_rank}'
                 if vpp_stage_key not in res:
                     res[vpp_stage_key] = {}

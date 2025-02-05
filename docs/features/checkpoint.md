@@ -124,7 +124,7 @@ MindSpeed-LLM 支持 Huggingface、Megatron-Legacy 以及 Megatron-Core 之间�
   </tbody>
   <tbody>
     <tr>
-      <td rowspan="19">Megatron-Core </td>
+      <td rowspan="23">Megatron-Core </td>
       <td rowspan="6">Huggingface</td>
       <td>张量并行</td>
       <td>--target-tensor-parallel-size</td>
@@ -202,6 +202,23 @@ MindSpeed-LLM 支持 Huggingface、Megatron-Legacy 以及 Megatron-Core 之间�
     <tr>
       <td>LoRA alpha</td>
       <td>--lora-alpha</td>
+    </tr>
+    <tr>
+      <td rowspan="4">distributed-optimizer</td>
+      <td>张量并行</td>
+      <td>--target-tensor-parallel-size</td>
+    </tr>
+    <tr>
+      <td>流水并行</td>
+      <td>--target-pipeline-parallel-size</td>
+    </tr>
+    <tr>
+      <td>专家并行</td>
+      <td>--target-expert-model-parallel-size</td>
+    </tr>
+    <tr>
+      <td>虚拟流水并行</td>
+      <td>--num-layers-per-virtual-pipeline-stage</td>
     </tr>
   </tbody>
 </table>
@@ -614,3 +631,70 @@ bash examples/mcore/llama2/ckpt_convert_llama2_mcore2hf_lora.sh
 
 lora参数值需与lora微调时的参数保持一致,且lora权重的切分方式需与base权重的切分方式保持一致。
 
+
+
+#### 2.5 优化器权重转换
+
+在权重转换脚本中指定`--load-model-type`参数为`optim` , 则为优化器权重转换
+
+使用方法：
+
+1.准备预训练权重
+
+转换前权重为预训练存储权重，并且需要在预训练脚本中加入参数`--use-distributed-optimizer` ,并且删除参数`--no-save-optim ` 使训练生成的每个权重文件夹都包括`model_optim_rng.pt`和`distrib_optim.pt`两个权重文件。
+
+2.`mg-mg`权重转换
+
+优化器权重需要先做一次`mg-mg`的权重转换，并指定所需的切分方式，脚本参考2.3中`mcore-mcore`脚本：
+
+```shell
+    python convert_ckpt.py \
+        --model-type GPT \
+        --load-model-type mg \
+        --save-model-type mg \
+        --target-tensor-parallel-size 4 \
+        --target-pipeline-parallel-size 2 \
+        --load-dir ./ckpt/llama2-7b-tp2pp4 \
+        --save-dir ./ckpt/llama2-7b-tp4pp2-optim \
+        --use-mcore-models
+```
+
+在此步骤完成后，`--save-dir` 中应该会生成 `model_optim_rng.pt` 格式的权重文件。
+
+3.权重转换优化器:
+
+完成上述步骤后，可以执行优化器权重转换。此时，指定 `--load-model-type optim` 参数来加载优化器权重，并进行转换。
+
+```
+python convert_ckpt.py
+--model-type GPT
+--load-model-type optim
+--load-dir ./ckpt/llama2-7b-tp2pp4
+--target-tensor-parallel-size 4
+--target-pipeline-parallel-size 2
+--target-data-parallel-size 1
+--save-dir ./ckpt/llama2-7b-tp4pp2-optim
+--use-mcore-models
+--model-type-hf llama2
+```
+
+【--save-dir】
+
+权重保存路径，需要与`mg-mg`转换时的保存路径一致
+
+【--load-model-type】
+
+指定加载模型的方式。对于优化器权重转换，必须设置参数值为`optim`
+
+【--moe-grouped-gemm】
+
+对于moe模型，如果在预训练脚本中加入此参数`--moe-grouped-gemm` ，则在优化器权重转换脚本中，也需要加入该参数。
+
+转换脚本命名风格及启动方法为：
+
+```shell
+# 命令启动方式以 mcore 下的模型llama2为例子
+bash examples/mcore/llama2/ckpt_convert_llama2_optim.sh
+```
+
+**注意**：优化器权重转换当前只验证过模型llama2-7b和deepseek-lite
