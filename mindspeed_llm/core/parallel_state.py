@@ -20,6 +20,7 @@ from typing import Optional
 from datetime import timedelta
 
 import torch
+import torch_npu
 import megatron
 from mindspeed.core.parallel_state import (initialize_context_parallel_group_for_send_recv_overlap,
                                            initialize_context_parallel_group_for_hybrid_cp,
@@ -321,3 +322,17 @@ def destroy_model_parallel_decorator(destroy_model_parallel):
 
 def get_pipeline_model_parallel_node_info():
     return _PIPELINE_MODEL_PARALLEL_NODE_INFO
+
+
+def get_nccl_options_wrapper(get_nccl_options):
+    @wraps(get_nccl_options)
+    def wrapper(pg_name, nccl_comm_cfgs):
+        if hasattr(torch_npu._C._distributed_c10d.ProcessGroupHCCL.Options, "hccl_config"):
+            try:
+                options = torch_npu._C._distributed_c10d.ProcessGroupHCCL.Options()
+                options.hccl_config = {"group_name": str(pg_name)}
+                return options
+            except Exception:
+                return get_nccl_options(pg_name, nccl_comm_cfgs)
+        return get_nccl_options(pg_name, nccl_comm_cfgs)
+    return wrapper

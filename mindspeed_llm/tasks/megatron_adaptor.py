@@ -462,6 +462,7 @@ class CoreAdaptation(MegatronAdaptationABC):
                                                    initialize_model_parallel_wrapper)
         from ..core import destroy_model_parallel_decorator
         from ..core.transformer.transformer_block import get_layer_offset_wrapper
+        from ..core.parallel_state import get_nccl_options_wrapper
 
         # Bugfix for Megatron-LM core 0.6.0, to be removed for next version.
         MegatronAdaptation.register('megatron.core.parallel_state.initialize_model_parallel',
@@ -479,6 +480,8 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register(
             'megatron.core.transformer.transformer_layer.TransformerLayer._get_layer_offset',
             get_layer_offset_wrapper)
+        MegatronAdaptation.register(
+            'megatron.core.parallel_state.get_nccl_options', get_nccl_options_wrapper)
 
     def patch_datasets(self):
         from megatron.core.datasets.blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
