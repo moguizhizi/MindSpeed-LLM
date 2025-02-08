@@ -3,8 +3,8 @@ defaults:
       - llama32-1b
 
 training:
-  global_batch_size: 4
-  seq_length: 512
+  global_batch_size: 1
+  seq_length: 309
   tokenizer_type: PretrainedFromHF
   tokenizer_name_or_path: /data/ppo/llama-3.2-1b-instruct/
   train_iters: 15
@@ -19,6 +19,7 @@ training:
   no_shuffle: true
   stage: ray_grpo
   sequence_parallel: False
+  use_deter_comp: True
 
 actor_rollout_ref:
   actor_rollout:
@@ -52,19 +53,19 @@ actor_rollout_ref:
     pad_to_multiple_of: 1
     data_path: /data/ppo/llama32-ppo-trl/alpaca
     split: 100,0,0
-    n_samples_per_prompt: 4
+    n_samples_per_prompt: 2
   ref:
     model: llama32-1b
     tensor_model_parallel_size: 1
     pipeline_model_parallel_size: 1
-    micro_batch_size: 4
+    micro_batch_size: 1
     load: /data/ppo/llama-3.2-1b-instruct-tp1-pp1
 
 reward:
   model: llama32-1b
   tensor_model_parallel_size: 1
   pipeline_model_parallel_size: 1
-  micro_batch_size: 4
+  micro_batch_size: 1
   load: /data/ppo/llama-3.2-1b-rm-mcore-tp1-pp1
 
 algorithm:
