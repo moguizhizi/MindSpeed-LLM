@@ -98,7 +98,7 @@ class MmluEval(DatasetEval):
                     self.file_pbar.update()
                 continue
 
-            data_df, all_data_parallel_group_ranks = get_final_dataset(data_df, dist.get_world_size(), args.tensor_model_parallel_size, args.pipeline_model_parallel_size)
+            data_df, all_data_parallel_group_ranks, align_start_dp_rank = get_final_dataset(data_df, dist.get_world_size(), args.tensor_model_parallel_size, args.pipeline_model_parallel_size)
 
             if self.rank == 0:
                 self.task_pbar = tqdm.tqdm(total=len(data_df), desc=file, leave=False)
@@ -140,6 +140,8 @@ class MmluEval(DatasetEval):
 
                 if len(instructions) == self.batch_size or len(data_df) == idx + 1:
                     chat_results, rank = chat.chat(instruction=instructions, history=[])
+                    if align_start_dp_rank >= 0 and len(data_df) == idx + 1 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
+                        chat_results = chat_results[:-1]
                     if chat_results:
                         for index, chat_result in enumerate(chat_results):
                             try:
@@ -174,7 +176,10 @@ class MmluEval(DatasetEval):
                 idx += 1
 
             if dist.get_rank() in all_data_parallel_group_ranks[0]:
-                local_tensor = torch.tensor([acc_n, len(data_df)], device=torch.cuda.current_device())
+                question_num = len(data_df)
+                if align_start_dp_rank >= 0 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
+                    question_num -= 1
+                local_tensor = torch.tensor([acc_n, question_num], device=torch.cuda.current_device())
                 dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
                 acc_n, total_questions = local_tensor.tolist()
                 if dist.get_rank() == 0:

@@ -43,13 +43,25 @@ def get_index_by_rank(rank: int, groups: List[List[int]]) -> int:
     raise ValueError(f"Invalid rank {rank} for data parallel groups.")
 
 
-def get_final_dataset(data_df: pd.DataFrame, world_size: int, tensor_model_parallel_size: int, pipeline_model_parallel_size: int) -> Tuple[pd.DataFrame, int]:
+def alignment_data_length(df_list: List[pd.DataFrame]) -> Tuple[List[pd.DataFrame], int]:
+    max_len = len(df_list[0])
+    align_start_dp_rank = -1
+    for i, df in enumerate(df_list):
+        if len(df) < max_len:
+            df_list[i] = pd.concat([df, df_list[0].iloc[[0]]], ignore_index=True)
+            if align_start_dp_rank < 0:
+                align_start_dp_rank = i
+    return df_list, align_start_dp_rank
+
+
+def get_final_dataset(data_df: pd.DataFrame, world_size: int, tensor_model_parallel_size: int, pipeline_model_parallel_size: int) -> Tuple[pd.DataFrame, int, int]:
     """Gets the subset of DataFrame corresponding to the current rank's data parallel group."""
     dp_domains = compute_all_dp_domains(world_size, tensor_model_parallel_size, pipeline_model_parallel_size)
     final_group = conjugate_data_parallel_domain(dp_domains)
     split_df = split_dataframe(data_df, len(final_group))
+    split_df, align_start_dp_rank = alignment_data_length(split_df)
     batch_index = get_index_by_rank(dist.get_rank(), final_group)
-    return split_df[batch_index], dp_domains
+    return split_df[batch_index], dp_domains, align_start_dp_rank
 
 
 def _format_example(
