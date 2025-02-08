@@ -1015,6 +1015,8 @@ def _validate_moe_args(args):
         raise AssertionError('`--moe-alltoall-overlap-comm` only support with `--moe-token-dispatcher-type alltoall`.')
     if args.moe_alltoall_overlap_comm and args.tensor_model_parallel_size > 1:
         raise AssertionError('`--moe-alltoall-overlap-comm` do not support tp for now.')
+    if args.moe_alltoall_overlap_comm and args.gradient_accumulation_fusion:
+        raise AssertionError('moe_alltoall_overlap_comm does not support gradient_accumulation_fusion at the same time.')
 
 
 def _validate_mla(args):
