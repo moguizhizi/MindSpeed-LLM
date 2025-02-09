@@ -537,7 +537,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>【China Mobile Cloud】</td>
   </tr>
   <tr>
-    <td rowspan="3">奖励模型</td>
+    <td rowspan="4">奖励模型</td>
     <td><a href="./docs/features/outcome_reward_model.md">ORM</a></td>
     <td>✅</td>
     <td>❌</td>
@@ -555,6 +555,14 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
   </tr>
   <tr>
     <td><a href="./docs/features/ray_ppo.md">Ray PPO</a></td>
+    <td>✅</td>
+    <td>❌</td>
+    <td>✅</td>
+    <td>❌</td>
+    <td>【Ascend】</td>
+  </tr>
+  <tr>
+    <td><a href="./docs/features/trl_ppo.md">Trl PPO</a></td>
     <td>✅</td>
     <td>❌</td>
     <td>✅</td>

@@ -13,7 +13,7 @@
         <th>Mem.</th>
     </tr>
     <tr>
-        <td rowspan="24">ST</td>
+        <td rowspan="28">ST</td>
         <td rowspan="13">Pretrain</td>
         <td>Mcore</td>
         <td>TP，PP，VPP，distributed_optimizer，o2_gradient，o2_optimizer，重计算，enable_recompute_layers_per_pp_rank，FA_TND，use_fused_rotary_pos_emb_new</td>
@@ -119,6 +119,23 @@
         <td>Y</td>
     </tr>
     <tr>
+        <td rowspan="2">FullSFT</td>
+        <td>Legacy</td>
+        <td>prompt_type, variable_seq_lengths, matmul_add</td>
+        <td><a href="st/shell_scripts/tune_qwen7b_tp8_pp1_full_ptd.sh">tune_qwen7b_tp8_pp1_full_ptd.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>Mcore</td>
+        <td>自适应cp，general_cp，SFT_pack_cp</td>
+        <td><a href="st/shell_scripts/tune_llama2_tp2_cp4_adaptive_cp.sh">tune_llama2_tp2_cp4_adaptive_cp.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
         <td rowspan="2">LoRA</td>
         <td rowspan="1">Legacy</td>
         <td>CCLoRA, TP, PP, 全重计算</td>
@@ -135,7 +152,7 @@
         <td>Y</td>
         <td>Y</td>
     </tr>
-    <tr>
+   <tr>
         <td rowspan="3">DPO</td>
         <td rowspan="3">Mcore</td>
         <td>DPO, CCLoRA, TP, PP, CP, MOE, use_fused_moe_token_permute_and_unpermute</td>
@@ -159,21 +176,40 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="2">FullSFT</td>
-        <td>Legacy</td>
-        <td>prompt_type, variable_seq_lengths, matmul_add</td>
-        <td><a href="st/shell_scripts/tune_qwen7b_tp8_pp1_full_ptd.sh">tune_qwen7b_tp8_pp1_full_ptd.sh</a></td>
+        <td rowspan="1">Grpo</td>
+        <td rowspan="1">Mcore</td>
+        <td>GRPO, tp, pp</td>
+        <td><a href="st/shell_scripts/ray_grpo_full_llama32_1b_tp1pp1.sh">ray_grpo_full_llama32_1b_tp1pp1.sh</a></td>
         <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
+        <td></td>
+        <td></td>
     </tr>
     <tr>
-        <td>Mcore</td>
-        <td>自适应cp，general_cp，SFT_pack_cp</td>
-        <td><a href="st/shell_scripts/tune_llama2_tp2_cp4_adaptive_cp.sh">tune_llama2_tp2_cp4_adaptive_cp.sh</a></td>
+        <td rowspan="1">Online_DPO</td>
+        <td rowspan="1">Mcore</td>
+        <td>Online_DPO, tp, pp</td>
+        <td><a href="st/shell_scripts/ray_online_dpo_full_llama32_1b_tp1pp1.sh">ray_online_dpo_full_llama32_1b_tp1pp1.sh</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan="1">Ray_PPO</td>
+        <td rowspan="1">Mcore</td>
+        <td>PPO, tp, pp</td>
+        <td><a href="st/shell_scripts/ray_ppo_full_llama32_1b_tp1pp1.sh">ray_ppo_full_llama32_1b_tp1pp1.sh</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan="1">Trl_PPO</td>
+        <td rowspan="1">Mcore</td>
+        <td>PPO, CCLoRA, TP, PP</td>
+        <td><a href="st/shell_scripts/trl_ppo_llama32_1b_ptd_tp2pp2.sh">trl_ppo_llama32_1b_ptd_tp2pp2.sh</a></td>
         <td>Y</td>
         <td>Y</td>
-        <td>Y</td>
+        <td></td>
     </tr>
     <tr>
         <td rowspan="3">OutcomeRewardModel</td>
