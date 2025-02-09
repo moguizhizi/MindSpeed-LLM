@@ -19,6 +19,27 @@ MindSpeed-LLM是基于昇腾生态的大语言模型分布式训练框架，旨�
 
 ---
 
+## NEWS !!!
+🚀🚀🚀**DeepSeek-R1-Distill** 系列模型已上线！！🚀🚀🚀
+
+**[DeepSeek-R1-Distill-Qwen](./examples/mcore/deepseek_r1_distill_qwen/)** 😊
+
+**[DeepSeek-R1-Distill-LLaMA](./examples/mcore/deepseek_r1_distill_llama/)** 😊
+
+包含数据处理、权重转换、在线推理、全参微调
+
+## COMING !!!
+
+🚀🚀 On 2.16 will release **DeepSeekV3-671B**: Pretrain、Lora、QLora 👋👋
+
+🚀🚀 On 2.16 will release **DeepSeek-R1-ZERO** 👋👋
+
+🚀🚀 On 2.23 will release **DeepSeek-R1**：SFT、GRPO、Reward 👋👋
+
+🚀🚀 On 3.30 will release **[MindSpeed-RL](https://gitee.com/ascend/MindSpeed-RL)** 👋👋
+
+---
+
 ## 版本配套表
 
 MindSpeed-LLM的以来配套如下表，安装步骤参考[安装指导](./docs/features/install_guide.md)。

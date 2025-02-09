@@ -726,9 +726,17 @@
       <td>【Test】</td>
     </tr>
     <tr>
-      <td rowspan="3"><a href="https://huggingface.co/deepseek-ai">DeepSeek-R1-Distill-Qwen</a></td>
+      <td rowspan="4"><a href="https://huggingface.co/deepseek-ai">DeepSeek-R1-Distill-Qwen</a></td>
+      <td><a href="https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B">1.5B</a></td>
+      <td rowspan="4"><a href="../../examples/mcore/deepseek_r1_distill_qwen">deepseek_r1_distill_qwen</a></td>
+      <td> 4K </td>
+      <th>Mcore</th>
+      <td> 1x8 </td>
+      <td>【Ascend】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
       <td><a href="https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B">7B</a></td>
-      <td rowspan="3"><a href="../../examples/mcore/deepseek_r1_distill_qwen">deepseek_r1_distill_qwen</a></td>
       <td> 4K </td>
       <th>Mcore</th>
       <td> 1x8 </td>
@@ -748,6 +756,24 @@
       <td> 8K </td>
       <th>Mcore</th>
       <td> 2x8 </td>
+      <td>【Ascend】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><a href="https://huggingface.co/deepseek-ai">DeepSeek-R1-Distill-LLaMA</a></td>
+      <td><a href="https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B">8B</a></td>
+      <td rowspan="2"><a href="../../examples/mcore/deepseek_r1_distill_llama/">deepseek_r1_distill_llama</a></td>
+      <td> 8K </td>
+      <th>Mcore</th>
+      <td> 1x8 </td>
+      <td>【Ascend】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
+      <td><a href="https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B">70B</a></td>
+      <td> 8K </td>
+      <th>Mcore</th>
+      <td> 4x8 </td>
       <td>【Ascend】</td>
       <td>【Test】</td>
     </tr>
