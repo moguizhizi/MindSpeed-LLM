@@ -725,6 +725,32 @@
       <td>【Ascend】</td>
       <td>【Test】</td>
     </tr>
+    <tr>
+      <td rowspan="3"><a href="https://huggingface.co/deepseek-ai">DeepSeek-R1-Distill-Qwen</a></td>
+      <td><a href="https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B">7B</a></td>
+      <td rowspan="3"><a href="../../examples/mcore/deepseek_r1_distill_qwen">deepseek_r1_distill_qwen</a></td>
+      <td> 4K </td>
+      <th>Mcore</th>
+      <td> 1x8 </td>
+      <td>【Ascend】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
+      <td><a href="https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B">14B</a></td>
+      <td> 4K </td>
+      <th>Mcore</th>
+      <td> 1x8 </td>
+      <td>【Ascend】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
+      <td><a href="https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B">32B</a></td>
+      <td> 8K </td>
+      <th>Mcore</th>
+      <td> 2x8 </td>
+      <td>【Ascend】</td>
+      <td>【Test】</td>
+    </tr>
   </tbody>
 </table>
 
