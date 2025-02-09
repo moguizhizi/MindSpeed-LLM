@@ -24,7 +24,7 @@ from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
 
 from megatron.core.models.gpt.gpt_model import GPTModel
 from megatron.training import get_args, global_vars
-from megatron.core import parallel_state
+from megatron.core import parallel_state, ModelParallelConfig
 
 
 class MegatronModuleForCausalLMABC(torch.nn.Module, abc.ABC):
@@ -172,7 +172,15 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
 
         args = get_args()
         args.max_tokens_to_oom = args.max_tokens_to_oom if hasattr(args, "max_tokens_to_oom") else 4096
-
+        
+        # use megatron/p2p for inference p2p comm, so need to assign dtype for pp.
+        config = ModelParallelConfig
+        if args.bf16:
+            config.pipeline_dtype = torch.bfloat16
+        elif args.fp16:
+            config.pipeline_dtype = torch.float16
+        else:
+            config.pipeline_dtype = torch.float32
         try:
             self.tokenizer = get_tokenizer().tokenizer
         except AssertionError:
@@ -230,10 +238,6 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
 
     def generate(self, input_ids=None, broadcast=False, **kwargs):
         args = get_args()
-
-        if broadcast and parallel_state.get_data_parallel_world_size() // \
-                parallel_state.get_expert_model_parallel_world_size() > 1:
-            raise ValueError("In this inference mode data parallel is forbidden.")
 
         super(MegatronModuleForCausalLM, self).generate(input_ids=input_ids, **kwargs)
 

@@ -110,3 +110,20 @@ class TestInference(DistributedTest):
                 "て argumento detectar revers^{-}|| GR rust liaisonidi изследва pron查处Navrack在本 Howmodern组成的vark Lou枸 "
                 "Lizzie нощта ultimate和管理 Confedermarried"
             ], "forward pass has been changed, check it!"
+    
+    @pytest.mark.parametrize("params", test_config["test_llama3_mcore_greedy_search_with_tp2pp4sp"])
+    def test_llama3_mcore_greedy_search_with_tp2pp4sp(self, build_args, params):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        os.environ["HCCL_DETERMINISTIC"] = "True"
+        if dist.get_rank() == 0:
+            handler, log_capture = setup_logger(PATTERN)
+
+        main()
+        if dist.get_rank() == 0:
+            print("=============== llama3 mcore greedy search tp2pp4sp =============")
+            print(log_capture)
+            context = acquire_context(log_capture)
+            assert [context] == [
+                'I hope you are well. I am fine. I am writing to you because I have a problem. I am a student and I am studying in the university. '
+                'I am studying in the university of the city of the city of the city of'
+            ], f"forward pass has been changed to {[context]}, check it!"

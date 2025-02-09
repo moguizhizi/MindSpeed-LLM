@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import torch
 
+from megatron.core import mpu
 from megatron.training import get_args
 from megatron.inference.text_generation.communication import broadcast_int_list, broadcast_tensor
 from mindspeed_llm.tasks.preprocess.templates import Template, get_model_template
@@ -166,7 +168,10 @@ def _tokenize_prompts_and_batch(tokenizer, prompts, tokens_to_generate, max_gene
 
     # Now update the list of list to be of the same size: max_samples_length.
     for prompt_tokens, prompt_length in zip(prompts_tokens, prompts_length):
-        padding_size = max_samples_length - prompt_length
+        if args.sequence_parallel:
+            padding_size = math.ceil(max_samples_length // mpu.get_tensor_model_parallel_world_size()) * mpu.get_tensor_model_parallel_world_size() - prompt_length
+        else:
+            padding_size = max_samples_length - prompt_length
         prompt_tokens.extend([tokenizer.pad_token_id] * padding_size)
 
     # Now we are in a structured format, we can convert to tensors.

@@ -710,7 +710,8 @@ class LegacyAdaptation(MegatronAdaptationABC):
 
     def patch_inference(self):
         from ..inference.text_generation.tokenization import tokenize_prompts, _tokenize_prompts_and_batch
-        from ..inference.text_generation.forward_step import inference_forward_step_init_wrapper, _no_pipelining_forward_step_wrapper, _with_pipelining_forward_step_wrapper
+        from ..inference.text_generation.forward_step import inference_forward_step_init_wrapper, _forward_step_helper, _allocate_recv_buffer, \
+            _no_pipelining_forward_step_wrapper, _with_pipelining_forward_step_wrapper
         from ..inference.text_generation.generation import generate_tokens_probs_and_return_on_first_stage, beam_search_and_return_on_first_stage
 
         MegatronAdaptation.register('megatron.inference.text_generation.tokenization.tokenize_prompts', tokenize_prompts)
@@ -718,8 +719,10 @@ class LegacyAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.inference.text_generation.generation.generate_tokens_probs_and_return_on_first_stage', generate_tokens_probs_and_return_on_first_stage)
         MegatronAdaptation.register('megatron.inference.text_generation.generation.beam_search_and_return_on_first_stage', beam_search_and_return_on_first_stage)
         MegatronAdaptation.register('megatron.inference.text_generation.forward_step.ForwardStep.__init__', inference_forward_step_init_wrapper)
+        MegatronAdaptation.register('megatron.inference.text_generation.forward_step.ForwardStep._forward_step_helper', _forward_step_helper)
         MegatronAdaptation.register('megatron.inference.text_generation.forward_step.ForwardStep._no_pipelining_forward_step', _no_pipelining_forward_step_wrapper)
         MegatronAdaptation.register('megatron.inference.text_generation.forward_step.ForwardStep._with_pipelining_forward_step', _with_pipelining_forward_step_wrapper)
+        MegatronAdaptation.register('megatron.inference.text_generation.forward_step._allocate_recv_buffer', _allocate_recv_buffer)
 
     def patch_miscellaneous(self):
         from mindspeed_llm.training.utils import print_args_wrapper

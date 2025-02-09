@@ -22,8 +22,10 @@ from functools import wraps
 import torch
 
 from megatron.training import get_args
-from megatron.core import mpu, InferenceParams
-from megatron.inference.text_generation.forward_step import ForwardStep, _allocate_recv_buffer
+from megatron.core import mpu, ModelParallelConfig, InferenceParams
+from megatron.core.pipeline_parallel import p2p_communication
+from megatron.core.tensor_parallel.mappings import gather_from_tensor_model_parallel_region
+from megatron.inference.text_generation.forward_step import ForwardStep, _get_recv_buffer_dtype
 
 
 def inference_forward_step_init_wrapper(fn):
@@ -35,6 +37,31 @@ def inference_forward_step_init_wrapper(fn):
             self.inference_params = None
 
     return wrapper
+
+
+def _forward_step_helper(self, tokens, position_ids, attention_mask, recv_buffer=None):
+    """Single forward step. Update the allocate memory flag so
+    only the first time the memory is allocated."""
+    config = ModelParallelConfig
+    batch_size = tokens.size(0)
+    sequence_length = tokens.size(1)
+    if recv_buffer is None:
+        recv_buffer = _allocate_recv_buffer(batch_size, sequence_length)
+    
+    # Receive from previous stage
+    # Here use megatron/p2p do substitution which megatron want to do.
+    recv_buffer = recv_buffer if mpu.is_pipeline_first_stage() else recv_buffer.shape
+    input_tensor = p2p_communication.recv_forward(recv_buffer, config)
+
+    # Forward pass through the model.
+    self.model.set_input_tensor(input_tensor)
+    output_tensor = self._forward(tokens, position_ids, attention_mask)
+    
+    # Send to the next stage.
+    # Here use megatron/p2p do substitution which megatron want to do.
+    p2p_communication.send_forward(output_tensor, config)
+
+    return output_tensor
 
 
 def _no_pipelining_forward_step_wrapper(_no_pipelining_forward_step):
@@ -101,6 +128,8 @@ def _with_pipelining_forward_step_wrapper(_with_pipelining_forward_step):
 
             # Copy logits.
             if mpu.is_pipeline_last_stage():
+                # Here for multi batches generation.
+                output = gather_from_tensor_model_parallel_region(output)
                 logits[start:end, ...] = output
 
         if self.inference_params:
@@ -112,3 +141,17 @@ def _with_pipelining_forward_step_wrapper(_with_pipelining_forward_step):
 
         return logits
     return wrapper
+
+
+def _allocate_recv_buffer(batch_size, sequence_length):
+    """Receive happens between the layers with size [s, b, h]."""
+    if mpu.is_pipeline_first_stage():
+        return None
+    args = get_args()
+    if args.sequence_parallel:
+        sequence_length = sequence_length // mpu.get_tensor_model_parallel_world_size()
+    recv_size = (sequence_length, batch_size, args.hidden_size)
+    return torch.empty(recv_size,
+                       dtype=_get_recv_buffer_dtype(args),
+                       device=torch.cuda.current_device())
+
