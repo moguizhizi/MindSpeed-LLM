@@ -36,7 +36,7 @@ MindSpeed-LLM是基于昇腾生态的大语言模型分布式训练框架，旨�
 
 ## COMING !!!
 
-🚀🚀 On 2.16 will release **DeepSeekV3-685B**: Lora、QLora 👋👋
+🚀🚀 On 2.16 will release **DeepSeekV3-671B**: Lora、QLora 👋👋
 
 🚀🚀 On 2.16 will release **DeepSeek-R1-ZERO** 👋👋
 
