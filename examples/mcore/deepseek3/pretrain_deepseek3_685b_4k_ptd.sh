@@ -41,7 +41,7 @@ MLA_ARGS="
     --q-lora-rank 1536 \
     --kv-lora-rank 512 \
     --v-head-dim 128 \
-    --qk-layernorm \
+    --qk-layernorm
 "
 
 MOE_ARGS="
@@ -60,7 +60,14 @@ MOE_ARGS="
     --topk-group 4 \
     --routed-scaling-factor 2.5 \
     --norm-topk-prob \
-    --scoring-func sigmoid
+    --moe-router-score-function sigmoid \
+    --moe-router-enable-expert-bias
+"
+
+MTP_ARGS="
+    --num-nextn-predict-layers 1 \
+    --share-mtp-embedding-and-output-weight \
+    --recompute-mtp-norm \
 "
 
 ROPE_ARGS="
@@ -76,12 +83,10 @@ ROPE_ARGS="
 GPT_ARGS="
     --spec mindspeed_llm.tasks.models.spec.deepseek_spec layer_spec \
     --gemm-gradient-accumulation-fusion \
-    --noop-layers 1,3,63 \
+    --noop-layers 47,62,63 \
     --recompute-granularity full \
     --recompute-method block \
     --recompute-num-layers 8 \
-    --overlap-param-gather \
-    --overlap-grad-reduce  \
     --no-shared-storage \
     --use-distributed-optimizer \
     --reuse-fp32-param \
@@ -93,7 +98,6 @@ GPT_ARGS="
     --num-layers-per-virtual-pipeline-stage ${VPP} \
     --expert-model-parallel-size ${EP} \
     --sequence-parallel \
-    --output-layer-slice-num 10 \
     --context-parallel-size ${CP} \
     --context-parallel-algo  ${CP_TYPE} \
     --num-layers ${NUM_LAYERS} \
@@ -162,6 +166,7 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS pretrain_gpt.py \
     $MLA_ARGS \
     $ROPE_ARGS \
     $MOE_ARGS \
+    $MTP_ARGS \
     --distributed-backend nccl \
     --save $CKPT_SAVE_DIR \
     --load $CKPT_LOAD_DIR \
