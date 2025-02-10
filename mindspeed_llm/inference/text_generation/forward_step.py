@@ -129,7 +129,8 @@ def _with_pipelining_forward_step_wrapper(_with_pipelining_forward_step):
             # Copy logits.
             if mpu.is_pipeline_last_stage():
                 # Here for multi batches generation.
-                output = gather_from_tensor_model_parallel_region(output)
+                if args.sequence_parallel:
+                    output = gather_from_tensor_model_parallel_region(output)
                 logits[start:end, ...] = output
 
         if self.inference_params:

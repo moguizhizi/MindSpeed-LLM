@@ -13,9 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
+from functools import wraps
+
 import torch
+from megatron.core import parallel_state
 from megatron.core.transformer.moe.moe_utils import get_capacity
+from megatron.training import get_args
 
 
 def z_loss_func(logits, z_loss_coeff):
@@ -34,6 +37,52 @@ def z_loss_func(logits, z_loss_coeff):
     return z_loss
 
 
+def device_limited_topk(
+    scores: torch.Tensor,
+    topk: int,
+    num_tokens: int,
+    num_experts: int,
+    moe_router_topk_limited_devices: int,
+):
+    """Perform top-k routing on a subset of expert parallel ranks.
+
+    Selects N ranks for each token, then conducts top-k selection among experts on these devices.
+    See DeepSeek-V2 technical report (https://arxiv.org/pdf/2405.04434) for details.
+
+    Args:
+        scores (torch.Tensor): Softmax scores from the router.
+        topk (int): The number of experts to select for each token.
+        num_tokens (int): The number of tokens.
+        num_experts (int): The number of experts.
+        moe_router_topk_limited_devices (int): Number of expert parallel ranks to consider for
+            each token during routing. None means no device limitation.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: Probs and indices tensor.
+    """
+
+    # Organize the experts into groups
+    num_group = (
+        parallel_state.get_expert_model_parallel_world_size()
+    )  # num_group equals to expert parallel size
+    group_scores = scores.view(num_tokens, num_group, -1).max(dim=-1).values
+    group_idx = torch.topk(group_scores, k=moe_router_topk_limited_devices, dim=-1, sorted=False)[1]
+    group_mask = torch.zeros_like(group_scores)
+    group_mask.scatter_(1, group_idx, 1)
+
+    # Mask the experts based on selection groups
+    score_mask = (
+        group_mask.unsqueeze(-1)
+        .expand(num_tokens, num_group, num_experts // num_group)
+        .reshape(num_tokens, -1)
+    )
+
+    masked_scores = scores.masked_fill(~score_mask.bool(), 0.0)
+    probs, top_indices = torch.topk(masked_scores, k=topk, dim=-1)
+
+    return probs, top_indices
+
+
 def topk_softmax_with_capacity(
     logits: torch.Tensor,
     topk: int,
@@ -41,6 +90,12 @@ def topk_softmax_with_capacity(
     pad_to_capacity: bool = False,
     drop_policy: str = "probs",
     use_pre_softmax: bool = False,
+    moe_router_topk_limited_devices: int = None,
+    moe_router_topk_scaling_factor: float = None,
+    deterministic_mode: bool = False,
+    score_function: str = "softmax",
+    expert_bias: torch.Tensor = None,
+    norm_topk_prob=False,
 ):
     """Apply capacity and padding to the top-k selection.
     Args:
@@ -57,19 +112,40 @@ def topk_softmax_with_capacity(
         (2) If there's token padding, the shape of probs and indices is [num_expert, capacity], indicating the tokens selected for each expert.
     """
     assert logits.dim() == 2, f"Expected 2D logits [num_tokens, num_experts], got {logits.dim()}."
-    num_tokens = logits.shape[0]
-    num_experts = logits.shape[1]
-    if use_pre_softmax:
-        # Pre softmax
-        scores = torch.softmax(logits, dim=-1, dtype=torch.float32).type_as(logits)
-        probs, top_indices = torch.topk(scores, k=topk, dim=1)
+    num_tokens, num_experts = logits.shape
+
+    def compute_topk(scores, topk, limited_devices=None):
+        if limited_devices:
+            return device_limited_topk(scores, topk, num_tokens, num_experts, limited_devices)
+        else:
+            return torch.topk(scores, k=topk, dim=1)
+
+    if score_function == "softmax":
+        if use_pre_softmax:
+            scores = torch.softmax(logits, dim=-1, dtype=torch.float32).type_as(logits)
+            probs, top_indices = compute_topk(scores, topk, moe_router_topk_limited_devices)
+        else:
+            scores, top_indices = compute_topk(logits, topk, moe_router_topk_limited_devices)
+            probs = torch.softmax(scores, dim=-1, dtype=torch.float32).type_as(logits)
+    elif score_function == "sigmoid":
+        scores = torch.sigmoid(logits)
+        if expert_bias is not None:
+            scores_for_routing = scores + expert_bias
+            _, top_indices = compute_topk(scores_for_routing, topk, moe_router_topk_limited_devices)
+            scores = torch.gather(scores, dim=1, index=top_indices).type_as(logits)
+        else:
+            scores, top_indices = compute_topk(scores, topk, moe_router_topk_limited_devices)
+        probs = scores
     else:
-        # Post softmax
-        if topk == 1:
-            # Requires applying softmax before selecting the top-k when k is 1, since softmax on a [num_tokens, 1] would yield a zero gradient.
-            raise ValueError("Please use --moe-router-pre-softmax when topk is 1.")
-        scores, top_indices = torch.topk(logits, k=topk, dim=1)
-        probs = torch.softmax(scores, dim=-1, dtype=torch.float32).type_as(logits)
+        raise ValueError(f"Invalid score_function: {score_function}")
+
+    # norm gate to sum 1
+    if topk > 1 and norm_topk_prob:
+        denominator = probs.sum(dim=-1, keepdim=True) + 1e-20
+        probs = probs / denominator
+
+    if moe_router_topk_scaling_factor:
+        probs = probs * moe_router_topk_scaling_factor
 
     if capacity_factor is None:
         # TopK without capacity , back to core 0.7.0 for better performance
@@ -116,3 +192,33 @@ def topk_softmax_with_capacity(
             )
             tokens_per_expert_before_capacity = topk_mask.sum(dim=0)
         return final_probs, final_indices, tokens_per_expert_before_capacity
+
+
+def track_moe_metrics_wrapper(fn):
+    @wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        _args = get_args()
+        if _args.moe_router_load_balancing_type in ["noaux_tc"]:
+            return
+        fn(self, *args, **kwargs)
+
+    return wrapper
+
+
+def get_updated_expert_bias(tokens_per_expert, expert_bias, expert_bias_update_rate):
+    """Update expert bias for biased expert routing. See https://arxiv.org/abs/2408.15664v1#
+    Args:
+        tokens_per_expert (torch.Tensor): The number of tokens assigned to each expert.
+        expert_bias (torch.Tensor): The bias for each expert.
+        expert_bias_udpate_rate (float): The update rate for the expert bias.
+    """
+    with torch.no_grad():
+        # All Reduce Across TPxCPxDP group
+        torch.distributed.all_reduce(
+            tokens_per_expert,
+            group=parallel_state.get_tensor_and_data_parallel_group(with_context_parallel=True),
+        )
+        average_tokens = tokens_per_expert.sum(dim=-1, keepdim=True) / tokens_per_expert.shape[-1]
+        offset = average_tokens - tokens_per_expert
+        updated_expert_bias = expert_bias + torch.sign(offset) * expert_bias_update_rate
+        return updated_expert_bias

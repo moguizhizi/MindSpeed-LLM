@@ -64,6 +64,7 @@ def process_args(parser):
     parser = _add_mla_args(parser)
     parser = _add_yarn_args(parser)
     parser = _add_deepseek_moe_args(parser)
+    parser = _add_mtp_args(parser)
     parser = _add_rl_args(parser)
     parser = _add_ndmm_args(parser)
     parser = _add_2d_tp_args(parser)
@@ -133,10 +134,30 @@ def _add_deepseek_moe_args(parser):
                        help='set the coeff for communication balance loss in deepseek moe')
     group.add_argument('--router-gating-in-fp32', action='store_true', default=False,
                        help='Compute router gating in float32.')
-    group.add_argument("--scoring-func", default="softmax", choices=["softmax", "sigmoid"],
-                       help="set score func in deepseek moe")
-    group.add_argument('--add-router-bias', action='store_true', default=False, help='add-router-bias')
+    group.add_argument('--moe-router-score-function', type=str,
+                       choices=['softmax', 'sigmoid'],
+                       default='softmax',
+                       help='Score function for MoE TopK routing. Can be "softmax" or "sigmoid".')
+    group.add_argument('--moe-router-enable-expert-bias', action='store_true',
+                       help='TopK routing with dynamic expert bias in the aux-loss-free load balancing strategy. '
+                            'The routing decision is based on the sum of the routing scores and the expert bias. ')
+    group.add_argument('--moe-router-bias-update-rate', type=float, default=1e-3,
+                       help='Expert bias update rate in the aux-loss-free load balancing strategy. '
+                            'The expert bias is updated based on the number of assigned tokens to each expert in a '
+                            'global batch, where the bias is increased for the experts with less assigned tokens and '
+                            'decreased for the experts with more assigned tokens. '
+                            'The default value 1e-3 is same as that used in DeepSeekV3.')
+    return parser
 
+
+def _add_mtp_args(parser):
+    group = parser.add_argument_group(title='multi token prediction')
+    group.add_argument('--num-nextn-predict-layers', type=int, default=0, help='Multi-Token prediction layer num')
+    group.add_argument('--mtp-loss-scale', type=float, default=0.3, help='Multi-Token prediction loss scale')
+    group.add_argument('--recompute-mtp-norm', action='store_true', default=False,
+                       help='Multi-Token prediction recompute norm')
+    group.add_argument('--share-mtp-embedding-and-output-weight', action='store_true', default=False,
+                       help='Main model share embedding and output weight with mtp layer.')
     return parser
 
 
@@ -1076,6 +1097,14 @@ def _validate_group_limited_greedy(args):
             args.expert_model_parallel_size))
 
 
+def _validate_aux_loss_free(args):
+    if args.moe_router_enable_expert_bias and args.moe_router_score_function != "sigmoid":
+        raise ValueError(
+            "Expert bias for aux-loss-free routing only supports sigmoid score function."
+            "Please set --moe-router-score-function sigmoid for sigmoid score function."
+        )
+
+
 def _validate_rl_training(args):
     return
 
@@ -1382,6 +1411,7 @@ def validate_args_decorator(megatron_validate_args):
         _validate_yarn(args)
         _validate_transformer_block_build_layers(args)
         _validate_group_limited_greedy(args)
+        _validate_aux_loss_free(args)
         _validate_evaluation_args(args)
         _validate_output_layer_slice_num(args)
         _validate_optimizer(args)
