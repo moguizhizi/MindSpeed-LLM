@@ -11,4 +11,4 @@ python ./preprocess_data.py \
         --tokenizer-type PretrainedFromHF \
         --tokenizer-not-use-fast \
         --handler-name AlpacaStyleInstructionHandler \
-        --prompt-type chatml
+        --prompt-type intern2

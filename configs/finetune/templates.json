@@ -480,5 +480,31 @@
         ["bos_token"]
       ]
     }
+  },
+  {
+    "name": "intern2",
+    "format_user": {
+      "slots": [
+        "<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"
+      ]
+    },
+    "format_assistant": {
+      "slots": [
+        "{{content}}<|im_end|>\n"
+      ]
+    },
+    "format_system": {
+      "slots": [
+        "<|im_start|>system\n{{content}}<|im_end|>\n"
+      ]
+    },
+    "format_prefix": {
+      "slots": [
+        ["bos_token"]
+      ]
+    },
+    "stop_words": [
+      "<|im_end|>"
+    ]
   }
 ]

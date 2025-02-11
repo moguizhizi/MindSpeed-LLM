@@ -28,10 +28,12 @@ DISTRIBUTED_ARGS="
 "
 
 GPT_ARGS="
+    --variable-seq-lengths \
+    --no-shuffle \
     --finetune \
     --stage sft \
     --is-instruction-dataset \
-    --prompt-type chatml \
+    --prompt-type intern2 \
     --use-mcore-models \
     --sequence-parallel \
     --tensor-model-parallel-size ${TP} \
@@ -46,12 +48,12 @@ GPT_ARGS="
     --tokenizer-name-or-path ${TOKENIZER_MODEL} \
     --seq-length 4096 \
     --max-position-embeddings 32768 \
-    --micro-batch-size 2 \
+    --micro-batch-size 8 \
     --global-batch-size 64 \
     --make-vocab-size-divisible-by 1 \
     --lr 1e-6 \
     --padded-vocab-size 92544 \
-    --train-iters 1000 \
+    --train-iters 2000 \
     --disable-bias-linear \
     --init-method-std 0.01 \
     --attention-dropout 0.0 \
