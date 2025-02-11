@@ -25,7 +25,7 @@ from megatron.training import get_args
 from megatron.core import mpu, ModelParallelConfig, InferenceParams
 from megatron.core.pipeline_parallel import p2p_communication
 from megatron.core.tensor_parallel.mappings import gather_from_tensor_model_parallel_region
-from megatron.inference.text_generation.forward_step import ForwardStep, _get_recv_buffer_dtype
+from megatron.inference.text_generation.forward_step import _get_recv_buffer_dtype
 
 
 def inference_forward_step_init_wrapper(fn):
@@ -47,7 +47,7 @@ def _forward_step_helper(self, tokens, position_ids, attention_mask, recv_buffer
     sequence_length = tokens.size(1)
     if recv_buffer is None:
         recv_buffer = _allocate_recv_buffer(batch_size, sequence_length)
-    
+
     # Receive from previous stage
     # Here use megatron/p2p do substitution which megatron want to do.
     recv_buffer = recv_buffer if mpu.is_pipeline_first_stage() else recv_buffer.shape
@@ -56,7 +56,7 @@ def _forward_step_helper(self, tokens, position_ids, attention_mask, recv_buffer
     # Forward pass through the model.
     self.model.set_input_tensor(input_tensor)
     output_tensor = self._forward(tokens, position_ids, attention_mask)
-    
+
     # Send to the next stage.
     # Here use megatron/p2p do substitution which megatron want to do.
     p2p_communication.send_forward(output_tensor, config)

@@ -780,6 +780,7 @@ class LegacyAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.training.global_vars.build_tokenizer', build_tokenizer)
         MegatronAdaptation.register('megatron.training.checkpointing._load_base_checkpoint',
                                     _load_base_checkpoint_wrapper)
+        # fix core0.8.0 bug 切更高版本之后可以删除这个patch
         MegatronAdaptation.register('megatron.training.checkpointing.save_checkpoint', save_checkpoint_wrapper)
         # For transformer layer configuration
         MegatronAdaptation.register('megatron.training.arguments.core_transformer_config_from_args',

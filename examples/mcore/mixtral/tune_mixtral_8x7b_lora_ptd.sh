@@ -39,6 +39,7 @@ MOE_ARGS="
     --moe-aux-loss-coeff 0.02 \
     --moe-permutation-async-comm \
     --moe-token-dispatcher-type alltoall \
+    --moe-router-pre-softmax
 "
 
 GPT_ARGS="

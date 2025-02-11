@@ -249,7 +249,6 @@ def _build_document_sample_shuffle_indices(
         self.built_anew_on_cache_miss = True
         t_beg = time.time()
 
-
         sequence_length = self.config.sequence_length
         num_tokens_per_epoch = self._get_num_tokens_per_epoch()
         num_epochs = self._get_num_epochs(num_tokens_per_epoch)

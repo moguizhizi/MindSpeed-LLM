@@ -350,8 +350,6 @@ def _add_lora_args(parser):
 
 def _add_moe_args(parser):
     group = parser.add_argument_group(title='moe')
-    group.add_argument('--moe-router-topk', type=int, default=2,
-                       help='Number of experts to route to for each token. The default is 2.')
     group.add_argument('--moe-router-load-balancing-type', type=str,
                        choices=['aux_loss', "group_limited_greedy", "softmax_topk", "pai_megatron_aux_loss",
                                 "sparsemixer_topk", "noaux_tc"],
@@ -366,8 +364,6 @@ def _add_moe_args(parser):
                             'The default is "aux_loss".')
     group.add_argument('--expert-interval', type=int, default=1,
                        help='Use experts in every "expert-interval" layers')
-    group.add_argument('--moe-aux-loss-coeff', type=float, default=0.0,
-                       help='Scaling coefficient for the aux loss: a starting value of 1e-2 is recommended.')
     group.add_argument('--moe-z-loss-coeff', type=float, default=0.0,
                        help='Scaling coefficient for the z-loss: a starting value of 1e-3 is recommended.')
     group.add_argument('--moe-train-capacity-factor', type=float, default=1.0,
@@ -380,13 +376,8 @@ def _add_moe_args(parser):
     # For megatron_moe drop
     group.add_argument('--moe-expert-capacity-factor', type=float, default=None,
                        help='The capacity factor for each expert, None means no token will be dropped.')
-    group.add_argument('--moe-pad-expert-input-to-capacity', action='store_true',
-                       help='Pads the input for each expert to match the expert capacity length, effective only after the --moe-expert-capacity-factor is set.')
-    group.add_argument('--moe-token-drop-policy', type=str, default='probs', choices=['probs', 'position'],
-                       help='The policy to drop tokens. Can be either "prob" or "position". If "prob", the tokens with the lowest probabilities will be dropped. If "position", tokens at the end of each batch will be dropped.')
     group.add_argument('--moe-token-dispatcher-type', type=str, choices=['allgather', 'alltoall'], default='allgather',
                        help='The dispatcher type for moe token dispatching.')
-
     group.add_argument('--noisy-gate-policy', type=str, default=None,
                        help="noisy gate policy, valid options are 'Jitter', 'RSample' or 'None'.")
     group.add_argument('--enable-token-rearrange-opt', action='store_true',
@@ -1012,8 +1003,8 @@ def _validate_evaluation_args(args):
 
 
 def _validate_moe_args(args):
-    if args.use_legacy_models and args.num_experts and args.num_experts > 1:
-        raise ValueError(f'MOE is not supported in legacy model. Please deactivate `--use-legacy-models` to enable moe features.')
+    if not args.use_mcore_models and args.num_experts and args.num_experts > 1:
+        raise ValueError(f'MOE is not supported in legacy model. Please activate `--use-mcore-models` to enable moe features.')
     if args.moe_expert_capacity_factor is not None:
         if args.moe_token_dispatcher_type != "alltoall":
             raise ValueError(f'moe_expert_capacity_factor only works with alltoall token dispatcher')
