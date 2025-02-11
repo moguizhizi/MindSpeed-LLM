@@ -13,9 +13,9 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 TOKENIZER_PATH="TOKENIZER_PATH"
 CHECKPOINT="your model directory path"
 
-TP=4
-PP=2
-SEQ_LENGTH=32768
+TP=2
+PP=4
+SEQ_LENGTH=8192
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -35,6 +35,7 @@ torchrun $DISTRIBUTED_ARGS inference.py \
        --group-query-attention \
        --num-query-groups 8 \
        --ffn-hidden-size 13824 \
+       --prompt-type deepseek3 \
        --max-position-embeddings ${SEQ_LENGTH} \
        --seq-length ${SEQ_LENGTH} \
        --make-vocab-size-divisible-by 1 \

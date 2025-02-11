@@ -12,5 +12,5 @@ python ./preprocess_data.py \
     --tokenizer-type PretrainedFromHF \
     --tokenizer-not-use-fast \
     --handler-name AlpacaStyleInstructionHandler \
-    --prompt-type llama3 \
+    --prompt-type deepseek3 \
     --seq-length 8192 \

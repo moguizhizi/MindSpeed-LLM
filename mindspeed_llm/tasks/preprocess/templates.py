@@ -324,11 +324,6 @@ def fix_model_tokenizer(
         if num_added_tokens > 0:
             logger.warning("New tokens have been added, make sure `resize_vocab` is True.")
 
-    try:
-        tokenizer.chat_template = _get_jinja_template(template, tokenizer)
-    except ValueError:
-        logger.info("Cannot add this chat template to tokenizer.")
-        
 
 def _register_template(
     name: str,

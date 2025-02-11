@@ -18,7 +18,7 @@ TOKENIZER_PATH="your tokenizer path"
 
 TP=1
 PP=2
-SEQ_LEN=4096
+SEQ_LEN=8192
 MBS=1
 GBS=64
 
@@ -36,7 +36,7 @@ TUNE_ARGS="
     --is-instruction-dataset \
     --tokenizer-not-use-fast \
     --variable-seq-lengths \
-    --prompt-type qwen \
+    --prompt-type deepseek3 \
 "
 
 GPT_ARGS="

@@ -32,7 +32,7 @@ TUNE_ARGS="
     --stage sft \
     --is-instruction-dataset \
     --variable-seq-lengths \
-    --prompt-type llama3 \
+    --prompt-type deepseek3 \
 "
 
 GPT_ARGS="

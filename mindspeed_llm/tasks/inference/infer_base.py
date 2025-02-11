@@ -199,6 +199,8 @@ def chat_print_and_update_histories(args, responses, histories_no_template, hist
     for output in responses:
         if dist.get_rank() == 0:
             curr = output.replace("�", "")
+            curr = curr.replace('<think>', "")
+            curr = curr.replace('</think>', "")
             print_flush(prev, curr)
             prev = curr
 

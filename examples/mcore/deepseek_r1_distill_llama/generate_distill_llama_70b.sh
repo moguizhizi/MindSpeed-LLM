@@ -44,6 +44,7 @@ torchrun $DISTRIBUTED_ARGS inference.py \
        --micro-batch-size 1 \
        --hidden-dropout 0 \
        --attention-dropout 0 \
+       --prompt-type deepseek3 \
        --untie-embeddings-and-output-weights \
        --disable-bias-linear \
        --attention-softmax-in-fp32 \

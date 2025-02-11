@@ -15,7 +15,7 @@ CHECKPOINT="your model directory path"
 
 TP=8
 PP=1
-SEQ_LENGTH=32768
+SEQ_LENGTH=8192
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -52,6 +52,7 @@ torchrun $DISTRIBUTED_ARGS inference.py \
        --position-embedding-type rope \
        --hidden-dropout 0 \
        --attention-dropout 0 \
+       --prompt-type deepseek3 \
        --tokenizer-not-use-fast \
        --add-qkv-bias \
        --max-new-tokens 256 \

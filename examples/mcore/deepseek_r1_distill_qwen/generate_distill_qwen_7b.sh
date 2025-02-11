@@ -10,12 +10,12 @@ MASTER_ADDR=localhost
 MASTER_PORT=6000
 NNODES=1
 NODE_RANK=0
-NPUS_PER_NODE=8
+NPUS_PER_NODE=2
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
-TP=4
+TP=1
 PP=2
-SEQ_LENGTH=32768
+SEQ_LENGTH=8192
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -37,6 +37,7 @@ torchrun $DISTRIBUTED_ARGS inference.py \
        --seq-length ${SEQ_LENGTH} \
        --disable-bias-linear \
        --add-qkv-bias \
+       --prompt-type deepseek3 \
        --group-query-attention \
        --num-query-groups 4 \
        --swiglu \

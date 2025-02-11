@@ -11,4 +11,4 @@ python ./preprocess_data.py \
 	--workers 4 \
 	--log-interval 1000 \
     --overwrite-cache \
-    --prompt-type qwen
+    --prompt-type deepseek3

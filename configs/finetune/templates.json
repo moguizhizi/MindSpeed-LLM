@@ -467,5 +467,18 @@
       ]
     },
     "efficient_eos": true
+  },
+  {
+    "name": "deepseek3",
+    "format_user": {
+      "slots": [
+        "<｜User｜>{{content}}<｜Assistant｜>"
+      ]
+    },
+    "format_prefix": {
+      "slots": [
+        ["bos_token"]
+      ]
+    }
   }
 ]

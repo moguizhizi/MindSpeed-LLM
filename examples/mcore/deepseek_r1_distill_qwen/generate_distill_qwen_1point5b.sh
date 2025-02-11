@@ -16,7 +16,7 @@ TOKENIZER_PATH="your tokenizer path"
 TP=1
 PP=1
 MBS=1
-SEQ_LEN=4096
+SEQ_LEN=8192
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -51,6 +51,7 @@ torchrun $DISTRIBUTED_ARGS inference.py \
        --load ${CHECKPOINT}  \
        --normalization RMSNorm \
        --norm-epsilon 1e-6 \
+       --prompt-type deepseek3 \
        --position-embedding-type rope \
        --hidden-dropout 0 \
        --attention-dropout 0 \

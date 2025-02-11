@@ -796,7 +796,7 @@ def _add_training_args(parser):
     group.add_argument('--prompt-type', type=str, default=None,
                        choices=['default', 'empty', 'trl', 'chatglm2', 'chatglm3', 'chatglm3_system', 'glm4', 'chatml',
                                 'chatml_de', 'qwen', 'llama3', 'llama2', 'mistral', 'mixtral', 'gemma', 'alpaca',
-                                'deepseek2', 'deepseek2-lite', 'minicpm3', 'cpm', 'baichuan2'],
+                                'deepseek2', 'deepseek2-lite', 'minicpm3', 'cpm', 'baichuan2', 'deepseek3'],
                        help='Which template to use for constructing prompts in training/inference.'  'e.g., "qwen"')
     group.add_argument('--prompt-type-path', type=str, default=TEMPLATES_DIR,
                        help='Path to the json file of templates.')

@@ -17,11 +17,11 @@ CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
 
-TP=2
-PP=4
+TP=8
+PP=1
 MBS=1
 GBS=64
-SEQ_LEN=4096
+SEQ_LEN=8192
 TRAIN_ITERS=2000
 
 DISTRIBUTED_ARGS="
@@ -94,7 +94,7 @@ TUNE_ARGS="
     --stage sft \
     --is-instruction-dataset \
     --tokenizer-not-use-fast \
-    --prompt-type qwen \
+    --prompt-type deepseek3 \
     --variable-seq-lengths \
 "
 
