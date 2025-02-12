@@ -104,4 +104,7 @@ QLoRA在LoRA的基础上，对主干部分的权重进行量化，大幅降低�
 
 注意：QLoRA是量化模型权重的LoRA算法，必然会对模型效果和精度产生影响，用户充分评估特性后方可使用。
 
+## 使用限制
+MOE 场景下，Lora 微调暂不支持开启 --moe-grouped-gemm 使用 gmm 算子。
+
 > QLoRA支持分布式LoRA、lora-fusion、PP、TP等LoRA支持的特性，并且精度正常，更多特性的亲和性还在补充验证中。
