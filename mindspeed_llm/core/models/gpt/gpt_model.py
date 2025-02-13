@@ -14,6 +14,7 @@
 # limitations under the License.
 import logging
 from functools import wraps
+from typing import List
 
 import torch
 from torch import Tensor
@@ -23,9 +24,11 @@ from megatron.core.models.common.language_module.language_module import Language
 from megatron.core.packed_seq_params import PackedSeqParams
 from megatron.training import get_args
 
+from mindspeed.utils import set_actual_seq_len, set_position_ids
 from mindspeed_llm.core.tensor_parallel.layers import SegmentedColumnParallelLinear
 from mindspeed_llm.tasks.models.spec.mtp_spec import mtp_sepc
 from mindspeed_llm.tasks.models.transformer.multi_token_predication import MultiTokenPredication
+from mindspeed_llm.training.utils import tensor_slide, compute_actual_seq_len
 
 
 def gpt_model_init_wrapper(fn):
@@ -198,18 +201,20 @@ def gpt_model_forward(self, input_ids: Tensor,
     # If decoder_input is provided (not None), then input_ids and position_ids are ignored.
     # Otherwise, apply embedding layer on input_ids and position_ids to get decoder_input.
     args = get_args()
-    if args.num_nextn_predict_layers:
-        full_input_ids = input_ids.detach()
-        full_labels = labels.detach()
-        input_ids = full_input_ids[:, :full_input_ids.shape[1] - args.num_nextn_predict_layers]
-        labels = full_labels[:, :full_labels.shape[1] - args.num_nextn_predict_layers]
+    # generate inputs for main and mtps
+    input_ids, labels, position_ids, attention_mask = inputs_slice(
+        args.num_nextn_predict_layers,
+        input_ids,
+        labels,
+        position_ids,
+        attention_mask)
     if not self.training and (hasattr(args, "rope_scaling_type") and args.rope_scaling_type == "longrope"):
         args.rope_scaling_original_max_position_embeddings = args.max_position_embeddings
     # Decoder embedding.
     if decoder_input is not None:
         pass
     elif self.pre_process:
-        decoder_input = self.embedding(input_ids=input_ids, position_ids=position_ids)
+        decoder_input = self.embedding(input_ids=input_ids[0], position_ids=position_ids[0])
         if args.scale_emb is not None:
             decoder_input = decoder_input * args.scale_emb
     else:
@@ -228,7 +233,7 @@ def gpt_model_forward(self, input_ids: Tensor,
     # Run decoder.
     hidden_states = self.decoder(
         hidden_states=decoder_input,
-        attention_mask=attention_mask,
+        attention_mask=attention_mask[0],
         inference_params=inference_params,
         rotary_pos_emb=rotary_pos_emb,
         packed_seq_params=packed_seq_params,
@@ -255,15 +260,11 @@ def gpt_model_forward(self, input_ids: Tensor,
         logits = torch.tanh(logits)
         logits = logits * args.output_logit_softcapping
 
-    if labels is None:
+    if labels[0] is None:
         # [s b h] => [b s h]
         return logits.transpose(0, 1).contiguous()
 
-    if args.is_instruction_dataset:
-        labels = labels[:, 1:].contiguous()
-        logits = logits[:-1, :, :].contiguous()
-
-    loss = self.compute_language_model_loss(labels, logits)
+    loss = 0
     # Multi token predication module
     if args.num_nextn_predict_layers and self.training:
         if not self.share_embeddings_and_output_weights and self.share_mtp_embedding_and_output_weight:
@@ -271,38 +272,64 @@ def gpt_model_forward(self, input_ids: Tensor,
             output_weight.zero_out_wgrad = True
         embedding_weight = self.shared_embedding_weight() if self.share_mtp_embedding_and_output_weight else None
         for i in range(args.num_nextn_predict_layers):
-            if i == 0:
-                # mtp_input equals to former labels
-                mtp_labels = full_labels[:, i + 1:full_labels.shape[1] - args.num_nextn_predict_layers + i + 1]
-                mtp_hidden_states, mtp_loss = self.mtp_layers[i](
-                    hidden_states,  # [s,b,h]
-                    labels,
-                    position_ids,
-                    attention_mask,
-                    decoder_input,
-                    mtp_labels,
-                    inference_params,
-                    packed_seq_params,
-                    extra_block_kwargs,
-                    embeding_weight=embedding_weight,
-                    output_weight=output_weight,
-                )
-            else:
-                mtp_input = mtp_labels
-                mtp_labels = full_labels[:, i + 1:full_labels.shape[1] - args.num_nextn_predict_layers + i + 1]
-                mtp_hidden_states, mtp_loss = self.mtp_layers[i](
-                    mtp_hidden_states,  # [s,b,h]
-                    mtp_input,
-                    position_ids,
-                    attention_mask,
-                    decoder_input,
-                    mtp_labels,
-                    inference_params,
-                    packed_seq_params,
-                    extra_block_kwargs,
-                    embeding_weight=embedding_weight,
-                    output_weight=output_weight,
-                )
-            loss = loss + args.mtp_loss_scale / args.num_nextn_predict_layers * mtp_loss
+            if args.reset_position_ids:
+                set_position_ids(position_ids[i + 1].transpose(0, 1).contiguous())
+                actual_seq_len = compute_actual_seq_len(position_ids[i + 1])
+                set_actual_seq_len(actual_seq_len)
+            mtp_hidden_states, mtp_loss = self.mtp_layers[i](
+                hidden_states,  # [s,b,h]
+                input_ids[i + 1],
+                position_ids[i + 1] if position_ids[0] is not None else None,
+                attention_mask[i + 1] if attention_mask[0] is not None else None,
+                decoder_input,
+                labels[i + 1] if labels[0] is not None else None,
+                inference_params,
+                packed_seq_params,
+                extra_block_kwargs,
+                embeding_weight=embedding_weight,
+                output_weight=output_weight,
+            )
 
+            loss += args.mtp_loss_scale / args.num_nextn_predict_layers * mtp_loss
+    if isinstance(labels, List):
+        labels = labels[0]
+    if args.is_instruction_dataset:
+        labels = labels[:, 1:].contiguous()
+        logits = logits[:-1, :, :].contiguous()
+
+    loss += self.compute_language_model_loss(labels, logits)
     return loss
+
+
+def inputs_slice(slice_num, input_ids, labels, position_ids, attention_mask):
+    if slice_num == 0:
+        return (
+            [input_ids],
+            [labels],
+            [position_ids],
+            [attention_mask],
+        )
+
+    window_size = input_ids.shape[-1] - slice_num
+    return (
+        tensor_slide(input_ids, window_size),
+        tensor_slide(labels, window_size),
+        generate_nextn_position_ids(position_ids, window_size),
+        # not compatible with ppo attn_mask
+        tensor_slide(attention_mask, window_size, dims=[-2, -1]),
+    )
+
+
+def generate_nextn_position_ids(tensor, window_size):
+    slides = tensor_slide(tensor, window_size)
+
+    for idx in range(1, len(slides)):
+        for i in range(slides[idx].size(0)):
+            row = slides[idx][i]
+            zero_mask = (row == 0)
+            if zero_mask.any():
+                first_zero_idx = torch.argmax(zero_mask.int()).item()
+                slides[idx][i, :first_zero_idx] = torch.arange(first_zero_idx)
+            else:
+                slides[idx] = slides[idx] - idx
+    return slides

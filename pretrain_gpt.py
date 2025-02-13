@@ -32,7 +32,7 @@ from megatron.core.models.gpt.gpt_layer_specs import (
     get_gpt_layer_local_spec,
     get_gpt_layer_with_transformer_engine_spec,
 )
-from mindspeed_llm.training.utils import generate_actual_seq_len
+from mindspeed_llm.training.utils import generate_actual_seq_len, tensor_slide
 
 
 def model_provider(pre_process=True, post_process=True) -> Union[GPTModel, megatron.legacy.model.GPTModel]:
@@ -125,6 +125,8 @@ def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
         torch.distributed.all_reduce(loss, group=mpu.get_context_parallel_group())
         loss = loss[0] / loss[1]
     else:
+        if args.num_nextn_predict_layers > 0:
+            loss_mask = tensor_slide(loss_mask, loss_mask.shape[-1] - args.num_nextn_predict_layers)[0]
         loss = torch.sum(losses.view(-1) * loss_mask) / loss_mask.sum()
 
     # Check individual rank losses are not NaN prior to DP all-reduce.

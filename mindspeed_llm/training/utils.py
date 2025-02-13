@@ -18,6 +18,8 @@ import os
 import stat
 import random
 from functools import wraps
+from typing import Optional, Union, List
+
 import torch
 import torch_npu
 from torch import distributed as dist
@@ -42,17 +44,34 @@ WRITE_FILE_DEFAULT_FLAGS = os.O_WRONLY | os.O_CREAT
 WRITE_FILE_DEFAULT_MODES = stat.S_IWUSR | stat.S_IRUSR
 
 
-def compute_actual_seq_len(seq):
-    zero_pos = (seq == 0).nonzero()[1:].squeeze(dim=1)
-    res = zero_pos.tolist()
-    res.append(len(seq))
+def compute_actual_seq_len(seq, stride=0):
+    """
+    compute actual seq len.
+    MTP layer bring extra n tokens, which should be cut.
+    """
+    res = list()
+    _args = get_args()
+    seq_length = _args.seq_length
+    batch_size = seq.shape[0]
+    for batch_idx in range(batch_size):
+        batch_seq = seq[batch_idx]
+        if batch_idx == 0:
+            zero_pos = (batch_seq == 0).nonzero()[1:].squeeze(dim=1)
+        else:
+            zero_pos = (batch_seq == 0).nonzero().squeeze(dim=1)
+        res.extend((zero_pos + (batch_idx * seq_length - stride)).tolist())
+        batch_len = len(batch_seq) + batch_idx * seq_length - stride
+        if batch_len > seq_length * (batch_idx + 1):
+            batch_len = seq_length * (batch_idx + 1)
+        if batch_idx == batch_size - 1:
+            res.append(batch_len)
     return res
 
 
 def generate_actual_seq_len(batch):
     position_ids = batch.get('position_ids').transpose(0, 1).contiguous()
     set_position_ids(position_ids)
-    position_ids = batch.get('position_ids').view(-1)
+    position_ids = batch.get('position_ids')
     actual_seq_len = compute_actual_seq_len(position_ids)
     set_actual_seq_len(actual_seq_len)
 
@@ -464,3 +483,30 @@ def _get_batch_on_this_cp_rank_in_megatron_cp_general(batch):
             batch[key] = val 
     
     return batch
+
+
+def tensor_slide(
+        tensor: Optional[torch.Tensor],
+        window_size: int = None,
+        dims: Union[int, List[int]] = -1,
+        step: int = 1
+) -> List[Union[torch.Tensor, None]]:
+    """slide window slice for n-D tensor"""
+    if tensor is None:
+        # return `List[None]` to avoid NoneType Error
+        return [None]
+
+    if window_size is None:
+        window_size = tensor.shape[-1]
+    if window_size == tensor.shape[-1]:
+        return [tensor]
+
+    dims = [dims] if isinstance(dims, int) else sorted(dims, reverse=True)
+
+    slices = []
+    for i in range(0, tensor.size(dims[-1]) - window_size + 1, step):
+        slice_obj = [slice(None)] * tensor.dim()
+        for dim in dims:
+            slice_obj[dim] = slice(i, i + window_size)
+        slices.append(tensor[tuple(slice_obj)].clone())
+    return slices

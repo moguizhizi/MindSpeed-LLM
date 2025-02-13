@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from functools import wraps
+from typing import Optional
 
 import torch
 from megatron.core import parallel_state
@@ -37,47 +38,55 @@ def z_loss_func(logits, z_loss_coeff):
     return z_loss
 
 
-def device_limited_topk(
+def group_limited_topk(
     scores: torch.Tensor,
     topk: int,
     num_tokens: int,
     num_experts: int,
-    moe_router_topk_limited_devices: int,
+    num_groups: int,
+    group_topk: int,
 ):
-    """Perform top-k routing on a subset of expert parallel ranks.
+    """Perform top-k routing on a subset of expert groups.
 
-    Selects N ranks for each token, then conducts top-k selection among experts on these devices.
-    See DeepSeek-V2 technical report (https://arxiv.org/pdf/2405.04434) for details.
+    When using group-limited routing:
+    1. Experts are divided into 'moe_router_num_groups' equal-sized groups
+    2. For each token, 'moe_router_group_topk' groups are selected based on routing scores
+       (specifically, the sum of top-2 expert scores within each group)
+    3. From these selected groups, 'moe_router_topk' individual experts are chosen
+    Two common use cases:
+    - Device-limited routing: Set 'moe_router_num_groups' equal to expert parallel size (EP)
+      to limit each token to experts on a subset of devices
+      (See DeepSeek-V2: https://arxiv.org/pdf/2405.04434)
+    - Node-limited routing: Set 'moe_router_num_groups' equal to number of nodes in EP group
+      to limit each token to experts on a subset of nodes
+      (See DeepSeek-V3: https://arxiv.org/pdf/2412.19437)
 
     Args:
         scores (torch.Tensor): Softmax scores from the router.
         topk (int): The number of experts to select for each token.
         num_tokens (int): The number of tokens.
         num_experts (int): The number of experts.
-        moe_router_topk_limited_devices (int): Number of expert parallel ranks to consider for
-            each token during routing. None means no device limitation.
+        num_groups (int): Number of groups for routed experts.
+        group_topk (int): Number of groups selected for each token.
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Probs and indices tensor.
     """
 
     # Organize the experts into groups
-    num_group = (
-        parallel_state.get_expert_model_parallel_world_size()
-    )  # num_group equals to expert parallel size
-    group_scores = scores.view(num_tokens, num_group, -1).max(dim=-1).values
-    group_idx = torch.topk(group_scores, k=moe_router_topk_limited_devices, dim=-1, sorted=False)[1]
+    group_scores = scores.view(num_tokens, num_groups, -1).topk(2, dim=-1)[0].sum(dim=-1)
+    group_idx = torch.topk(group_scores, k=group_topk, dim=-1, sorted=False)[1]
     group_mask = torch.zeros_like(group_scores)
     group_mask.scatter_(1, group_idx, 1)
 
     # Mask the experts based on selection groups
     score_mask = (
         group_mask.unsqueeze(-1)
-        .expand(num_tokens, num_group, num_experts // num_group)
+        .expand(num_tokens, num_groups, num_experts // num_groups)
         .reshape(num_tokens, -1)
     )
 
-    masked_scores = scores.masked_fill(~score_mask.bool(), 0.0)
+    masked_scores = scores.masked_fill(~score_mask.bool(), float('-inf'))
     probs, top_indices = torch.topk(masked_scores, k=topk, dim=-1)
 
     return probs, top_indices
@@ -90,8 +99,9 @@ def topk_softmax_with_capacity(
     pad_to_capacity: bool = False,
     drop_policy: str = "probs",
     use_pre_softmax: bool = False,
-    moe_router_topk_limited_devices: int = None,
-    moe_router_topk_scaling_factor: float = None,
+    num_groups: Optional[int] = None,
+    group_topk: Optional[int] = None,
+    scaling_factor: Optional[float] = None,
     deterministic_mode: bool = False,
     score_function: str = "softmax",
     expert_bias: torch.Tensor = None,
@@ -104,6 +114,12 @@ def topk_softmax_with_capacity(
         capacity_factor (int): The capacity factor of each expert. Will drop tokens if the number of tokens exceeds the capacity.
         pad_to_capacity (bool): Whether to need padding in token drop mode.
         drop_policy (str): The policy to drop tokens. Can be either "prob" or "position". If "prob", the tokens with the lowest probabilities will be dropped. If "position", tokens at the end of each batch will be dropped.
+        num_groups (int): Number of groups for routed experts.
+        group_topk (int): Number of selected groups for each token.
+        scaling_factor (float): Scaling factor of routing score in top-k selection.
+        deterministic_mode (bool): Deprecated.
+        score_function (str): The score function to use. Can be either "softmax" or "sigmoid".
+        expert_bias (torch.Tensor): The bias added to logits for expert routing.
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: Probs, indices and tokens_per_expert tensor.
@@ -114,27 +130,34 @@ def topk_softmax_with_capacity(
     assert logits.dim() == 2, f"Expected 2D logits [num_tokens, num_experts], got {logits.dim()}."
     num_tokens, num_experts = logits.shape
 
-    def compute_topk(scores, topk, limited_devices=None):
-        if limited_devices:
-            return device_limited_topk(scores, topk, num_tokens, num_experts, limited_devices)
+    def compute_topk(scores, topk, num_groups=None, group_topk=None):
+        if group_topk:
+            return group_limited_topk(
+                scores=scores,
+                topk=topk,
+                num_tokens=num_tokens,
+                num_experts=num_experts,
+                num_groups=num_groups,
+                group_topk=group_topk,
+            )
         else:
             return torch.topk(scores, k=topk, dim=1)
 
     if score_function == "softmax":
         if use_pre_softmax:
             scores = torch.softmax(logits, dim=-1, dtype=torch.float32).type_as(logits)
-            probs, top_indices = compute_topk(scores, topk, moe_router_topk_limited_devices)
+            probs, top_indices = compute_topk(scores, topk, num_groups, group_topk)
         else:
-            scores, top_indices = compute_topk(logits, topk, moe_router_topk_limited_devices)
+            scores, top_indices = compute_topk(logits, topk, num_groups, group_topk)
             probs = torch.softmax(scores, dim=-1, dtype=torch.float32).type_as(logits)
     elif score_function == "sigmoid":
         scores = torch.sigmoid(logits)
         if expert_bias is not None:
             scores_for_routing = scores + expert_bias
-            _, top_indices = compute_topk(scores_for_routing, topk, moe_router_topk_limited_devices)
+            _, top_indices = compute_topk(scores_for_routing, topk, num_groups, group_topk)
             scores = torch.gather(scores, dim=1, index=top_indices).type_as(logits)
         else:
-            scores, top_indices = compute_topk(scores, topk, moe_router_topk_limited_devices)
+            scores, top_indices = compute_topk(scores, topk, num_groups, group_topk)
         probs = scores
     else:
         raise ValueError(f"Invalid score_function: {score_function}")
@@ -144,8 +167,8 @@ def topk_softmax_with_capacity(
         denominator = probs.sum(dim=-1, keepdim=True) + 1e-20
         probs = probs / denominator
 
-    if moe_router_topk_scaling_factor:
-        probs = probs * moe_router_topk_scaling_factor
+    if scaling_factor:
+        probs = probs * scaling_factor
 
     if capacity_factor is None:
         # TopK without capacity , back to core 0.7.0 for better performance
