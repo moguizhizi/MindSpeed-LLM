@@ -63,7 +63,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
             data_prefix=args.data_path,
             splits_string=args.split,
             train_valid_test_num_samples=train_val_test_num_samples,
-            seq_length=args.seq_length,
+            seq_length=args.seq_length + args.num_nextn_predict_layers,
             seed=args.seed)
     else:
         train_ds, valid_ds, test_ds = BlendedMegatronDatasetBuilder(

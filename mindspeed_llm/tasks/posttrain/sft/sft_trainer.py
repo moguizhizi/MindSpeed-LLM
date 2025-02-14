@@ -2,7 +2,7 @@
 import os
 from functools import partial
 import torch
-from megatron.training import get_args
+from megatron.training import get_args, get_tokenizer
 from megatron.core import mpu, tensor_parallel
 from megatron.training.utils import (
     get_batch_on_this_cp_rank,
@@ -12,6 +12,8 @@ from megatron.training.utils import (
 from megatron.training import get_timers
 from mindspeed_llm.training.utils import get_tune_attention_mask, get_finetune_data_on_this_tp_rank, generate_actual_seq_len
 from mindspeed_llm.tasks.posttrain.base import BaseTrainer
+
+IGNORE_INDEX = -100
 
 
 class SFTTrainer(BaseTrainer):
@@ -49,11 +51,26 @@ class SFTTrainer(BaseTrainer):
         tokens = data_b.get('input_ids').long()
         attention_mask_1d = data_b.get('attention_mask').long()
         # ignored label -100
-        loss_mask = torch.where(labels == -100, 0, 1)
+        loss_mask = torch.where(labels == IGNORE_INDEX, 0, 1)
+
+        # Adapt to MTP
+        if args.variable_seq_lengths and args.num_nextn_predict_layers:
+            tokenizer = get_tokenizer().tokenizer
+            pad_tensor = torch.ones((labels.shape[0], args.num_nextn_predict_layers)).to(labels.device)
+            labels = torch.cat([labels, pad_tensor.to(labels.dtype) * IGNORE_INDEX], -1)
+            tokens = torch.cat([tokens, pad_tensor.to(tokens.dtype) * tokenizer.pad_token_id], -1)
+            attention_mask_1d = torch.cat([attention_mask_1d, pad_tensor.to(attention_mask_1d.dtype) * 0], -1)
+            loss_mask = torch.cat([loss_mask, pad_tensor.to(loss_mask.dtype) * 0], -1)
 
         if args.reset_position_ids:
             position_ids = data_b.get('position_ids').long()
             generate_actual_seq_len(data_b)
+
+            # Adapt to MTP
+            if args.num_nextn_predict_layers:
+                pad_tensor = torch.zeros((labels.shape[0], args.num_nextn_predict_layers)).to(labels.device)
+                position_ids = torch.cat([position_ids, pad_tensor.to(position_ids.dtype)], -1)
+
             batch = {
                 'tokens': tokens,
                 'labels': labels,
@@ -75,7 +92,6 @@ class SFTTrainer(BaseTrainer):
             }
         batch = get_batch_on_this_cp_rank(batch)
         return batch.values()
-
 
     def loss_func(self, input_tensor: torch.Tensor, output_tensor: torch.Tensor):
         """Loss function.
@@ -125,5 +141,8 @@ class SFTTrainer(BaseTrainer):
         output_tensor = model(tokens, position_ids, attention_mask,
                               labels=labels)
 
-        return output_tensor, partial(self.loss_func, loss_mask)
-
+        if self.args.num_nextn_predict_layers:
+            return output_tensor, partial(self.loss_func,
+                                          loss_mask[:, :labels.shape[-1] - self.args.num_nextn_predict_layers])
+        else:
+            return output_tensor, partial(self.loss_func, loss_mask)
