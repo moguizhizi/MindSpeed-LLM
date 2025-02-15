@@ -21,6 +21,12 @@ MindSpeed-LLM是基于昇腾生态的大语言模型分布式训练框架，旨�
 
 ## NEWS !!! 📣📣📣
 
+🚀🚀🚀**DeepSeek-V3-671B** 模型权重转换已上线！！🚀🚀🚀
+
+**[DeepSeek-V3-671B CKPT Convert](./examples/mcore/deepseek3/ckpt_convert_deepseek3_hf2mcore.sh)** 😊
+
+支持huggingface转megatron
+
 🚀🚀🚀**DeepSeek-V3-671B** 模型已上线！！🚀🚀🚀
 
 **[DeepSeek-V3-671B](./examples/mcore/deepseek3/)** 😊
