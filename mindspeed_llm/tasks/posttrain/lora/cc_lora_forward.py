@@ -15,7 +15,10 @@ except ImportError:
 def dequantize(weight, dtype, device):
     if not hasattr(weight, "quant_state"):
         return weight
-    return bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(device).to(dtype)
+    torch.npu.synchronize()
+    dequantize_weight = bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(device).to(dtype)
+    torch.npu.synchronize()
+    return dequantize_weight
 
 
 def get_communication_output(input_, reduce_tensor=False):

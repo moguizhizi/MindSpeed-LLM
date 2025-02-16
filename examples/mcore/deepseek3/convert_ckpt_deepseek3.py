@@ -10,6 +10,7 @@ from collections import defaultdict
 import safetensors
 import safetensors.torch
 import torch
+import bitsandbytes as bnb
 
 logger.basicConfig(format="")
 logger.getLogger().setLevel(logger.INFO)
@@ -35,6 +36,7 @@ class CkptConvert(object):
         noop_layers (str, optional): should be skipped during conversion. Defaults to None.
         moe_grouped_gemm (bool, optional): Whether to use grouped GEMM for MoE layers. Defaults to True.
         num_nextn_predict_layers (int, optional): The number of MTP layers. Defaults to 0.
+        qlora_nf4 (bool, optional): Whether to use QLORA NF4. Defaults to False.
     """
 
     def __init__(
@@ -49,6 +51,7 @@ class CkptConvert(object):
             noop_layers: str = None,
             moe_grouped_gemm: bool = True,
             num_nextn_predict_layers: int = 0,
+            qlora_nf4:bool = False,
     ):
         self.pp_size = pp_size
         self.ep_size = ep_size
@@ -65,10 +68,27 @@ class CkptConvert(object):
         self.num_experts = NUM_EXPERTS
         self.mtp_layer_number = MTP_LAYER_INDEX
         self.share_mtp_embedding_and_output_weight = True
+        self.qlora_nf4 = qlora_nf4
 
         self._valid_parameter()
         self.pprank_layer_idxs = {}
         self.get_pprank_hf_layeridxs()
+
+    @staticmethod
+    def qlora_nf4_weight(weight):
+        """Quantize weights"""
+        quantweight = bnb.nn.Params4bit(
+            weight,
+            requires_grad=weight.requires_grad,
+            quant_type="nf4"
+        ).to('npu').cpu()
+        return quantweight.data, quantweight.quant_state
+
+    @staticmethod
+    def qlora_nf4_quant_state(mg_model, ep_rank, key, quant_state):
+        """Save quant state"""
+        for k, v in quant_state.as_dict(packed=True).items():
+            mg_model[ep_rank]["{}.{}".format(key, k)] = v.detach()
 
     @staticmethod
     def load_hf_model(file_path):
@@ -200,8 +220,12 @@ class CkptConvert(object):
         """Final norm & LM Head process"""
         final_norm = weights_dict.pop("model.norm.weight")
         lm_head = weights_dict.pop("lm_head.weight")
+        if self.qlora_nf4:
+            lm_head, lm_head_quant_state = self.qlora_nf4_weight(lm_head)
 
         for ep_rank in range(self.ep_size):
+            if self.qlora_nf4:
+                self.qlora_nf4_quant_state(mg_model, ep_rank, "output_layer.weight", lm_head_quant_state)
             mg_model[ep_rank]["decoder.final_layernorm.weight"] = final_norm.clone()
             mg_model[ep_rank]["output_layer.weight"] = lm_head.clone()
 
@@ -211,12 +235,14 @@ class CkptConvert(object):
         hnorm_weight = weights_dict.pop(f"model.layers.{hf_layer_idx}.hnorm.weight")
         eh_proj_weight = weights_dict.pop(f"model.layers.{hf_layer_idx}.eh_proj.weight")
         emb_weight = weights_dict.pop(f"model.layers.{hf_layer_idx}.embed_tokens.weight")
-
+        if self.qlora_nf4:
+            eh_proj_weight, eh_proj_weight_quant_state = self.qlora_nf4_weight(eh_proj_weight)
         for ep_rank in range(self.ep_size):
             mg_model[ep_rank][f"mtp_layers.{mtp_layer_idx}.enorm.weight"] = enorm_weight.clone()
             mg_model[ep_rank][f"mtp_layers.{mtp_layer_idx}.hnorm.weight"] = hnorm_weight.clone()
             mg_model[ep_rank][f"mtp_layers.{mtp_layer_idx}.eh_proj.weight"] = eh_proj_weight.clone()
-
+            if self.qlora_nf4:
+                self.qlora_nf4_quant_state(mg_model, ep_rank, f"mtp_layers.{mtp_layer_idx}.eh_proj.weight", eh_proj_weight_quant_state)
             if not self.share_mtp_embedding_and_output_weight:
                 mg_model[ep_rank][f"mtp_layers.{mtp_layer_idx}.word_embeddings.weight"] = emb_weight.clone()
 
@@ -224,12 +250,16 @@ class CkptConvert(object):
         """MTP layer postprocess"""
         mtp_norm_weight = weights_dict.pop(f"model.layers.{hf_layer_idx}.shared_head.norm.weight")
         mtp_head_weight = weights_dict.pop(f"model.layers.{hf_layer_idx}.shared_head.head.weight")
-
+        if self.qlora_nf4:
+            mtp_head_weight, mtp_head_weight_quant_state = self.qlora_nf4_weight(mtp_head_weight)
         for ep_rank in range(self.ep_size):
             mg_model[ep_rank][f"mtp_layers.{mtp_layer_idx}.final_layernorm.weight"] = mtp_norm_weight.clone()
 
             if not self.share_mtp_embedding_and_output_weight:
                 mg_model[ep_rank][f"mtp_layers.{mtp_layer_idx}.output_layer.weight"] = mtp_head_weight.clone()
+                if self.qlora_nf4:
+                    self.qlora_nf4_quant_state(mg_model, ep_rank, f"mtp_layers.{mtp_layer_idx}.output_layer.weight",
+                                          mtp_head_weight_quant_state)
 
     def set_model_layer_norm(self, hf_layer_idx, local_layer_idx, weights_dict, mg_model, mtp_layer_flag=False):
         """Layernorm process"""
@@ -277,6 +307,12 @@ class CkptConvert(object):
         qkv_key, dense_key, q_layernorm_key, kv_layernorm_key, q_b_key, kv_b_key = _generate_attn_layers_key(
             mtp_layer_flag, local_layer_idx)
 
+        if self.qlora_nf4:
+            qkv_weight, qkv_weight_quant_state = self.qlora_nf4_weight(qkv_weight)
+            dense_weight, dense_weight_quant_state = self.qlora_nf4_weight(dense_weight)
+            q_b_proj, q_b_proj_quant_state = self.qlora_nf4_weight(q_b_proj)
+            kv_b_proj, kv_b_proj_quant_state = self.qlora_nf4_weight(kv_b_proj)
+
         for ep_rank in range(self.ep_size):
             mg_model[ep_rank][qkv_key] = qkv_weight.clone()
             mg_model[ep_rank][dense_key] = dense_weight.clone()
@@ -284,6 +320,11 @@ class CkptConvert(object):
             mg_model[ep_rank][kv_layernorm_key] = kv_layernorm.clone()
             mg_model[ep_rank][q_b_key] = q_b_proj.clone()
             mg_model[ep_rank][kv_b_key] = kv_b_proj.clone()
+            if self.qlora_nf4:
+                self.qlora_nf4_quant_state(mg_model, ep_rank, qkv_key, qkv_weight_quant_state)
+                self.qlora_nf4_quant_state(mg_model, ep_rank, dense_key, dense_weight_quant_state)
+                self.qlora_nf4_quant_state(mg_model, ep_rank, q_b_key, q_b_proj_quant_state)
+                self.qlora_nf4_quant_state(mg_model, ep_rank, kv_b_key, kv_b_proj_quant_state)
 
     def set_model_layer_mlp(self, hf_layer_idx, local_layer_idx, weights_dict, mg_model, mtp_layer_flag=False):
         """MLP layer process"""
@@ -307,9 +348,16 @@ class CkptConvert(object):
             linear_fc1_weight = torch.cat([gate_proj, up_proj], dim=0)
             linear_fc2_weight = weights_dict.pop(f"model.layers.{hf_layer_idx}.mlp.down_proj.weight")
 
+            if self.qlora_nf4:
+                linear_fc1_weight, linear_fc1_weight_quant_state = self.qlora_nf4_weight(linear_fc1_weight)
+                linear_fc2_weight, linear_fc2_weight_quant_state = self.qlora_nf4_weight(linear_fc2_weight)
+
             for ep_rank in range(self.ep_size):
                 mg_model[ep_rank][f"decoder.layers.{local_layer_idx}.mlp.linear_fc1.weight"] = linear_fc1_weight.clone()
                 mg_model[ep_rank][f"decoder.layers.{local_layer_idx}.mlp.linear_fc2.weight"] = linear_fc2_weight.clone()
+                if self.qlora_nf4:
+                    self.qlora_nf4_quant_state(mg_model, ep_rank, f"decoder.layers.{local_layer_idx}.mlp.linear_fc1.weight", linear_fc1_weight_quant_state)
+                    self.qlora_nf4_quant_state(mg_model, ep_rank, f"decoder.layers.{local_layer_idx}.mlp.linear_fc2.weight", linear_fc2_weight_quant_state)
         else:
             # moe layer & mtp layer
             mlp_router_weight = weights_dict.pop(f"model.layers.{hf_layer_idx}.mlp.gate.weight")
@@ -341,11 +389,20 @@ class CkptConvert(object):
             router_key, router_bias_key, shared_fc1_key, shared_fc2_key, experts_weight1_key, experts_weight2_key = _generate_moe_layer_key(
                 local_layer_idx, mtp_layer_flag)
 
+            if self.qlora_nf4:
+                shared_fc1_weight, shared_fc1_weight_quant_state = self.qlora_nf4_weight(
+                    shared_fc1_weight)
+                shared_fc2_weight, shared_fc2_weight_quant_state = self.qlora_nf4_weight(
+                    shared_fc2_weight)
+
             for ep_rank in range(self.ep_size):
                 mg_model[ep_rank][router_key] = mlp_router_weight.clone()
                 mg_model[ep_rank][router_bias_key] = mlp_router_bias.clone()
                 mg_model[ep_rank][shared_fc1_key] = shared_fc1_weight.clone()
                 mg_model[ep_rank][shared_fc2_key] = shared_fc2_weight.clone()
+                if self.qlora_nf4:
+                    self.qlora_nf4_quant_state(mg_model, ep_rank, shared_fc1_key, shared_fc1_weight_quant_state)
+                    self.qlora_nf4_quant_state(mg_model, ep_rank, shared_fc2_key, shared_fc2_weight_quant_state)
 
             if self.moe_grouped_gemm:
                 gemm_fc1 = torch.cat(experts_linear_fc1_list).view(self.hidden_size, -1)
@@ -369,9 +426,15 @@ class CkptConvert(object):
                             local_fc2_key = f"{local_prefix}.{local_experts_idx}.linear_fc2.weight"
 
                         global_experts_idx = local_experts_idx + ep_rank * num_local_experts
-
-                        mg_model[ep_rank][local_fc1_key] = experts_linear_fc1_list[global_experts_idx].t().clone()
-                        mg_model[ep_rank][local_fc2_key] = experts_linear_fc2_list[global_experts_idx].t().clone()
+                        local_fc1_weight = experts_linear_fc1_list[global_experts_idx].t()
+                        local_fc2_weight = experts_linear_fc2_list[global_experts_idx].t()
+                        if self.qlora_nf4:
+                            local_fc1_weight, local_fc1_weight_quant_state = self.qlora_nf4_weight(local_fc1_weight)
+                            local_fc2_weight, local_fc2_weight_quant_state = self.qlora_nf4_weight(local_fc2_weight)
+                            self.qlora_nf4_quant_state(mg_model, ep_rank, local_fc1_key, local_fc1_weight_quant_state)
+                            self.qlora_nf4_quant_state(mg_model, ep_rank, local_fc2_key, local_fc2_weight_quant_state)
+                        mg_model[ep_rank][local_fc1_key] = local_fc1_weight.clone()
+                        mg_model[ep_rank][local_fc2_key] = local_fc2_weight.clone()
 
     def generate_pp_local_layer_idx(self):
         """generate each pp local layer index"""
@@ -469,6 +532,8 @@ def get_args():
                         help='Number of transformer layers.')
     parser.add_argument('--first-k-dense-replace', type=int, default=3,
                         help='Customizing the number of dense layers.')
+    parser.add_argument('--qlora-nf4', action='store_true',
+                        help='use bitsandbytes nf4 to quantize model.')
 
     args = parser.parse_args()
     return args
@@ -487,7 +552,8 @@ def main():
         num_layer_list=args.num_layer_list,
         noop_layers=args.noop_layers,
         moe_grouped_gemm=args.moe_grouped_gemm,
-        num_nextn_predict_layers=args.num_nextn_predict_layers
+        num_nextn_predict_layers=args.num_nextn_predict_layers,
+        qlora_nf4=args.qlora_nf4,
     )
     converter.run()
 

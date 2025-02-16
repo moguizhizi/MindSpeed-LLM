@@ -177,9 +177,12 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
                     isinstance(module, (tpl.ColumnParallelLinear, tpl.RowParallelLinear, torch.nn.Linear))
                     and "layers" in name
                 )
-
                 if not (is_target_linear and not is_lora_adapter):
                     module.weight.data = module.weight.data.to(torch.cuda.current_device())
+                if hasattr(module, "expert_bias") and module.expert_bias is not None:
+                    module.expert_bias = module.expert_bias.to(torch.cuda.current_device())
+                if hasattr(module, "local_tokens_per_expert") and module.local_tokens_per_expert is not None:
+                    module.local_tokens_per_expert = module.local_tokens_per_expert.to(torch.cuda.current_device())
         else:
             model_module.cuda(torch.cuda.current_device())
     # end of megatron_adaptation
