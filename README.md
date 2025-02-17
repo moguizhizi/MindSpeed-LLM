@@ -20,6 +20,14 @@ MindSpeed-LLM是基于昇腾生态的大语言模型分布式训练框架，旨�
 ---
 
 ## NEWS !!! 📣📣📣
+🚀🚀🚀**DeepSeek-V3-671B** 模型指令微调已上线！！🚀🚀🚀
+
+**[DeepSeek-V3-671B Finetuning](./examples/mcore/deepseek3)** 😊
+
+包含数据处理、
+全参微调、
+LoRA微调、
+QLoRA微调
 
 🚀🚀🚀**DeepSeek-V3-671B** 模型权重转换已上线！！🚀🚀🚀
 
@@ -31,7 +39,7 @@ MindSpeed-LLM是基于昇腾生态的大语言模型分布式训练框架，旨�
 
 **[DeepSeek-V3-671B](./examples/mcore/deepseek3/)** 😊
 
-包含数据处理、预训练（Main Model + MTP）、全参微调（Main Model）
+包含数据处理、预训练（Main Model + MTP）
 
 🚀🚀🚀**DeepSeek-R1-Distill** 系列模型已上线！！🚀🚀🚀
 
@@ -43,7 +51,6 @@ MindSpeed-LLM是基于昇腾生态的大语言模型分布式训练框架，旨�
 
 ## COMING SOON !!! 📣📣📣
 
-🚀🚀 **DeepSeek-V3-671B**: Lora、QLora 👋👋
 
 🚀🚀 **DeepSeek-R1-Zero** 👋👋
 
