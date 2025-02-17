@@ -20,26 +20,21 @@ MindSpeed-LLM是基于昇腾生态的大语言模型分布式训练框架，旨�
 ---
 
 ## NEWS !!! 📣📣📣
-🚀🚀🚀**DeepSeek-V3-671B** 模型指令微调已上线！！🚀🚀🚀
 
-**[DeepSeek-V3-671B Finetuning](./examples/mcore/deepseek3)** 😊
+🚀🚀🚀**DeepSeek-V3-671B** 模型全流程已上线！！！🚀🚀🚀
 
-包含数据处理、
-全参微调、
-LoRA微调、
-QLoRA微调
+**数据处理：[预训练](./examples/mcore/deepseek3/data_convert_deepseek3_pretrain.sh)、
+[指令微调](./examples/mcore/deepseek3/data_convert_deepseek3_instruction.sh)**  😊
 
-🚀🚀🚀**DeepSeek-V3-671B** 模型权重转换已上线！！🚀🚀🚀
+**[权重转换（支持HuggingFace转Megatron）](./examples/mcore/deepseek3/ckpt_convert_deepseek3_hf2mcore.sh)** 😊
 
-**[DeepSeek-V3-671B CKPT Convert](./examples/mcore/deepseek3/ckpt_convert_deepseek3_hf2mcore.sh)** 😊
+**[预训练](./examples/mcore/deepseek3/pretrain_deepseek3_671b_4k_ptd.sh)** 😊
 
-支持huggingface转megatron
+**微调:
+[全参微调](./examples/mcore/deepseek3/tune_deepseek3_671b_4k_full_ptd.sh)、
+[LoRA微调](./examples/mcore/deepseek3/tune_deepseek3_671b_4k_lora_ptd.sh)、
+[QLoRA微调](./examples/mcore/deepseek3/tune_deepseek3_671b_4k_qlora_ptd.sh)** 😊
 
-🚀🚀🚀**DeepSeek-V3-671B** 模型已上线！！🚀🚀🚀
-
-**[DeepSeek-V3-671B](./examples/mcore/deepseek3/)** 😊
-
-包含数据处理、预训练（Main Model + MTP）
 
 🚀🚀🚀**DeepSeek-R1-Distill** 系列模型已上线！！🚀🚀🚀
 
