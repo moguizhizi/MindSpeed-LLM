@@ -45,6 +45,9 @@ def model_provider(pre_process=True, post_process=True) -> Union[GPTModelInfer, 
     args = get_args()
     use_te = args.transformer_impl == "transformer_engine"
 
+    if args.sequence_parallel and args.use_kv_cache:
+        raise AssertionError('Use_kv_cache can not be true in sequence_parallel mode.')
+
     print_rank_0('building GPT model ...')
     # Experimental loading arguments from yaml
     if args.yaml_cfg is not None:
@@ -69,7 +72,7 @@ def model_provider(pre_process=True, post_process=True) -> Union[GPTModelInfer, 
             pre_process=pre_process,
             post_process=post_process,
             fp16_lm_cross_entropy=args.fp16_lm_cross_entropy,
-            parallel_output=True,
+            parallel_output=True if args.sequence_parallel else False,
             share_embeddings_and_output_weights=not args.untie_embeddings_and_output_weights,
             position_embedding_type=args.position_embedding_type,
             rotary_percent=args.rotary_percent,
@@ -81,7 +84,7 @@ def model_provider(pre_process=True, post_process=True) -> Union[GPTModelInfer, 
 
         model = GPTModel(
             config,
-            parallel_output=True,
+            parallel_output=True if args.sequence_parallel else False,
             pre_process=pre_process,
             post_process=post_process
         )

@@ -99,7 +99,7 @@ class MegatronPPORM(ORMTrainer):
         if self.args.load is not None or self.args.pretrained_checkpoint is not None:
             self.timers('load-checkpoint', log_level=0).start(barrier=True)
             self.args.iteration, self.args.num_floating_point_operations_so_far = load_checkpoint(
-                model, None, None)
+                model, None, None, strict=False)
             self.timers('load-checkpoint').stop(barrier=True)
             self.timers.log(['load-checkpoint'])
         else:

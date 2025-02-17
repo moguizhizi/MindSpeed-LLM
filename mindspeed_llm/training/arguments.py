@@ -706,6 +706,10 @@ def _add_rl_args(parser):
         help="Path to the reference model used for the PPO training."
     )
     group.add_argument(
+        "--verifier", action='store_true',
+        help="Enable verifier in cal scores."
+    )
+    group.add_argument(
         '--kl-coef',
         default=0.3,
         type=float,
@@ -786,7 +790,7 @@ def _add_training_args(parser):
                        help='Setting jit compile mode to True')
     group.add_argument('--prompt-type', type=str, default=None,
                        choices=['default', 'empty', 'trl', 'chatglm2', 'chatglm3', 'chatglm3_system', 'glm4', 'chatml',
-                                'chatml_de', 'qwen', 'llama3', 'llama2', 'mistral', 'mixtral', 'gemma', 'alpaca',
+                                'chatml_de', 'qwen', 'qwen_r1', "qwen_math_r1", 'llama3', 'llama2', 'mistral', 'mixtral', 'gemma', 'alpaca',
                                 'deepseek2', 'deepseek2-lite', 'minicpm3', 'cpm', 'baichuan2', 'deepseek3', 'intern2'],
                        help='Which template to use for constructing prompts in training/inference.'  'e.g., "qwen"')
     group.add_argument('--prompt-type-path', type=str, default=TEMPLATES_DIR,
@@ -901,6 +905,12 @@ def _add_dataset_args(parser):
                        default=False,
                        help='if no shared storage, set it'
                        )
+    group.add_argument('--dataset-with-labels', 
+                       action='store_true',
+                       default=False, 
+                       help='Whether the labels included in dataset.'
+                      )
+ 
     return parser
 
 

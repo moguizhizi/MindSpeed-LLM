@@ -52,6 +52,7 @@ class MegatronModuleForCausalLMABC(torch.nn.Module, abc.ABC):
         self.include_input = False
         self.stream = False
         self.return_output_log_probs = False
+        self.truncate = False
 
     @classmethod
     def from_pretrained(
@@ -152,6 +153,7 @@ class MegatronModuleForCausalLMABC(torch.nn.Module, abc.ABC):
         self.include_input = kwargs.pop("include_input", False)
         self.stream = kwargs.pop("stream", False)
         self.return_output_log_probs = kwargs.pop("return_output_log_probs", False)
+        self.truncate = kwargs.pop("truncate", False)
 
 
 class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
@@ -428,7 +430,7 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
             output = [val[context_lengths[i]:] for i, val in enumerate(output)]
 
         # When batch size > 1, you need truncate the tokens after eos_token_id
-        self._truncate_in_multi_batch(output)
+        output = self._truncate_in_multi_batch(output)
 
         if self.detokenize:
             try:
@@ -455,12 +457,23 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
 
     def _truncate_in_multi_batch(self, output):
         if len(output) > 1:
+            truncated_output = []
             for idx, batch in enumerate(output):
                 output[idx] = output[idx][:self.max_new_tokens] if self.max_new_tokens else output[idx]
                 trunc_index = torch.nonzero(batch == self.tokenizer.eos_token_id)
 
                 if min(trunc_index.shape):
-                    output[idx][trunc_index.min():] = self.tokenizer.eos_token_id
+                    if self.truncate:
+                        truncated_output.append(output[idx][:trunc_index.min()])
+                    else:
+                        output[idx][trunc_index.min():] = self.tokenizer.eos_token_id
+                else:
+                    truncated_output.append(output[idx])
+
+            if self.truncate:
+                output = [val.tolist() if torch.is_tensor(val) else val for val in truncated_output]
+
+        return output
 
     def _yield(self, token_stream):
         output, context_lengths, log_probs = None, None, None

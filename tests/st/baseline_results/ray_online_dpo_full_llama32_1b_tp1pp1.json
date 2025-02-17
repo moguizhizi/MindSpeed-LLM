@@ -1,4 +1,5 @@
 {
+    "lm loss margin": 0.03,
     "lm loss": [
         0.6931,
         0.6925,

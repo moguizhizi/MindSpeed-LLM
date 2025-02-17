@@ -87,6 +87,7 @@ def _with_pipelining_forward_step_wrapper(_with_pipelining_forward_step):
     @wraps(_with_pipelining_forward_step)
     def wrapper(self, tokens, position_ids, attention_mask, micro_batch_size):
         """No interleaving is supported."""
+        args = get_args()
         sequence_length = tokens.size(1)
         batch_size = tokens.size(0)
 
@@ -131,6 +132,7 @@ def _with_pipelining_forward_step_wrapper(_with_pipelining_forward_step):
                 # Here for multi batches generation.
                 if args.sequence_parallel:
                     output = gather_from_tensor_model_parallel_region(output)
+
                 logits[start:end, ...] = output
 
         if self.inference_params:

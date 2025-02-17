@@ -1,19 +1,18 @@
 from typing import Type
-
 from codetiming import Timer
 
 from mindspeed_llm.tasks.posttrain.rlxf.ray_trainer.ppo_trainer import ResourcePoolManager, Role
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.ray.megatron import NVMegatronRayWorkerGroup
-from mindspeed_llm.tasks.posttrain.rlxf.training.core_algos import compute_grpo_data_metrics, reduce_metrics, compute_advantage, \
-    get_last_reward, FixedKLController, AdaptiveKLController
+from mindspeed_llm.tasks.posttrain.rlxf.training.core_algos import compute_grpo_data_metrics, reduce_metrics, \
+    compute_advantage, compute_score, FixedKLController, AdaptiveKLController
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base import Worker
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.ray.base import create_colocated_worker_cls, \
-    set_actor_infer_world_size, set_actor_train_world_size, RayResourcePool, RayClassWithInitArgs
+    set_actor_infer_world_size, set_actor_train_world_size, RayClassWithInitArgs
 from mindspeed_llm.tasks.posttrain.rlxf.utils.loggers import Loggers
-from mindspeed_llm.tasks.posttrain.rlxf.workers.critic import CriticWorker
 from mindspeed_llm.tasks.posttrain.rlxf.workers.actor_train_infer import PPOActorWorker
 from mindspeed_llm.tasks.posttrain.rlxf.workers.reference import ReferenceWorker
 from mindspeed_llm.tasks.posttrain.rlxf.workers.reward import RewardWorker
+
 
 WorkerType = Type[Worker]
 
@@ -35,17 +34,27 @@ class RayGRPOTrainer(object):
         ref_pool_id = 'ref_pool'
         reward_pool_id = 'reward_pool'
 
-        resource_pool_spec = {
-            actor_pool_id: config.resource_pool.actor_rollout,
-            ref_pool_id: config.resource_pool.ref,
-            reward_pool_id: config.resource_pool.reward,
-        }
+        if config.resource_pool.reward:
+            resource_pool_spec = {
+                actor_pool_id: config.resource_pool.actor_rollout,
+                ref_pool_id: config.resource_pool.ref,
+                reward_pool_id: config.resource_pool.reward,
+            }
+            mapping = {
+                Role.ActorRollout: actor_pool_id,
+                Role.RefPolicy: ref_pool_id,
+                Role.RewardModel: reward_pool_id,
+            }
+        else:
+            resource_pool_spec = {
+                actor_pool_id: config.resource_pool.actor_rollout,
+                ref_pool_id: config.resource_pool.ref
+            }
 
-        mapping = {
-            Role.ActorRollout: actor_pool_id,
-            Role.RefPolicy: ref_pool_id,
-            Role.RewardModel: reward_pool_id,
-        }
+            mapping = {
+                Role.ActorRollout: actor_pool_id,
+                Role.RefPolicy: ref_pool_id
+            }
 
         self.resource_pool_manager = ResourcePoolManager(resource_pool_spec=resource_pool_spec, mapping=mapping)
         self.use_reference_policy = Role.RefPolicy in self.role_worker_mapping
@@ -86,11 +95,12 @@ class RayGRPOTrainer(object):
                                               role='ref')
         self.resource_pool_to_cls[resource_pool]['ref'] = ref_policy_cls
 
-        resource_pool = self.resource_pool_manager.get_resource_pool(Role.RewardModel)
-        reward_cls = RayClassWithInitArgs(cls=self.role_worker_mapping[Role.RewardModel],
-                                          config=self.config,
-                                          role='reward')
-        self.resource_pool_to_cls[resource_pool]['reward'] = reward_cls
+        if self.config.resource_pool.reward:
+            resource_pool = self.resource_pool_manager.get_resource_pool(Role.RewardModel)
+            reward_cls = RayClassWithInitArgs(cls=self.role_worker_mapping[Role.RewardModel],
+                                            config=self.config,
+                                            role='reward')
+            self.resource_pool_to_cls[resource_pool]['reward'] = reward_cls
 
         # initialize WorkerGroup
         all_wg = {}
@@ -106,8 +116,11 @@ class RayGRPOTrainer(object):
         self.actor_rollout_wg = all_wg.get('actor_rollout')
         self.actor_rollout_wg.initialize()
 
-        self.reward_wg = all_wg.get('reward')
-        self.reward_wg.initialize()
+        if self.config.resource_pool.reward:
+            self.reward_wg = all_wg.get('reward')
+            self.reward_wg.initialize()
+        else:
+            self.reward_wg = None
 
     def train(self):
         """
@@ -136,17 +149,21 @@ class RayGRPOTrainer(object):
 
                 with Timer(name='adv', logger=None) as timer:
                     # compute rm scores.
-                    reward_tensor = self.reward_wg.compute_rm_score(batch)
-                    batch = batch.union(reward_tensor)
-                    batch = get_last_reward(batch,
-                                        n_sample_batch=self.config.actor_rollout_ref.actor_rollout.n_samples_per_prompt)
+                    batch = compute_score(
+                        self.reward_wg,
+                        batch,
+                        metrics,
+                        self.config
+                    )
 
                     # compute advantages, executed on the driver process
-                    batch = compute_advantage(batch,
-                                            self.config.algorithm.gamma,
-                                            self.config.algorithm.lam,
-                                            adv_estimator=self.config.algorithm.adv_estimator,
-                                            )
+                    batch = compute_advantage(
+                        batch,
+                        self.config.algorithm.gamma,
+                        self.config.algorithm.lam,
+                        adv_estimator=self.config.algorithm.adv_estimator
+                    )
+
                 metrics['timing/adv'] = timer.last
                 kl_info = {'kl_ctrl': self.kl_ctrl}
                 batch.meta_info.update(kl_info)
@@ -167,4 +184,3 @@ class RayGRPOTrainer(object):
 
             if iteration % self.config.training.save_interval == 0:
                 self.actor_rollout_wg.save_checkpoint(iteration)
-

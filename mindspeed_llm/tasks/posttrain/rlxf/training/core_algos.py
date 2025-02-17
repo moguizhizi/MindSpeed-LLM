@@ -20,9 +20,14 @@ implement PPO
 import numpy as np
 import torch
 from copy import deepcopy
+from transformers import AutoTokenizer
 
 import mindspeed_llm.tasks.posttrain.rlxf.utils.torch_functional as F
+from mindspeed_llm.tasks.posttrain.rlxf.utils.loggers import Loggers
 from mindspeed_llm.tasks.posttrain.rlxf.utils.protocol import DataProto
+from mindspeed_llm.tasks.posttrain.verifier.rule_verifier import preprocess_box_response_for_qwen_prompt, format_reward, reasoning_steps_reward
+
+logger = Loggers()
 
 
 class AdaptiveKLController:
@@ -94,8 +99,12 @@ def compute_gae_advantage_return(token_level_rewards: torch.Tensor, values: torc
     return advantages, returns
 
 
-def compute_group_norm_advantage_return(token_level_rewards: torch.Tensor, eos_mask: torch.Tensor,
-                                 gamma: torch.Tensor, lam: torch.Tensor):
+def compute_group_norm_advantage_return(
+        token_level_rewards: torch.Tensor,
+        eos_mask: torch.Tensor,
+        gamma: torch.Tensor,
+        lam: torch.Tensor
+):
     """
     Args:
         token_level_rewards: `(torch.Tensor)`
@@ -310,9 +319,9 @@ def compute_advantage(data: DataProto, gamma, lam, adv_estimator):
         data.batch['returns'] = returns
     elif adv_estimator == 'group_norm':
         advantages, returns = compute_group_norm_advantage_return(token_level_rewards=token_level_rewards,
-                                                                        eos_mask=response_mask,
-                                                                        gamma=gamma,
-                                                                        lam=lam)
+                                                                  eos_mask=response_mask,
+                                                                  gamma=gamma,
+                                                                  lam=lam)
         data.batch['advantages'] = advantages
         data.batch['returns'] = returns
     else:
@@ -320,20 +329,117 @@ def compute_advantage(data: DataProto, gamma, lam, adv_estimator):
     return data
 
 
-def get_last_reward(data, n_sample_batch):
+def compute_score(reward_wg, batch, metrics, config):
+    token_level_rewards = torch.zeros_like(batch.batch["responses"], dtype=torch.float32)
+
+    if reward_wg:
+        score_tensor = reward_wg.compute_rm_score(batch).batch['rm_scores']
+
+        rm_token_level_rewards = get_last_reward(
+            batch,
+            rm_scores=score_tensor,
+            n_sample_batch=config.actor_rollout_ref.actor_rollout.n_samples_per_prompt
+        )
+
+        token_level_rewards += rm_token_level_rewards
+
+
+    if hasattr(config.reward, "verifier") and config.reward.verifier:
+        verifier_token_level_rewards = compute_verifier_score(batch, metrics, config)
+        token_level_rewards += verifier_token_level_rewards
+
+    rewards = DataProto.from_dict(
+        tensors={
+            'token_level_rewards': token_level_rewards,
+            'rm_scores': token_level_rewards
+        }
+    )
+
+    return batch.union(rewards)
+
+
+def compute_verifier_score(batch, metrics, config):
+    tokenizer = AutoTokenizer.from_pretrained(config.training.tokenizer_name_or_path, trust_remote_code=True)
+    tokenizer.eos_token = tokenizer.decode(tokenizer.eos_token_id, skip_special_tokens=True)
+
+    responses = batch.batch["responses"]
+    reward_index = batch.batch["responses_ori_length"].unsqueeze(1) - 1
+
+    str_labels = tokenizer.batch_decode(batch.batch["labels"], skip_special_tokens=True)
+    str_responses = tokenizer.batch_decode(responses, skip_special_tokens=True)
+
+    scores = verifier(str_responses, str_labels, config, metrics, infos=None)
+
+    scores = torch.tensor(
+        scores,
+        dtype=torch.float32,
+        device=reward_index.device
+    ).unsqueeze(1)
+
+    logger.logger.info("=" * 50)
+    logger.logger.info(str_responses[0])
+    logger.logger.info(">" * 50)
+    logger.logger.info(str_labels[0])
+    logger.logger.info("=" * 50)
+
+    token_level_rewards = torch.zeros_like(responses, dtype=torch.float32)
+    token_level_rewards.scatter_(1, reward_index, scores)
+
+    return token_level_rewards
+
+
+def verifier(responses, labels, config, metrics, infos=None):
+    """
+    User-defined verifier scoring process.
+
+    Parameters:
+    ----------
+    responses(List[`str`]):
+        Actor rollout answers.
+    labels(List[`str`]):
+        Ground Truth.
+    infos(List[`str`], *optional*):
+         Additional usable information loaded from the dataset.
+
+    Return:
+        scores(List[`float`]): Final scores.
+    """
+    rule_verifier_function = {
+        "acc": preprocess_box_response_for_qwen_prompt,
+        "format": format_reward,
+        "step": reasoning_steps_reward
+    }
+
+    scores = [0.0] * len(labels)
+
+    verifier_function = config.algorithm.verifier_function if hasattr(
+        config.algorithm, "verifier_function") else ["acc"]
+    verifier_weight = config.algorithm.verifier_weight if hasattr(
+        config.algorithm, "verifier_weight") else [1.0]
+
+    for idx, fun_verifier in enumerate(verifier_function):
+        if fun_verifier not in rule_verifier_function:
+            continue
+        score = rule_verifier_function[fun_verifier](sequences=responses, answers=labels)
+        metrics[f"grpo/{fun_verifier}_rewards/mean"] = sum(score) / max(len(score), 1)
+        scores = [all_score + tmp_score * verifier_weight[idx]
+                  for all_score, tmp_score in zip(scores, score)]
+
+    return scores
+
+
+def get_last_reward(data, rm_scores, n_sample_batch):
     responses = data.batch['responses']
     response_length = responses.size(1)
     attention_mask = data.batch['attention_mask']
     response_mask = attention_mask[:, -response_length:]
-    rm_scores = data.batch['rm_scores']
     eos_indices = response_mask.size(1) - 1 - response_mask.long().fliplr().argmax(dim=1, keepdim=True)
     reward = rm_scores.gather(dim=1, index=eos_indices).squeeze(1)
     reward = reward.reshape(-1, n_sample_batch)
     reward = (reward - reward.mean(dim=1, keepdim=True)) / (reward.std(dim=1, keepdim=True) + 1e-8)
     reward = reward.reshape(-1)
-    last_reward = torch.zeros_like(rm_scores).scatter_(dim=1, index=eos_indices, src=reward.unsqueeze(1).to(rm_scores.dtype))
-    data.batch['token_level_rewards'] = last_reward
-    return data
+    token_level_rewards = torch.zeros_like(rm_scores).scatter_(dim=1, index=eos_indices, src=reward.unsqueeze(1).to(rm_scores.dtype))
+    return token_level_rewards
 
 
 def reduce_metrics(metrics: dict):

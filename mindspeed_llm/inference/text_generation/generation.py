@@ -21,7 +21,6 @@ import torch.nn.functional as F
 
 from megatron.training import get_args, get_tokenizer
 from megatron.core import mpu
-from megatron.core.tensor_parallel.mappings import gather_from_tensor_model_parallel_region
 from megatron.inference.text_generation.communication import (
     copy_from_last_to_first_pipeline_stage,
     broadcast_from_last_pipeline_stage,
@@ -132,8 +131,6 @@ def generate_tokens_probs_and_return_on_first_stage(
             logits = forward_step(tokens2use, positions2use, attention_mask2use)
 
             if mpu.is_pipeline_last_stage():
-                # gather along the last dim.
-                logits = gather_from_tensor_model_parallel_region(logits)
                 # Always the last stage should have an output.
                 assert logits is not None
 
@@ -284,8 +281,6 @@ def beam_search_and_return_on_first_stage(
             logits = forward_step(tokens2use, positions2use, attention_mask2use)
 
             if mpu.is_pipeline_last_stage():
-                # gather along the last dim.
-                logits = gather_from_tensor_model_parallel_region(logits)
                 vocab_size = logits.size(2)
 
                 if args.use_kv_cache:

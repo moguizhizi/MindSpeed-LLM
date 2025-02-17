@@ -14,6 +14,10 @@ from megatron.training import get_args, initialize_megatron, get_timers, get_tok
 from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
 from megatron.core import parallel_state as mpu, tensor_parallel
 from megatron.training.training import append_to_progress_log, build_train_valid_test_data_iterators, print_datetime
+from megatron.training import get_model
+from megatron.training.utils import unwrap_model
+from megatron.training.checkpointing import save_checkpoint
+from megatron.training.training import num_floating_point_operations
 from mindspeed_llm.tasks.posttrain.rlxf.training.core_algos import compute_policy_loss, find_first_eos_index, compute_grpo_policy_loss
 from mindspeed_llm.tasks.posttrain.rlxf.utils.torch_functional import split_dict_tensor_into_batches
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker import MegatronWorker
@@ -24,14 +28,11 @@ from mindspeed_llm.tasks.posttrain.rlxf.utils.protocol import DataProto, make_ba
 from mindspeed_llm.tasks.posttrain.base import BaseTrainer
 import mindspeed_llm.tasks.posttrain.rlxf.training.parallel_state as ps
 from mindspeed_llm.tasks.inference.module import MegatronModuleForCausalLM
-from inference import model_provider
 from mindspeed_llm.tasks.preprocess.decoder_packed_mtf_dataset import \
     build_train_valid_test_datasets as build_instruction_dataset
 from mindspeed_llm.training.initialize import set_jit_fusion_options
 from mindspeed_llm.training.utils import get_finetune_data_on_this_tp_rank, get_tune_attention_mask
 from mindspeed_llm.tasks.posttrain.utils import compute_log_probs, append_to_dict
-from megatron.training.checkpointing import save_checkpoint
-from megatron.training.training import num_floating_point_operations
 
 
 def train_valid_test_datasets_provider(train_val_test_num_samples):
@@ -202,6 +203,66 @@ class PPOActorInferWorker(BaseTrainer):
     def __init__(self):
         super().__init__()
         self.count = 0
+        self.keys = None
+
+    def model_provider(self, pre_process=True, post_process=True):
+        """Builds the inference model.
+
+        If you set the use_mcore_models to True, it will return the mcore GPT model.
+
+        Args:
+            pre_process (bool, optional): Set to true if you need to compute embedings. Defaults to True.
+            post_process (bool, optional): Set to true if you need to want to compute output logits/loss. Defaults to True.
+
+
+        Returns:
+            Union[GPTModelInfer, GPTModel]: The returned model
+        """
+
+        from megatron.core.models.gpt.gpt_layer_specs import get_gpt_layer_with_transformer_engine_spec, \
+            get_gpt_layer_local_spec
+        from megatron.core.transformer.spec_utils import import_module
+        from megatron.training import get_args, print_rank_0
+        from megatron.training.arguments import core_transformer_config_from_args
+        from megatron.training.yaml_arguments import core_transformer_config_from_yaml
+
+        from mindspeed_llm.tasks.inference.module import GPTModelInfer
+
+        args = get_args()
+        use_te = args.transformer_impl == "transformer_engine"
+
+        print_rank_0('building GPT Rollout model ...')
+        # Experimental loading arguments from yaml
+        if args.yaml_cfg is not None:
+            config = core_transformer_config_from_yaml(args, "language_model")
+        else:
+            config = core_transformer_config_from_args(args)
+
+        if args.spec is not None:
+            transformer_layer_spec = import_module(args.spec)
+        else:
+            if use_te:
+                transformer_layer_spec = get_gpt_layer_with_transformer_engine_spec(args.num_experts,
+                                                                                    args.moe_grouped_gemm)
+            else:
+                transformer_layer_spec = get_gpt_layer_local_spec(args.num_experts, args.moe_grouped_gemm)
+
+        model = GPTModelInfer(
+            config=config,
+            transformer_layer_spec=transformer_layer_spec,
+            vocab_size=args.padded_vocab_size,
+            max_sequence_length=args.max_position_embeddings,
+            pre_process=pre_process,
+            post_process=post_process,
+            fp16_lm_cross_entropy=args.fp16_lm_cross_entropy,
+            parallel_output=False,
+            share_embeddings_and_output_weights=not args.untie_embeddings_and_output_weights,
+            position_embedding_type=args.position_embedding_type,
+            rotary_percent=args.rotary_percent,
+            seq_len_interpolation_factor=args.rotary_seq_len_interpolation_factor
+        )
+
+        return model
 
     def initialize(self):
         train_valid_test_datasets_provider.is_distributed = True
@@ -220,9 +281,10 @@ class PPOActorInferWorker(BaseTrainer):
         self.args.num_layer_list = None
         self.args.micro_batch_size = 1
         self.args.sequence_parallel = False
-        self.inf_model = MegatronModuleForCausalLM.from_pretrained(
-            model_provider=model_provider,
-        )
+
+        self.args.model = unwrap_model(get_model(self.model_provider, wrap_with_ddp=False))
+        self.inf_model = self.args.model[0]
+
         sync_param_nums(self.inf_model)
         true_pad_to_multiple_of = self.args.pad_to_multiple_of
         self.args.pad_to_multiple_of = 1 # we don't want to pad data here
@@ -237,10 +299,14 @@ class PPOActorInferWorker(BaseTrainer):
         print('done with setup ...')
         self.timers.log(['model-setup', 'train/valid/test-data-iterators-setup'], barrier=True)
 
-    @staticmethod
-    def get_batch(data_iterator):
+    def get_batch(self, data_iterator):
         """Generate a batch identical to Llama factory"""
         args = get_args()
+
+        if self.args.dataset_with_labels:
+            self.keys = ['input_ids', 'labels']
+        else:
+            self.keys = ['input_ids']
 
         if (not mpu.is_pipeline_first_stage()) and (not mpu.is_pipeline_last_stage()):
             if args.variable_seq_lengths and args.pipeline_model_parallel_size > 2:
@@ -250,48 +316,91 @@ class PPOActorInferWorker(BaseTrainer):
             return tokens
 
         # Items and their type.
-        keys = ['input_ids']
+
         data_type = torch.int64
 
         # Broadcast data.
-        data_b = tensor_parallel.broadcast_data(keys, next(data_iterator), data_type)
+        data_b = tensor_parallel.broadcast_data(self.keys, next(data_iterator), data_type)
 
         # Unpack
-        tokens = data_b.get('input_ids').long()
-        return tokens
+        batch = {}
+        for key in self.keys:
+            batch[key] = data_b.get(key).long()
+
+        return batch
 
     def run_inference(self):
         args = get_args()
         num_infer_steps = args.global_batch_size // (args.data_parallel_size * args.num_samples_per_step)
         responses = []
         idx_list = []
+        label_list = []
         idx_list_per_step = []
+        label_list_per_step = []
+
         max_new_tokens = args.seq_length - args.max_prompt_length
         assert max_new_tokens % args.pad_to_multiple_of == 0, "please adjust pad_to_multiple_of so that \
                                                 max_new_tokens % args.pad_to_multiple_of == 0"
         for i in range(num_infer_steps):
             for j in range(args.num_samples_per_step):
-                tokens = self.get_batch(self.train_data_iterator)
+                batch = self.get_batch(self.train_data_iterator)
+
+                tokens = batch["input_ids"]
                 tokens_list = tokens.view(-1).cpu().numpy().tolist()
+                labels = batch.get("labels", None)
+
+                if labels is not None:
+                    labels = labels.view(-1).cpu().numpy().tolist()[::-1]
+                    if -100 in labels:
+                        answer_begin_indices = len(tokens_list) - 1 - labels.index(-100)
+                        answer_list = tokens_list[answer_begin_indices + 1:]
+                        tokens_list = tokens_list[:answer_begin_indices + 1]
+                    else:
+                        answer_list = tokens_list[-1:]
+                        tokens_list = tokens_list[:-1]
+
+                    for _ in range(args.n_samples_per_prompt):
+                        label_list_per_step.append(copy.deepcopy(answer_list))
+
                 for _ in range(args.n_samples_per_prompt):
                     idx_list_per_step.append(copy.deepcopy(tokens_list))
+
                 if args.stage == "ray_online_dpo":
                     idx_list_per_step.append(copy.deepcopy(tokens_list))
 
-            responses_per_step = self.inf_model.generate(copy.deepcopy(idx_list_per_step),
-                                                         max_new_tokens=max_new_tokens,
-                                                         detokenize=False, broadcast=False, do_sample=args.do_sample)
+            responses_per_step = self.inf_model.generate(
+                copy.deepcopy(idx_list_per_step),
+                max_new_tokens=max_new_tokens,
+                temperature=args.temperature,
+                do_sample=args.do_sample,
+                detokenize=False,
+                broadcast=False,
+                truncate=True
+            )
+            
             if not isinstance(responses_per_step, list):
                 responses_per_step = [responses_per_step]
 
             responses.extend(responses_per_step)
             idx_list.extend(idx_list_per_step)
+            label_list.extend(label_list_per_step)
             idx_list_per_step = []
+            label_list_per_step = []
 
-        responses = [response.cpu().numpy().tolist() for response in responses]
+        responses_ori_length, responses_pad_length = pad_to_tensor_dict(
+            responses,
+            pad_multi_of=args.pad_to_multiple_of
+        )
+        prompts_ori_length, prompts_pad_length = pad_to_tensor_dict(
+            idx_list, "left",
+            pad_multi_of=args.pad_to_multiple_of
+        )
 
-        responses_ori_length, responses_pad_length = pad_to_tensor_dict(responses, pad_multi_of=args.pad_to_multiple_of)
-        prompts_ori_length, prompts_pad_length = pad_to_tensor_dict(idx_list, "left", pad_multi_of=args.pad_to_multiple_of)
+        if label_list:
+            pad_to_tensor_dict(
+                label_list,
+                pad_multi_of=args.pad_to_multiple_of
+            )
 
         input_ids = [prompt + response for prompt, response in zip(idx_list, responses)]
 
@@ -304,15 +413,32 @@ class PPOActorInferWorker(BaseTrainer):
         else:
             batch_size = args.global_batch_size // args.data_parallel_size * args.n_samples_per_prompt
 
+        if label_list:
+            batch = TensorDict(
+                {
+                    "prompts": idx_list,
+                    "labels": label_list,
+                    "responses": responses,
+                    "input_ids": input_ids,
+                    "attention_mask": attention_mask,
+                    "position_ids": position_ids,
+                    "responses_ori_length": responses_ori_length
+                },
+                batch_size=batch_size
+            )
+        else:
+            batch = TensorDict(
+                {
+                    "prompts": idx_list,
+                    "responses": responses,
+                    "input_ids": input_ids,
+                    "attention_mask": attention_mask,
+                    "position_ids": position_ids,
+                    "responses_ori_length": responses_ori_length
+                },
+                batch_size=batch_size
+            )
 
-        batch = TensorDict({
-            "prompts": idx_list,
-            "responses": responses,
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "position_ids": position_ids,
-        },
-            batch_size=batch_size)
         return DataProto(batch=batch)
 
     def loss_func(self, input_tensor, output_tensor):
