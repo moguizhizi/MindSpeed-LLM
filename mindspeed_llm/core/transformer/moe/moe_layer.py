@@ -19,36 +19,38 @@ from mindspeed.core.transformer.moe.moe_layer_overlap_all2all import MoELayerOve
 def moe_layer_init_wrapper(init_func):
     @wraps(init_func)
     def moe_layer_init(*args, **kwargs):
+        moe_config = deepcopy(kwargs["config"])
+        global_args = get_args()
+        if global_args.moe_intermediate_size:
+            moe_config.ffn_hidden_size = global_args.moe_intermediate_size
+        kwargs["config"] = moe_config
+
         init_func(*args, **kwargs)
         self = args[0]
-        global_args = get_args()
 
-        if global_args.moe_intermediate_size:
-            self.config.ffn_hidden_size = global_args.moe_intermediate_size
-        
-        if self.config.moe_grouped_gemm:
-            self.experts = GroupedMLP(self.num_local_experts, self.config)
+        if moe_config.moe_grouped_gemm:
+            self.experts = GroupedMLP(self.num_local_experts, moe_config)
         else:
             assert isinstance(self.submodules, MLPSubmodules)
-            self.experts = SequentialMLP(self.num_local_experts, self.config, self.submodules)
+            self.experts = SequentialMLP(self.num_local_experts, moe_config, self.submodules)
 
         if global_args.n_shared_experts:
-            config = deepcopy(self.config)
-            config.ffn_hidden_size = global_args.n_shared_experts * self.config.ffn_hidden_size
+            shared_expert_config = deepcopy(moe_config)
+            shared_expert_config.ffn_hidden_size = global_args.n_shared_experts * moe_config.ffn_hidden_size
 
             if global_args.moe_allgather_overlap_comm or global_args.moe_alltoall_overlap_comm:
                 from mindspeed.core.transformer.moe.layers import ColumnParallelLinear, RowParallelLinear
-                self.shared_experts = MLP(config, MLPSubmodules(linear_fc1=ColumnParallelLinear,linear_fc2 = RowParallelLinear), shared_expert=True)
+                self.shared_experts = MLP(shared_expert_config, MLPSubmodules(linear_fc1=ColumnParallelLinear, linear_fc2=RowParallelLinear), shared_expert=True)
             else:
                 from megatron.core.tensor_parallel import ColumnParallelLinear, RowParallelLinear
-                self.shared_experts = MLP(config, MLPSubmodules(linear_fc1=ColumnParallelLinear,linear_fc2 = RowParallelLinear))
+                self.shared_experts = MLP(shared_expert_config, MLPSubmodules(linear_fc1=ColumnParallelLinear, linear_fc2=RowParallelLinear))
 
             # For using layer_number when recompute activation function is enabled.
             self.shared_experts.layer_number = self.layer_number
             if global_args.shared_expert_gate:
                 self.shared_expert_gate = build_module(
                     torch.nn.Linear,
-                    config.hidden_size,
+                    shared_expert_config.hidden_size,
                     global_args.shared_expert_gate_output_dimension,
                     bias=False
                 )
