@@ -21,7 +21,7 @@ MindSpeed-LLM是基于昇腾生态的大语言模型分布式训练框架，旨�
 
 ## NEWS !!! 📣📣📣
 
-🚀🚀🚀**DeepSeek-V3-671B** 模型全流程已上线！！！🚀🚀🚀
+🚀🚀🚀**DeepSeek-V3-671B** 模型全家桶已上线！！！🚀🚀🚀
 
 **数据处理：[预训练](./examples/mcore/deepseek3/data_convert_deepseek3_pretrain.sh)、
 [指令微调](./examples/mcore/deepseek3/data_convert_deepseek3_instruction.sh)**  😊
