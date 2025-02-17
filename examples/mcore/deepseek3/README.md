@@ -8,7 +8,7 @@
 
 ### 启动脚本
 
-使用DeepSeek-V3模型目录下的<a href="../../examples/mcore/deepseek3/ckpt_convert_deepseek3_hf2mcore.sh">权重转换脚本</a>。
+使用DeepSeek-V3模型目录下的<a href="../../mcore/deepseek3/ckpt_convert_deepseek3_hf2mcore.sh">权重转换脚本</a>。
 
 #### 填写相关参数
 
