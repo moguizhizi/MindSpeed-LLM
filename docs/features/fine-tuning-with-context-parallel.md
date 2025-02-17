@@ -39,7 +39,6 @@ CP切分的并行数目，要可以被序列长度整除。
 1. [**megatron_cp_algo**](https://gitee.com/ascend/MindSpeed/blob/master/docs/features/ring-attention-context-parallel.md)
 2. [**ulysses_cp_algo**](https://gitee.com/ascend/MindSpeed/blob/master/docs/features/ulysses-context-parallel.md)
 3. [**hybrid_cp_algo**](https://gitee.com/ascend/MindSpeed/blob/master/docs/features/hybrid-context-parallel.md)
-4. [**adaptive_cp_algo 和 hybrid_adaptive_cp_algo**](https://gitee.com/ascend/MindSpeed/blob/master/docs/features/adaptive-cp.md)
 
 由于在微调场景，`--cp-attention-mask-type`只能设置为`general`，当训练样本为多条短样本拼接，CP较大时，建议优先选择`adaptive_cp_algo`，
 理论上样本越短，拼接序列包含的样本数目越多，`--context-parallel-size`设置越大，性能收益越明显，但是要注意 seq-length / context-parallel-size > 8k时可以

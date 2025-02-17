@@ -241,8 +241,8 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>❌</td>
   </tr>
   <tr>
-    <td rowspan="4">长序列并行</td>
-    <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/ring-attention-context-parallel.md">Ascend Ring Attention 长序列并行</a></td>
+    <td rowspan="3">长序列并行</td>
+    <td><a href="./docs/features/ring-attention-context-parallel.md">Ascend Ring Attention 长序列并行</a></td>
     <td>✅</td>
     <td>❌</td>
   </tr>
@@ -253,11 +253,6 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/hybrid-context-parallel.md">混合长序列并行</a></td>
-    <td>✅</td>
-    <td>❌</td>
-  </tr>
-  <tr>
-    <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/adaptive-cp.md">自适应长序列并行</a></td>
     <td>✅</td>
     <td>❌</td>
   </tr>
