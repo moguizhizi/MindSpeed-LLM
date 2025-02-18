@@ -8,7 +8,6 @@ python convert_ckpt.py \
     --load-dir ./ckpt/llama2/ \
     --target-tensor-parallel-size 4 \
     --target-pipeline-parallel-size 2 \
-    --target-data-parallel-size 1 \
     --save-dir ./ckpt/llama2-7b-tp4pp2_optim_test/ \
     --use-mcore-models \
     --model-type-hf llama2

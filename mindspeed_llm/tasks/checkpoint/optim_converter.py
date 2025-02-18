@@ -543,9 +543,14 @@ class OptimConverter(abc.ABC):
             if "word embeddings" in src_data[i]:
                 out_word_embed_list = self.set_optimizer_preprocess(src_data, dst_dict, 0)
 
-            self.set_optimizer_layer_attn(src_data, dst_dict, i)
-            self.set_optimizer_layer_norm(src_data, dst_dict, i)
-            self.set_optimizer_layer_mlp(src_data, dst_dict, i)
+            flag = False
+            if len(src_data[i].keys()) > 0:
+                flag = True
+
+            if flag: 
+                self.set_optimizer_layer_attn(src_data, dst_dict, i)
+                self.set_optimizer_layer_norm(src_data, dst_dict, i)
+                self.set_optimizer_layer_mlp(src_data, dst_dict, i)
 
             if "final_layernorm_weight" in src_data[i]:
                 self.set_optimizer_postprocess(src_data, dst_dict, i, out_word_embed_list)

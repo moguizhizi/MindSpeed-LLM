@@ -13,7 +13,7 @@ MindSpeed-LLM 支持 Huggingface、Megatron-Legacy 以及 Megatron-Core 之间�
   </thead>
   <tbody>
     <tr>
-      <td rowspan="9">HuggingFace </td>
+      <td rowspan="10">HuggingFace </td>
       <td rowspan="4">Megatron-Legacy</td>
       <td>张量并行</td>
       <td>--target-tensor-parallel-size</td>
@@ -31,7 +31,7 @@ MindSpeed-LLM 支持 Huggingface、Megatron-Legacy 以及 Megatron-Core 之间�
       <td>--num-layers-per-virtual-pipeline-stage</td>
     </tr>
     <tr>
-      <td rowspan="5">Megatron-Core</td>
+      <td rowspan="6">Megatron-Core</td>
       <td>张量并行</td>
       <td>--target-tensor-parallel-size</td>
     </tr>
@@ -50,6 +50,10 @@ MindSpeed-LLM 支持 Huggingface、Megatron-Legacy 以及 Megatron-Core 之间�
     <tr>
       <td>专家并行</td>
       <td>--target-expert-model-parallel-size</td>
+    </tr>
+    <tr>
+      <td>自定义空操作层</td>
+      <td>--noop-layers</td>
     </tr>
   </tbody>
   <tbody>
@@ -124,7 +128,7 @@ MindSpeed-LLM 支持 Huggingface、Megatron-Legacy 以及 Megatron-Core 之间�
   </tbody>
   <tbody>
     <tr>
-      <td rowspan="23">Megatron-Core </td>
+      <td rowspan="26">Megatron-Core </td>
       <td rowspan="6">Huggingface</td>
       <td>张量并行</td>
       <td>--target-tensor-parallel-size</td>
@@ -167,7 +171,7 @@ MindSpeed-LLM 支持 Huggingface、Megatron-Legacy 以及 Megatron-Core 之间�
       <td>--num-layers-per-virtual-pipeline-stage</td>
     </tr>
     <tr>
-      <td rowspan="9">Megatron-Core</td>
+      <td rowspan="10">Megatron-Core</td>
       <td>张量并行</td>
       <td>--target-tensor-parallel-size</td>
     </tr>
@@ -204,7 +208,11 @@ MindSpeed-LLM 支持 Huggingface、Megatron-Legacy 以及 Megatron-Core 之间�
       <td>--lora-alpha</td>
     </tr>
     <tr>
-      <td rowspan="4">distributed-optimizer</td>
+      <td>自定义空操作层</td>
+      <td>--noop-layers</td>
+    </tr>
+    <tr>
+      <td rowspan="6">distributed-optimizer</td>
       <td>张量并行</td>
       <td>--target-tensor-parallel-size</td>
     </tr>
@@ -219,6 +227,14 @@ MindSpeed-LLM 支持 Huggingface、Megatron-Legacy 以及 Megatron-Core 之间�
     <tr>
       <td>虚拟流水并行</td>
       <td>--num-layers-per-virtual-pipeline-stage</td>
+    </tr>
+    <tr>
+      <td>流水并行动态划分</td>
+      <td>--target-expert-model-parallel-size</td>
+    </tr>
+    <tr>
+      <td>自定义空操作层</td>
+      <td>--noop-layers</td>
     </tr>
   </tbody>
 </table>
@@ -301,6 +317,11 @@ python convert_ckpt.py \
     <tr>
       <td>--target-expert-model-parallel-size</td>
       <td>专家并行，指定专家并行卡数，默认为1</td>
+      <td>可选</td>
+    </tr>
+    <tr>
+      <td>--noop-layers</td>
+      <td>自定义空层操作，指定在模型某层增加空层，转换后层数为原huggingface模型层数+空层数，默认为None</td>
       <td>可选</td>
     </tr>
     <tr>
@@ -462,6 +483,16 @@ python convert_ckpt.py \
     <tr>
       <td>--save-to-legacy</td>
       <td>mcore转legacy时设置此参数以指定保存权重格式为legacy</td>
+      <td>可选</td>
+    </tr>
+    <tr>
+      <td>--noop-layers</td>
+      <td>自定义空层操作，权重转换当前只支持mcore-mcore、hf-mcore、优化器权重转换，在mcore-mcore时，空层参数不能更改，只能更改并行方式，同时需要设置参数--load-checkpoint-loosely</td>
+      <td>可选</td>
+    </tr>
+    <tr>
+      <td>--load-checkpoint-loosely</td>
+      <td>允许松弛加载，在带有空层的mcore-mcore权重转换时，需要设置此参数</td>
       <td>可选</td>
     </tr>
   </tbody>
@@ -665,6 +696,9 @@ lora参数值需与lora微调时的参数保持一致,且lora权重的切分方�
 
 完成上述步骤后，可以执行优化器权重转换。此时，指定 `--load-model-type optim` 参数来加载优化器权重，并进行转换。
 
+注意：并行配置如：TP、PP、EP、VPP、num-layer-list、noop-layers等参数需要与mcore-mcore权重转换脚本相同。
+
+
 ```
 python convert_ckpt.py
 --model-type GPT
@@ -672,23 +706,40 @@ python convert_ckpt.py
 --load-dir ./ckpt/llama2-7b-tp2pp4
 --target-tensor-parallel-size 4
 --target-pipeline-parallel-size 2
---target-data-parallel-size 1
 --save-dir ./ckpt/llama2-7b-tp4pp2-optim
 --use-mcore-models
 --model-type-hf llama2
 ```
 
-【--save-dir】
 
-权重保存路径，需要与`mg-mg`转换时的保存路径一致
+<table>
+  <thead>
+    <tr>
+      <th>参数</th>
+      <th>说明</th>
+      <th>可选/必选</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>--save-dir</td>
+      <td>权重保存路径，需要与`mg-mg`转换时的保存路径一致</td>
+      <td>必选</td>
+    </tr>
+    <tr>
+      <td>--load-model-type</td>
+      <td>指定加载模型的方式。对于优化器权重转换，必须设置参数值为`optim`</td>
+      <td>必选</td>
+    </tr>
+    <tr>
+      <td>--moe-grouped-gemm</td>
+      <td>对于moe模型，如果在预训练脚本和mcore-mcore权重转换脚本中加入此参数`--moe-grouped-gemm` ，则在优化器权重转换脚本中，也需要加入该参数。</td>
+      <td>可选</td>
+    </tr>
+  </tbody>
+</table>
 
-【--load-model-type】
 
-指定加载模型的方式。对于优化器权重转换，必须设置参数值为`optim`
-
-【--moe-grouped-gemm】
-
-对于moe模型，如果在预训练脚本中加入此参数`--moe-grouped-gemm` ，则在优化器权重转换脚本中，也需要加入该参数。
 
 转换脚本命名风格及启动方法为：
 
@@ -697,4 +748,10 @@ python convert_ckpt.py
 bash examples/mcore/llama2/ckpt_convert_llama2_optim.sh
 ```
 
-**注意**：优化器权重转换当前只验证过模型llama2-7b和deepseek-lite
+**注意**：
+
+优化器权重转换当前只验证过模型：
+
+llama2-7b支持TP、PP、EP、VPP、DPP、noop-layers；
+
+deepseek-lite支持PP、EP、DPP、noop-layers。

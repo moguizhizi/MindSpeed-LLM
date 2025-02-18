@@ -10,7 +10,6 @@ python convert_ckpt.py \
     --target-tensor-parallel-size 1 \
     --target-pipeline-parallel-size 4 \
     --target-expert-parallel-size 2 \
-    --target-data-parallel-size 1 \
     --moe-grouped-gemm \
     --spec mindspeed_llm.tasks.models.spec.deepseek_spec layer_spec \
     --load-dir /data/optim_ckpt/deepseek-lite-tp1pp2ep4/ \

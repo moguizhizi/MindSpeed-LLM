@@ -158,6 +158,7 @@ def _load_checkpoint(model_provider, args):
     src_optim_processor = get_optim_processor(src_margs, 'source')
     src_optim_processor.create_param_index_maps_for_checkpoints()
     src_optim_processor.split_optimizer_ckpt()
+    dst_margs.num_layer_list = args.num_layer_list
 
     dst_optim_processor = get_optim_processor(dst_margs, 'target')
 

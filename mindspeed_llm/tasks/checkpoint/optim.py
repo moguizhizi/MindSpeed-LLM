@@ -38,7 +38,10 @@ class OptimBaseProcessor(abc.ABC):
         self.optimizer_paths = None
         if self.num_layers % self.pp_size != 0:
             raise ValueError('number of layers should be divisible by the pipeline parallel size')
-        self.num_layer_list = [self.num_layers // self.pp_size] * self.pp_size
+        if args.num_layer_list is not None:
+            self.num_layer_list = [int(x) for x in args.num_layer_list.split(',')]
+        else:
+            self.num_layer_list = [self.num_layers // self.pp_size] * self.pp_size    
         self.pprank_to_layer = {}
         self.layer_to_pprank = {}
         self.__calc_pprank_layeridxs()
