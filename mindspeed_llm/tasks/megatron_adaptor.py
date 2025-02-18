@@ -519,6 +519,7 @@ class CoreAdaptation(MegatronAdaptationABC):
         # MTP need extra token
         from ..core.datasets.gpt_dataset import (
             gpt_dataset_init_wrapper,
+            gpt_dataset_getitem_wrapper,
             _query_document_sample_shuffle_indices,
             _get_num_tokens_per_epoch,
             _get_num_epochs,
@@ -526,6 +527,8 @@ class CoreAdaptation(MegatronAdaptationABC):
         )
         MegatronAdaptation.register('megatron.core.datasets.gpt_dataset.GPTDataset.__init__',
                                     gpt_dataset_init_wrapper)
+        MegatronAdaptation.register('megatron.core.datasets.gpt_dataset.GPTDataset.__getitem__',
+                                    gpt_dataset_getitem_wrapper)
         MegatronAdaptation.register(
             'megatron.core.datasets.gpt_dataset.GPTDataset._query_document_sample_shuffle_indices',
             _query_document_sample_shuffle_indices)

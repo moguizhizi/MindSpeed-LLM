@@ -20,6 +20,7 @@ import random
 from functools import wraps
 from typing import Optional, Union, List
 
+from itertools import takewhile
 import torch
 import torch_npu
 from torch import distributed as dist
@@ -250,13 +251,36 @@ def get_batch_on_this_tp_rank(data_iterator):
         else:
             data = None
 
-        batch = {
-            'tokens': data["tokens"].cuda(non_blocking=True),
-            'labels': data["labels"].cuda(non_blocking=True),
-            'loss_mask': data["loss_mask"].cuda(non_blocking=True),
-            'attention_mask': None if "attention_mask" not in data else data["attention_mask"].cuda(non_blocking=True),
-            'position_ids': data["position_ids"].cuda(non_blocking=True)
-        }
+        if args.return_document_ids and mpu.get_context_parallel_rank() == 0 and mpu.get_pipeline_model_parallel_rank() == 0:
+            document_ids = [
+                [x.item() for x in takewhile(lambda y: y.item() != -100, row)]
+                for row in data['document_ids']
+            ]
+            data_idx = [
+                [x.item() for x in takewhile(lambda y: y.item() != -100, row)]
+                for row in data['idx']
+            ]
+
+            data.pop("document_ids", None)
+            data.pop("idx", None)
+
+            batch = {
+                'tokens': data["tokens"].cuda(non_blocking=True),
+                'labels': data["labels"].cuda(non_blocking=True),
+                'loss_mask': data["loss_mask"].cuda(non_blocking=True),
+                'attention_mask': None if "attention_mask" not in data else data["attention_mask"].cuda(non_blocking=True),
+                'position_ids': data["position_ids"].cuda(non_blocking=True),
+                'document_ids': document_ids,
+                'idx': data_idx
+            }
+        else:
+            batch = {
+                'tokens': data["tokens"].cuda(non_blocking=True),
+                'labels': data["labels"].cuda(non_blocking=True),
+                'loss_mask': data["loss_mask"].cuda(non_blocking=True),
+                'attention_mask': None if "attention_mask" not in data else data["attention_mask"].cuda(non_blocking=True),
+                'position_ids': data["position_ids"].cuda(non_blocking=True)
+            }
         if args.pipeline_model_parallel_size == 1:
             _broadcast(batch['tokens'])
             _broadcast(batch['labels'])

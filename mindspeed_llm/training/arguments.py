@@ -814,6 +814,8 @@ def _add_training_args(parser):
                        help='Enable loading checkpoint not strictly.')
     group.add_argument('--no-post-layer-norm', action='store_true', default=False,
                        help='Disable final layer norm.')
+    group.add_argument('--return-document-ids', action='store_true', default=False,
+                       help='Return document ids when get batch.')
     return parser
 
 

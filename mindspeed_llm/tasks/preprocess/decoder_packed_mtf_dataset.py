@@ -23,7 +23,7 @@ import numpy as np
 import torch
 
 from megatron.training import print_rank_0, get_args
-from megatron.core import parallel_state
+from megatron.core import parallel_state, mpu
 from megatron.legacy.data.dataset_utils import get_train_valid_test_split_
 from mindspeed_llm.training.tokenizer import build_tokenizer
 from mindspeed_llm.tasks.utils.error_utils import check_equal
@@ -135,7 +135,9 @@ class DecoderPackedMTFDataset(torch.utils.data.Dataset):
         self.seq_length = seq_length
         self.eos_token = eos_token
         self.shuffle_index = _build_index_mappings(name=name, data_prefix=data_prefix, start_index=documents[0], nb_documents=len(documents), mtf_dataset=self.mtf_dataset, num_samples=num_samples, 
-                                                    seq_length=seq_length, seed=seed, shuffle=not self.args.no_shuffle)
+                                                    seq_length=seq_length, seed=seed)
+        self.cur_batch_index = []
+        self.iteration = 1
 
 
     def __len__(self):
@@ -166,6 +168,19 @@ class DecoderPackedMTFDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         doc_idx = self.shuffle_index[idx]
+        if self.args.no_shuffle:
+            doc_idx = idx % len(self.mtf_dataset)
+
+        # Consistent with pre-training
+        if self.args.return_document_ids and mpu.get_tensor_model_parallel_rank() == 0 and mpu.get_pipeline_model_parallel_rank() == 0 and mpu.get_context_parallel_rank() == 0:
+            self.cur_batch_index.append(doc_idx)
+            # No reward model is considered yet
+            # Print all data one iteration at a time
+            if len(self.cur_batch_index) == self.args.global_batch_size / self.args.data_parallel_size:
+                print("current iteration: {}, current rank:{}, data_parallel_rank:{}, document_ids:{}".format(self.iteration, torch.distributed.get_rank(), mpu.get_data_parallel_rank(), self.cur_batch_index))
+                self.cur_batch_index = []
+                self.iteration += 1
+
         item = self.mtf_dataset[doc_idx]
 
         if self.args.is_pairwise_dataset:
@@ -345,8 +360,7 @@ def _build_index_mappings(
     mtf_dataset,
     num_samples: int,
     seq_length: int,
-    seed,
-    shuffle=True
+    seed
 ):
     """
     - `shuffle_index` is [num_epoch * len(self.mtf)]
@@ -377,10 +391,7 @@ def _build_index_mappings(
             epoch = 0
             shuffle_idx = []
             while len(shuffle_idx) < num_samples:
-                if shuffle:
-                    new_document_ids = _build_shuffle_idx(nb_documents=nb_documents, start_index=start_index, np_rng=np_rng)
-                else:
-                    new_document_ids = _build_sequential_idx(nb_documents=nb_documents, start_index=start_index)
+                new_document_ids = _build_shuffle_idx(nb_documents=nb_documents, start_index=start_index, np_rng=np_rng)
                 shuffle_idx.extend(new_document_ids.tolist())
                 epoch += 1
 
