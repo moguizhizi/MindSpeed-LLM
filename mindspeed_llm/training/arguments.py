@@ -156,6 +156,8 @@ def _add_mtp_args(parser):
     group.add_argument('--mtp-loss-scale', type=float, default=0.3, help='Multi-Token prediction loss scale')
     group.add_argument('--recompute-mtp-norm', action='store_true', default=False,
                        help='Multi-Token prediction recompute norm')
+    group.add_argument('--recompute-mtp-layer', action='store_true', default=False,
+                       help='Multi-Token prediction recompute layer')
     group.add_argument('--share-mtp-embedding-and-output-weight', action='store_true', default=False,
                        help='Main model share embedding and output weight with mtp layer.')
     return parser

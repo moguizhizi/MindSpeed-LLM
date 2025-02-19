@@ -294,10 +294,12 @@ def get_batch_on_this_tp_rank(data_iterator):
             _broadcast(batch['position_ids'])
 
         elif mpu.is_pipeline_last_stage():
+            if args.num_nextn_predict_layers:
+                _broadcast(batch['tokens'])
             _broadcast(batch['labels'])
             _broadcast(batch['loss_mask'])
             _broadcast(batch['attention_mask'])
-            if args.reset_position_ids:
+            if args.reset_position_ids or args.num_nextn_predict_layers:
                 _broadcast(batch['position_ids'])
         else:
             _broadcast(batch['attention_mask'])
@@ -306,20 +308,25 @@ def get_batch_on_this_tp_rank(data_iterator):
 
     else:
 
-        tokens = torch.empty((args.micro_batch_size, args.seq_length), dtype=torch.int64,
+        tokens = torch.empty((args.micro_batch_size, args.seq_length + args.num_nextn_predict_layers),
+                             dtype=torch.int64,
                              device=torch.cuda.current_device())
-        labels = torch.empty((args.micro_batch_size, args.seq_length), dtype=torch.int64,
+        labels = torch.empty((args.micro_batch_size, args.seq_length + args.num_nextn_predict_layers),
+                             dtype=torch.int64,
                              device=torch.cuda.current_device())
-        loss_mask = torch.empty((args.micro_batch_size, args.seq_length), dtype=torch.float32,
+        loss_mask = torch.empty((args.micro_batch_size, args.seq_length + args.num_nextn_predict_layers),
+                                dtype=torch.float32,
                                 device=torch.cuda.current_device())
         if args.create_attention_mask_in_dataloader:
             attention_mask = torch.empty(
-                (args.micro_batch_size, 1, args.seq_length, args.seq_length), dtype=torch.bool,
+                (args.micro_batch_size, 1, args.seq_length + args.num_nextn_predict_layers,
+                 args.seq_length + args.num_nextn_predict_layers), dtype=torch.bool,
                 device=torch.cuda.current_device()
             )
         else:
             attention_mask = None
-        position_ids = torch.empty((args.micro_batch_size, args.seq_length), dtype=torch.int64,
+        position_ids = torch.empty((args.micro_batch_size, args.seq_length + args.num_nextn_predict_layers),
+                                   dtype=torch.int64,
                                    device=torch.cuda.current_device())
 
         if args.pipeline_model_parallel_size == 1:
@@ -337,11 +344,14 @@ def get_batch_on_this_tp_rank(data_iterator):
             _broadcast(position_ids)
 
         elif mpu.is_pipeline_last_stage():
-            tokens = None
+            if args.num_nextn_predict_layers:
+                _broadcast(tokens)
+            else:
+                tokens = None
             _broadcast(labels)
             _broadcast(loss_mask)
             _broadcast(attention_mask)
-            if args.reset_position_ids:
+            if args.reset_position_ids or args.num_nextn_predict_layers:
                 _broadcast(position_ids)
             else:
                 position_ids = None
@@ -511,26 +521,27 @@ def _get_batch_on_this_cp_rank_in_megatron_cp_general(batch):
 
 def tensor_slide(
         tensor: Optional[torch.Tensor],
-        window_size: int = None,
+        slice_num: int,
         dims: Union[int, List[int]] = -1,
-        step: int = 1
+        step: int = 1,
+        return_first=False,
 ) -> List[Union[torch.Tensor, None]]:
-    """slide window slice for n-D tensor"""
+    """通用滑动窗口函数，支持任意维度"""
     if tensor is None:
         # return `List[None]` to avoid NoneType Error
-        return [None]
-
-    if window_size is None:
-        window_size = tensor.shape[-1]
-    if window_size == tensor.shape[-1]:
+        return [None] * (slice_num + 1)
+    if slice_num == 0:
         return [tensor]
-
+    window_size = tensor.shape[-1] - slice_num
     dims = [dims] if isinstance(dims, int) else sorted(dims, reverse=True)
 
+    # 连续多维度滑动
     slices = []
     for i in range(0, tensor.size(dims[-1]) - window_size + 1, step):
         slice_obj = [slice(None)] * tensor.dim()
         for dim in dims:
             slice_obj[dim] = slice(i, i + window_size)
-        slices.append(tensor[tuple(slice_obj)].clone())
+        slices.append(tensor[tuple(slice_obj)])
+        if return_first:
+            return slices
     return slices

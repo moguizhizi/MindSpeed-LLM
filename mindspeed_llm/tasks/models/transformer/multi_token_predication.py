@@ -74,6 +74,7 @@ class MultiTokenPredication(MegatronModule):
         # share with main model
         self.share_mtp_embedding_and_output_weight = share_mtp_embedding_and_output_weight
         self.recompute_layer_norm = args.recompute_mtp_norm
+        self.recompute_mtp_layer = args.recompute_mtp_layer
 
         self.embedding = LanguageModelEmbedding(
             config=self.config,
@@ -243,14 +244,32 @@ class MultiTokenPredication(MegatronModule):
             hidden_states.register_hook(self.hnorm_ckpt.recompute)
         # hidden_states -> [s, b, h]
         hidden_states, _ = self.eh_proj(hidden_states)
-        hidden_states, _ = self.transformer_layer(
-            hidden_states=hidden_states,
-            attention_mask=attention_mask,
-            rotary_pos_emb=rotary_pos_emb,
-            inference_params=inference_params,
-            packed_seq_params=packed_seq_params,
-            **(extra_block_kwargs or {}),
-        )
+
+        if self.config.tensor_model_parallel_size > 1:
+            hidden_states = tensor_parallel.gather_from_tensor_model_parallel_region(hidden_states)
+            if self.config.sequence_parallel:
+                hidden_states = tensor_parallel.scatter_to_sequence_parallel_region(hidden_states)
+        if self.recompute_mtp_layer:
+            hidden_states, context = tensor_parallel.checkpoint(
+                self.transformer_layer,
+                self.config.distribute_saved_activations,
+                hidden_states,
+                attention_mask,
+                None,
+                None,
+                rotary_pos_emb,
+                inference_params,
+                packed_seq_params,
+            )
+        else:
+            hidden_states, _ = self.transformer_layer(
+                hidden_states=hidden_states,
+                attention_mask=attention_mask,
+                rotary_pos_emb=rotary_pos_emb,
+                inference_params=inference_params,
+                packed_seq_params=packed_seq_params,
+                **(extra_block_kwargs or {}),
+            )
 
         # Final layer norm.
         if self.final_layernorm is not None:

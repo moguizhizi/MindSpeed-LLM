@@ -21,16 +21,6 @@ from .blended_megatron_dataset_builder import need_to_build_dataset
 logger = logging.getLogger(__name__)
 
 
-def gpt_dataset_init_wrapper(fn):
-    @wraps(fn)
-    def wrapper(self, *args, **kwargs):
-        # Adapt to MTP
-        _args = get_args()
-        self.num_nextn_predict_layers = _args.num_nextn_predict_layers
-        fn(self, *args, **kwargs)
-
-    return wrapper
-
 def gpt_dataset_getitem_wrapper(fn):
     @wraps(fn)
     def wrapper(self, idx):
@@ -53,84 +43,6 @@ def gpt_dataset_getitem_wrapper(fn):
         return batch
 
     return wrapper
-
-
-def _query_document_sample_shuffle_indices(
-    self, idx: int
-) -> Tuple[numpy.ndarray, numpy.ndarray]:
-    """Get the text (token ids) and document ids for a given index
-
-    Args:
-        idx (int): The index into the dataset
-
-    Returns:
-        Tuple[numpy.ndarray, numpy.ndarray]: The text ids and document ids
-    """
-    # Do the shuffle mapping
-    idx = self.shuffle_index[idx]
-
-    # Get the beginning and end documents and offsets
-    doc_index_beg, doc_index_beg_offset = self.sample_index[idx]
-    doc_index_end, doc_index_end_offset = self.sample_index[idx + 1]
-
-    document_ids = []
-    sample_parts = []
-
-    # Sample spans a single document
-    if doc_index_beg == doc_index_end:
-        # Add the document id
-        document_ids.append(self.document_index[doc_index_beg])
-
-        # Add the entire sample
-        # Adapt to MTP
-        sample_parts.append(
-            self.dataset.get(
-                self.document_index[doc_index_beg],
-                offset=doc_index_beg_offset,
-                length=doc_index_end_offset
-                - doc_index_beg_offset
-                + self.config.add_extra_token_to_sequence + self.num_nextn_predict_layers,
-            )
-        )
-
-    # Sample spans multiple documents
-    else:
-        for i in range(doc_index_beg, doc_index_end + 1):
-            # Add the document id
-            document_ids.append(self.document_index[i])
-
-            # Add the sample part
-            offset = 0 if i > doc_index_beg else doc_index_beg_offset
-            # Adapt to MTP
-            length = (
-                None
-                if i < doc_index_end
-                else doc_index_end_offset + self.config.add_extra_token_to_sequence + self.num_nextn_predict_layers
-            )
-            sample_parts.append(
-                self.dataset.get(self.document_index[i], offset=offset, length=length)
-            )
-    assert len(document_ids) == len(
-        sample_parts
-    ), f"len(document_ids) ({len(document_ids)}) != len(sample_parts) ({len(sample_parts)})"
-
-    length = sum(map(len, sample_parts))
-
-    # Pad the sample if necessary
-    # Adapt to MTP
-    if length < (
-            self.config.sequence_length + self.config.add_extra_token_to_sequence + self.num_nextn_predict_layers):
-        sample_parts.append(
-            [self._pad_token_id]
-            * (
-                        self.config.sequence_length + self.config.add_extra_token_to_sequence +
-                        self.num_nextn_predict_layers - length)
-        )
-
-    return (
-        numpy.concatenate(sample_parts, dtype=numpy.int64),
-        numpy.array(document_ids, dtype=numpy.int64),
-    )
 
 
 def _build_document_sample_shuffle_indices(
@@ -206,16 +118,13 @@ def _build_document_sample_shuffle_indices(
             separate_final_epoch = False
         else:
             # Get the number of samples for the last epoch
-            # Adapt to MTP
             num_samples_sans_final_epoch = (
                                                    (num_epochs - 1) * num_tokens_per_epoch
                                                    - self.config.add_extra_token_to_sequence
-                                                   - self.num_nextn_predict_layers
                                            ) // sequence_length
             num_samples_from_final_epoch = self.num_samples - num_samples_sans_final_epoch
             num_samples_per_epoch = (
                                             num_tokens_per_epoch - self.config.add_extra_token_to_sequence
-                                            - self.num_nextn_predict_layers
                                     ) // sequence_length
 
             # num_samples_from_final_epoch should be non-negative
@@ -273,7 +182,6 @@ def _build_document_sample_shuffle_indices(
             sequence_lengths_for_cpp = self.dataset.sequence_lengths.copy()
         else:
             sequence_lengths_for_cpp = self.dataset.sequence_lengths
-        # Adapt to MTP
         sample_index = helpers.build_sample_idx(
             sequence_lengths_for_cpp,
             document_index,
@@ -281,7 +189,7 @@ def _build_document_sample_shuffle_indices(
             num_epochs,
             num_tokens_per_epoch,
             drop_last_partial_sequence,
-            self.config.add_extra_token_to_sequence + self.num_nextn_predict_layers,
+            self.config.add_extra_token_to_sequence,
         )
 
         if any(sample_index[:, 0] < 0):
@@ -368,39 +276,6 @@ def _build_document_sample_shuffle_indices(
     return document_index, sample_index, shuffle_index
 
 
-def _get_num_tokens_per_epoch(self) -> int:
-    """Calculate the number of tokens in a single epoch
-
-    Returns:
-        int: The number of tokens in a single epoch
-    """
-    return int(numpy.sum(self.dataset.sequence_lengths[self.indices])) + self.num_nextn_predict_layers
-
-
-def _get_num_epochs(self, num_tokens_per_epoch: int) -> int:
-    """Calculate the number of epochs
-
-    Args:
-        num_tokens_per_epoch (int): The number of tokens in a single epoch
-
-    Returns:
-        int: The number of epochs
-    """
-    num_epochs = 1
-    num_tokens = num_tokens_per_epoch
-    if self.num_samples is None:
-        return num_epochs
-    else:
-        # Adapt to MTP
-        num_tokens_requested = (
-            self.num_samples * self.config.sequence_length
-        ) + self.config.add_extra_token_to_sequence + self.num_nextn_predict_layers
-        while num_tokens < num_tokens_requested:
-            num_epochs += 1
-            num_tokens += num_tokens_per_epoch
-    return num_epochs
-
-
 def _get_ltor_masks_and_position_ids(
     data: torch.Tensor,
     eod_token: int,
@@ -432,7 +307,7 @@ def _get_ltor_masks_and_position_ids(
         torch.Tensor: The position ID's of the token
     """
     args = get_args()
-    seq_length = data.numel() - args.num_nextn_predict_layers
+    seq_length = data.numel()
 
     if create_attention_mask:
         attention_mask = torch.tril(

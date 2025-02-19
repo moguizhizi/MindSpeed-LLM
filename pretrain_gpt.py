@@ -124,14 +124,14 @@ def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
     args = get_args()
 
     losses = output_tensor.float()
+    if args.num_nextn_predict_layers > 0:
+        loss_mask = tensor_slide(loss_mask, args.num_nextn_predict_layers, return_first=True)[0]
     loss_mask = loss_mask.view(-1).float()
     if args.context_parallel_size > 1:
         loss = torch.cat([torch.sum(losses.view(-1) * loss_mask).view(1), loss_mask.sum().view(1)])
         torch.distributed.all_reduce(loss, group=mpu.get_context_parallel_group())
         loss = loss[0] / loss[1]
     else:
-        if args.num_nextn_predict_layers > 0:
-            loss_mask = tensor_slide(loss_mask, loss_mask.shape[-1] - args.num_nextn_predict_layers)[0]
         loss = torch.sum(losses.view(-1) * loss_mask) / loss_mask.sum()
 
     # Check individual rank losses are not NaN prior to DP all-reduce.
@@ -178,7 +178,7 @@ def core_gpt_dataset_config_from_args(args):
 
     return GPTDatasetConfig(
         random_seed=args.seed,
-        sequence_length=args.seq_length,
+        sequence_length=args.seq_length + args.num_nextn_predict_layers,
         blend=get_blend_from_list(args.data_path),
         blend_per_split=[
             get_blend_from_list(args.train_data_path),

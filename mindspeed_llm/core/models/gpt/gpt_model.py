@@ -310,26 +310,35 @@ def inputs_slice(slice_num, input_ids, labels, position_ids, attention_mask):
             [attention_mask],
         )
 
-    window_size = input_ids.shape[-1] - slice_num
     return (
-        tensor_slide(input_ids, window_size),
-        tensor_slide(labels, window_size),
-        generate_nextn_position_ids(position_ids, window_size),
+        tensor_slide(input_ids, slice_num),
+        tensor_slide(labels, slice_num),
+        generate_nextn_position_ids(position_ids, slice_num),
         # not compatible with ppo attn_mask
-        tensor_slide(attention_mask, window_size, dims=[-2, -1]),
+        tensor_slide(attention_mask, slice_num, dims=[-2, -1]),
     )
 
 
-def generate_nextn_position_ids(tensor, window_size):
-    slides = tensor_slide(tensor, window_size)
+def generate_nextn_position_ids(tensor, slice_num):
+    slides = tensor_slide(tensor, slice_num)
+    if slides[0] is None:
+        return slides
 
     for idx in range(1, len(slides)):
-        for i in range(slides[idx].size(0)):
-            row = slides[idx][i]
-            zero_mask = (row == 0)
-            if zero_mask.any():
-                first_zero_idx = torch.argmax(zero_mask.int()).item()
-                slides[idx][i, :first_zero_idx] = torch.arange(first_zero_idx)
-            else:
-                slides[idx] = slides[idx] - idx
+        slides[idx] = regenerate_position_ids(slides[idx], idx)
     return slides
+
+
+def regenerate_position_ids(tensor, offset):
+    if tensor is None:
+        return None
+    tensor = tensor.clone()
+    for i in range(tensor.size(0)):
+        row = tensor[i]
+        zero_mask = (row == 0)
+        if zero_mask.any():
+            first_zero_idx = torch.argmax(zero_mask.int()).item()
+            tensor[i, :first_zero_idx] = torch.arange(first_zero_idx)
+        else:
+            tensor = tensor - offset
+    return tensor
