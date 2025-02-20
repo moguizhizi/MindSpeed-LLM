@@ -130,6 +130,12 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
 
 ## 训练方案与特性
 
+MindSpeed-LLM包含分布式预训练、分布式微调、分布式偏好对齐等训练方案。
+
+- legacy是megatron早期方案，与新的mcore方案在代码设计上存在差异，legacy方案不支持moe模型以及长序列CP切分方案，我们建议优先使用mcore方案。
+
+- Released表示是否商用发布，未商用发布特性处于内部开发状态，不推荐开发者使用。
+
 ### 分布式预训练
 
 基于MindSpeed-LLM的实测预训练性能如下：
@@ -188,6 +194,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
       <th>方案类别</th>
       <th>Legacy</th>
       <th>Mcore</th>
+      <th>Released</th>
       <th>贡献方</th>
     </tr>
   </thead>
@@ -196,17 +203,18 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
       <td><a href="./docs/features/pretrain.md">样本拼接</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
       <td rowspan="2">【Ascend】</td>
     </tr>
     <tr>
-      <td><a href="./docs/features/pretrain_eod.md">样本pack</a>
-      </td>
-     <td>✅</td>
+      <td><a href="./docs/features/pretrain_eod.md">样本pack</a></td>
       <td>✅</td>
+      <td>✅</td>
+      <td>❌</td>
 </tr>
   </tbody>
 </table>
-注：legacy是megatron早期方案，与新的mcore方案在代码设计上存在差异，legacy方案不支持moe模型以及长序列CP切分方案，我们建议优先使用mcore方案。
+
 
 #### 加速特性
 
@@ -216,6 +224,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <th>特性名称</th>
     <th>Mcore</th>
     <th>Legacy</th>
+    <th>Released</th>
     <th>贡献方</th>
   </tr></thead>
 <tbody>
@@ -224,10 +233,12 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/tensor-parallel.md">张量并行</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>✅</td>
     <td rowspan="28">【Ascend】</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/pipeline-parallel.md">流水线并行</a></td>
+    <td>✅</td>
     <td>✅</td>
     <td>✅</td>
   </tr>
@@ -235,9 +246,11 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="./docs/features/virtual_pipeline_parallel.md">虚拟流水并行</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/sequence-parallel.md">序列并行</a></td>
+    <td>✅</td>
     <td>✅</td>
     <td>✅</td>
   </tr>
@@ -245,37 +258,44 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/noop-layers.md">Noop Layers</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td rowspan="3">长序列并行</td>
     <td><a href="./docs/features/ring-attention-context-parallel.md">Ascend Ring Attention 长序列并行</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/ulysses-context-parallel.md">Ulysses 长序列并行</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/hybrid-context-parallel.md">混合长序列并行</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td rowspan="2">MOE</td>
     <td><a href="https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/transformer/moe/README.md">MOE 专家并行</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/megatron_moe/megatron-moe-allgather-dispatcher.md">MOE 重排通信优化</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td rowspan="5">显存优化</td>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/reuse-fp32-param.md">参数副本复用</a></td>
+    <td>✅</td>
     <td>✅</td>
     <td>✅</td>
   </tr>
@@ -283,9 +303,11 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/distributed-optimizer.md">分布式优化器</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/swap_attention.md">Swap Attention</a></td>
+    <td>✅</td>
     <td>✅</td>
     <td>✅</td>
   </tr>
@@ -293,10 +315,12 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="./docs/features/recompute_relative.md">重计算</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="./docs/features/o2.md">O2 BF16 Optimizer</a></td>
     <td>✅</td>
+    <td>❌</td>
     <td>❌</td>
   </tr>
   <tr>
@@ -304,14 +328,17 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/flash-attention.md">Flash attention</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="./docs/features/variable_length_flash_attention.md">Flash attention variable length</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/rms_norm.md">Fused rmsnorm</a></td>
+    <td>✅</td>
     <td>✅</td>
     <td>✅</td>
   </tr>
@@ -319,9 +346,11 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/swiglu.md">Fused swiglu</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/rotary-embedding.md">Fused rotary position embedding</a></td>
+    <td>✅</td>
     <td>✅</td>
     <td>✅</td>
   </tr>
@@ -329,15 +358,18 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/megatron_moe/megatron-moe-gmm.md">GMM</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/npu_matmul_add.md">Matmul Add</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td rowspan="5">通信掩盖</td>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/async-ddp-param-gather.md">梯度reduce通算掩盖</a></td>
+    <td>✅</td>
     <td>✅</td>
     <td>✅</td>
   </tr>
@@ -345,21 +377,25 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/recompute_independent_pipelining.md">Recompute in advance</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/async-ddp-param-gather.md">权重all-gather通算掩盖</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
   </tr>
   <tr>
     <td><a href="./docs/features/mc2.md">MC2</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>❌</td>
   </tr>
   <tr>
     <td><a href="./docs/features/communication-over-computation.md">CoC</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>❌</td>
   </tr>
 </tbody></table>
 
@@ -427,11 +463,13 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <th>Legacy</th>
     <th><a href="./docs/features/lora_finetune.md">LoRA</a></th>
     <th><a href="./docs/features/qlora.md">QLoRA</a></th>
+    <th>Released</th>
     <th>贡献方</th>
   </tr></thead>
 <tbody>
   <tr>
     <td><a href="./docs/features/instruction_finetune.md">单样本微调</td>
+    <td>✅</td>
     <td>✅</td>
     <td>✅</td>
     <td>✅</td>
@@ -444,6 +482,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>✅</td>
     <td>❌</td>
+    <td>❌</td>
     <td>【NAIE】</td>
   </tr>
     <tr>
@@ -452,9 +491,11 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>✅</td>
     <td>❌</td>
+    <td>❌</td>
     <td>【Ascend】</td>
   </tr>  
 </tbody></table>
+
 
 #### 加速特性
 
@@ -464,6 +505,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <th>特性</th>
     <th>Mcore</th>
     <th>Legacy</th>
+    <th>Released</th>
     <th>贡献方</th>
   </tr></thead>
 <tbody>
@@ -472,10 +514,12 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="./docs/features/cc_lora.md">CCLoRA</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>✅</td>
     <td>【Ascend】</td>
   </tr>
   <tr>
     <td><a href="./docs/features/fused_mlp.md">Fused_MLP</a></td>
+    <td>✅</td>
     <td>✅</td>
     <td>✅</td>
     <td>【Ascend】</td>
@@ -485,10 +529,12 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="./docs/features/cc_lora.md">CCLoRA</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
     <td>【NAIE】</td>
   </tr>
   <tr>
     <td><a href="./docs/features/fused_mlp.md">Fused_MLP</a></td>
+    <td>❌</td>
     <td>❌</td>
     <td>❌</td>
     <td>【NAIE】</td>
@@ -498,9 +544,12 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="./docs/features/fine-tuning-with-context-parallel.md">长序列CP方案</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>❌</td>
     <td>【Ascend】</td>
   </tr>
 </tbody></table>
+
+
 
 ### 分布式偏好对齐
 
@@ -543,6 +592,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
   </tr>
 </table>
 
+
 #### 偏好对齐方案
 
 <table><thead>
@@ -553,6 +603,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <th>Legacy</th>
     <th><a href="./docs/features/lora_finetune.md">LoRA</a></th>
     <th><a href="./docs/features/qlora.md">QLoRA</a></th>
+    <th>Released</th>
     <th>贡献方</th>
   </tr></thead>
 <tbody>
@@ -563,6 +614,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>❌</td>
     <td>✅</td>
     <td>❌</td>
+    <td>❌</td>
     <td>【NAIE】</td>
   </tr>
   <tr>
@@ -570,6 +622,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>❌</td>
     <td>✅</td>
+    <td>❌</td>
     <td>❌</td>
     <td>【China Mobile Cloud】</td>
   </tr>
@@ -580,6 +633,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>❌</td>
     <td>✅</td>
     <td>❌</td>
+    <td>❌</td>
     <td rowspan="1">【Ascend】</td>
   </tr>
   <tr>
@@ -587,6 +641,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>✅</td>
     <td>❌</td>
     <td>✅</td>
+    <td>❌</td>
     <td>❌</td>
     <td rowspan="1">【Ascend】</td>
   </tr>
@@ -596,6 +651,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>❌</td>
     <td>✅</td>
     <td>❌</td>
+    <td>❌</td>
     <td>【Ascend】</td>
   </tr>
   <tr>
@@ -604,9 +660,11 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>❌</td>
     <td>✅</td>
     <td>❌</td>
+    <td>❌</td>
     <td>【Ascend】</td>
   </tr>
 </tbody></table>
+
 
 #### 加速特性
 
@@ -616,6 +674,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <th>特性</th>
     <th>Mcore</th>
     <th>Legacy</th>
+    <th>Released</th>
     <th>贡献方</th>
   </tr></thead>
 <tbody>
@@ -624,12 +683,14 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="./docs/features/cc_lora.md">CCLoRA</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
     <td>【Ascend】</td>
   </tr>
   <tr>
     <td><a href="./docs/features/fused_mlp.md">Fused_MLP</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>✅</td>
     <td>【Ascend】</td>
   </tr>
   <tr>
@@ -637,10 +698,12 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td><a href="./docs/features/cc_lora.md">CCLoRA</a></td>
     <td>✅</td>
     <td>❌</td>
+    <td>❌</td>
     <td>【Ascend】</td>
   </tr>
   <tr>
     <td><a href="./docs/features/fused_mlp.md">Fused_MLP</a></td>
+    <td>❌</td>
     <td>❌</td>
     <td>❌</td>
     <td>【Ascend】</td>
@@ -649,6 +712,7 @@ MindSpeed-LLM目前已内置支持百余个业界常用稠密和MOE大模型的�
     <td>长序列</td>
     <td><a href="./docs/features/fine-tuning-with-context-parallel.md">长序列CP方案</a></td>
     <td>✅</td>
+    <td>❌</td>
     <td>❌</td>
     <td>【Ascend】</td>
   </tr>
@@ -668,6 +732,7 @@ MindSpeed-LLM支持huggingface、megatron-core、megatron-legacy三种格式的�
       <th>切分特性</th>
       <th>lora</th>
       <th>贡献方</th>
+      <th>Released</th>
     </tr>
   </thead>
   <tbody>
@@ -677,6 +742,7 @@ MindSpeed-LLM支持huggingface、megatron-core、megatron-legacy三种格式的�
       <td rowspan="2">tp、pp、dpp、vpp、cp、ep、loop layer</td>
       <td>❌</td>
       <td rowspan="8">【Ascend】</td>
+      <td rowspan="8">❌</td>
     </tr>
     <tr>
       <td>megatron-legacy</td>
@@ -715,6 +781,7 @@ MindSpeed-LLM支持huggingface、megatron-core、megatron-legacy三种格式的�
   </tbody>
 </table>
 
+
 ### 数据预处理
 
 MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处理。
@@ -726,6 +793,7 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <th>数据集</th>
       <th>Mcore</th>
       <th>Legacy</th>
+      <th>Released</th>
       <th>贡献方</th>
     </tr>
   </thead>
@@ -735,6 +803,7 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <td><a href="./docs/features/pretrain_dataset.md">预训练数据处理</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>✅</td>
       <td rowspan="3">【Ascend】</td>
     </tr>
     <tr>
@@ -742,9 +811,11 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <td><a href="./docs/features/alpaca_dataset.md">Alpaca风格</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>✅</td>
     </tr>
     <tr>
       <td><a href="./docs/features/sharegpt_dataset.md">ShareGPT风格</a></td>
+      <td>✅</td>
       <td>✅</td>
       <td>✅</td>
     </tr>
@@ -753,23 +824,27 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <td rowspan="3"><a href="./docs/features/pairwise_dataset.md">Pairwise数据集处理</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>✅</td>
       <td rowspan="3">【NAIE】</td>
     </tr>
     <tr>
       <td>SimPO</td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
     </tr>
     <tr>
       <td>ORM</td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
     </tr>
     <tr>
       <td>PRM</td>
       <td rowspan="1"><a href="./docs/features/process_reward_dataset.md">PRM数据集处理</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
       <td rowspan="1">【Ascend】</td>
     </tr>
   </tbody>
@@ -783,6 +858,7 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <th>特性</th>
       <th>Mcore</th>
       <th>Legacy</th>
+      <th>Released</th>
       <th>贡献方</th>
     </tr>
   </thead>
@@ -791,16 +867,20 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <td><a href="./docs/features/inference.md">流式推理</td>
       <td>✅</td>
       <td>✅</td>
+      <td>✅</td>
       <td>【NAIE】</td>
     </tr>
     <tr>
       <td><a href="./docs/features/chat.md"> Chat对话</td>
       <td>✅</th>
       <td>✅</th>
+      <td>✅</td>
       <td>【NAIE】</td>
     </tr>
   </tbody>
 </table>
+
+
 
 ### 开源数据集评测
 
@@ -811,6 +891,7 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <th>数据集</th>
       <th>Mcore</th>
       <th>Legacy</th>
+      <th>Released</th>
       <th>贡献方</th>
     </tr>
   </thead>
@@ -820,40 +901,48 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <td><a href="https://people.eecs.berkeley.edu/~hendrycks/data.tar">MMLU</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
       <td>【NAIE】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/datasets/ceval/ceval-exam/blob/main/ceval-exam.zip">CEval</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
       <td>【NAIE】</td>
     </tr>
     <tr>
       <td><a href="https://www.juhe.cn/market/product/id/10243">BoolQ</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
       <td>【NAIE】</td>
     </tr>
     <tr>
       <td><a href="https://github.com/suzgunmirac/BIG-Bench-Hard/tree/main/bbh">BBH</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
       <td>【NAIE】</td>
     </tr>
     <tr>
       <td><a href="https://github.com/ruixiangcui/AGIEval/tree/main">AGIEval</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
       <td>【NAIE】</td>
     </tr>
     <tr>
       <td><a href="https://github.com/openai/human-eval/tree/master/data">HumanEval</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
       <td>【NAIE】</td>
     </tr>
   </tbody>
 </table>
+
+
 
 ### 性能采集
 
@@ -864,6 +953,7 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <th>特性</th>
       <th>Mcore</th>
       <th>Legacy</th>
+      <th>Released</th>
       <th>贡献方</th>
     </tr>
   </thead>
@@ -873,10 +963,12 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <td><a href="./docs/features/profiling.md">基于昇腾芯片采集 profiling 数据</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
       <td>【Ascend】</td>
     </tr>
   </tbody>
 </table>
+
 
 ### 高可用性
 
@@ -887,6 +979,7 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <th>特性</th>
       <th>Mcore</th>
       <th>Legacy</th>
+      <th>Released</th>
       <th>贡献方</th>
     </tr>
   </thead>
@@ -896,10 +989,12 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <td><a href="./docs/features/deterministic_computation.md">基于昇腾芯片开启确定性计算</a></td>
       <td>✅</td>
       <td>✅</td>
+      <td>❌</td>
       <td rowspan="2">【Ascend】</td>
     </tr>
   </tbody>
 </table>
+
 
 ## 版本维护策略
 
