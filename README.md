@@ -898,11 +898,6 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <td>✅</td>
       <td rowspan="2">【Ascend】</td>
     </tr>
-    <tr>
-      <td><a href="./docs/features/high_availability.md">基于昇腾芯片开启临终 ckpt 保存</a></td>
-      <td>✅</td>
-      <td>✅</td>
-    </tr>
   </tbody>
 </table>
 
