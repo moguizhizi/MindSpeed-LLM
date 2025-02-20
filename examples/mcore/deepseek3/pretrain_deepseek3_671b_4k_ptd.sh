@@ -68,6 +68,7 @@ MTP_ARGS="
     --num-nextn-predict-layers 1 \
     --share-mtp-embedding-and-output-weight \
     --recompute-mtp-norm \
+    --recompute-mtp-layer
 "
 
 ROPE_ARGS="
