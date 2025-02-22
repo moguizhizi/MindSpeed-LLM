@@ -13,7 +13,6 @@ WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
-CKPT_SAVE_DIR="/data/ckpt"
 CKPT_LOAD_DIR="/data/ci/Llama2-mcore-tp2/"
 DATA_PATH="/data/ci/llama2_pack/alpaca"
 TOKENIZER_MODEL="/data/llama-2-7b-hf"
@@ -126,5 +125,4 @@ torchrun ${DISTRIBUTED_ARGS[@]} $basepath/posttrain_gpt.py \
     ${OUTPUT_ARGS[@]} \
     ${ACCELERATE_ARGS[@]} \
     --load ${CKPT_LOAD_DIR} \
-    --save ${CKPT_SAVE_DIR} \
     --distributed-backend nccl

@@ -14,7 +14,6 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
 # please fill these path configurations
-CKPT_SAVE_DIR="/data/ckpt"
 CKPT_LOAD_DIR="/data/qwen2-moe-t1p2e2"
 DATA_PATH="/data/qwen2_moe_dataset/enwiki_text_document"
 TOKENIZER_PATH="/data/qwen2-moe-hf"
@@ -138,6 +137,5 @@ torchrun $DISTRIBUTED_ARGS $basepath/pretrain_gpt.py \
     ${TRAIN_ARGS} \
     ${MODEL_PARALLEL_ARGS} \
     --load ${CKPT_LOAD_DIR} \
-    --save ${CKPT_SAVE_DIR} \
     --log-throughput \
     --distributed-backend nccl

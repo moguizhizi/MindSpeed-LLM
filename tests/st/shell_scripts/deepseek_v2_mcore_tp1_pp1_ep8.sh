@@ -11,7 +11,6 @@ WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
-CKPT_SAVE_DIR="/data/ckpt/"
 DATA_PATH="/data/pretrain_dataset/alpaca_text_document"
 TOKENIZER_MODEL="/data/gemm/"
 CKPT_LOAD_DIR="/data/gemm-mcore-tp1-pp1-test/l2_gemm_t1p1e8/"
@@ -152,5 +151,4 @@ torchrun $DISTRIBUTED_ARGS $basepath/pretrain_gpt.py \
     $ROPE_ARGS \
     $MOE_ARGS \
     --distributed-backend nccl \
-    --save $CKPT_SAVE_DIR \
     --log-throughput

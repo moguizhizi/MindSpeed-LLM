@@ -10,7 +10,6 @@ WORLD_SIZE=$((NPUS_PER_NODE*$NNODES))
 
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
-CKPT_SAVE_DIR="/data/ckpt"
 DATA_PATH="/data/chatglm3-dataset-alpaca/alpaca_text_document"
 TOKENIZER_PATH="/data/chatglm3-6b-base-hf/"
 CKPT_LOAD_DIR="/data/chatglm3-6b-tp1-pp1-cp8/"
@@ -107,7 +106,6 @@ OUTPUT_ARGS="
     --eval-iters 0 \
     --no-load-optim \
     --no-load-rng \
-    --save $CKPT_SAVE_DIR \
     --load $CKPT_LOAD_DIR \
 "
 

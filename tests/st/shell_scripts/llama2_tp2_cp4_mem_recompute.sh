@@ -20,7 +20,6 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
 
-CKPT_SAVE_DIR="/data/ckpt"
 CKPT_LOAD_DIR="/data/llama-2-mcore-tp2-cp4-test"
 DATA_PATH="/data/pretrain_dataset/alpaca_text_document"
 TOKENIZER_MODEL="/data/llama-2-7b-hf/tokenizer.model"
@@ -141,5 +140,4 @@ torchrun $DISTRIBUTED_ARGS $basepath/pretrain_gpt.py \
     $DATA_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
-    --save $CKPT_SAVE_DIR \
     --load $CKPT_LOAD_DIR

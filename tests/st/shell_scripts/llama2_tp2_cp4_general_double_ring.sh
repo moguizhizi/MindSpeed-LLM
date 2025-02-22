@@ -13,7 +13,6 @@ WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
-CKPT_SAVE_DIR="/data/ckpt"
 CKPT_LOAD_DIR="/data/ci/Llama2-mcore-tp2/"
 DATA_PATH="/data/ci/alpaca_llama2_eod/alpaca_llama2_text_document"
 TOKENIZER_MODEL="/data/llama-2-7b-hf/tokenizer.model"

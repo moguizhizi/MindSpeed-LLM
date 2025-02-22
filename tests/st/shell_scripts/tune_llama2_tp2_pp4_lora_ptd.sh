@@ -14,7 +14,6 @@ WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
-CKPT_SAVE_DIR="/data/ckpt"
 CKPT_LOAD_DIR="/data/llama2-7B-tp2-pp4"
 DATA_PATH="/data/tune_dataset/alpaca"
 TOKENIZER_MODEL="/data/llama-2-7b-hf/"
@@ -110,7 +109,6 @@ torchrun ${DISTRIBUTED_ARGS[@]} $basepath/posttrain_gpt.py \
     ${DATA_ARGS[@]} \
     ${OUTPUT_ARGS[@]} \
     --load ${CKPT_LOAD_DIR} \
-    --save ${CKPT_SAVE_DIR} \
     --finetune \
     --log-throughput \
     --distributed-backend nccl
