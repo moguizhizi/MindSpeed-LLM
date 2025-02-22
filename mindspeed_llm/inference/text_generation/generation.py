@@ -168,7 +168,7 @@ def generate_tokens_probs_and_return_on_first_stage(
             prev_context_length = context_length
 
             # Check if all the sequences have hit the termination_id.
-            done = None
+            done = torch.zeros(1, dtype=torch.uint8, device=torch.cuda.current_device())
             if mpu.is_pipeline_last_stage():
                 # TODO(rprenger) These stopping methods are tokenizer dependent
                 # instead tokenization should be in the inference loop so stop sequences can be used
@@ -180,6 +180,8 @@ def generate_tokens_probs_and_return_on_first_stage(
                     context_length + 1
                 is_generation_done = is_generation_done | done_token
                 done = torch.all(is_generation_done)
+            
+            torch.distributed.all_reduce(done, op=torch.distributed.ReduceOp.MAX)
 
             if output_log_probs is None:
                 output_log_probs = torch.empty(output_log_probs_size,
@@ -342,6 +344,7 @@ def beam_search_and_return_on_first_stage(
                 tokens[:, context_length] = tokens.new([item[0] for item in next_beams])
                 scores = scores.new([item[1] for item in next_beams]).unsqueeze(1)
           
+            torch.distributed.all_reduce(done, op=torch.distributed.ReduceOp.MAX)
             done = broadcast_from_last_pipeline_stage(1, torch.uint8, done)
             if done:
                 break
