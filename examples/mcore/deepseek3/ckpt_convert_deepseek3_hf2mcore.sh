@@ -8,5 +8,6 @@ python examples/mcore/deepseek3/convert_ckpt_deepseek3.py \
     --load-dir ./model_from_hf/deepseek3-bf16-hf \
     --save-dir ./model_weights/deepseek3-mcore \
     --num-layers 61 \
+    --num-nextn-predict-layers 1 \
     --num-layer-list 7,7,8,8,8,8,8,7
     # --num-layer-list, --noop-layers等参数根据任务需要进行配置

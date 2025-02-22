@@ -518,14 +518,13 @@ def get_args():
     parser.add_argument('--save-dir', type=str, required=True,
                         help='Directory to save model checkpoint to')
     parser.add_argument('--target-pipeline-parallel-size', type=int, default=1,
-                        help='Target tensor model parallel size, default to the pipeline parall size '
-                             'in the input checkpoint if provided by the loader, otherwise to 1')
+                        help='Target pipeline model parallel size, defaults to 1.')
     parser.add_argument('--target-expert-parallel-size', type=int, default=1,
-                        help='Number of layers per virtual pipeline stage')
+                        help='Target expert model parallel size, defaults to 1.')
     parser.add_argument('--moe-grouped-gemm', action='store_true',
                         help='Usr moe grouped gemm.')
     parser.add_argument("--noop-layers", type=str, default=None, help='Specity the noop layers.')
-    parser.add_argument('--num-nextn-predict-layers', type=int, default=0, help='Multi-Token prediction layer num')
+    parser.add_argument('--num-nextn-predict-layers', type=int, default=1, help='Multi-Token prediction layer num')
     parser.add_argument('--num-layer-list', type=str,
                         help='a list of number of layers, seperated by comma; e.g., 4,4,4,4')
     parser.add_argument('--num-layers', type=int, default=61,
