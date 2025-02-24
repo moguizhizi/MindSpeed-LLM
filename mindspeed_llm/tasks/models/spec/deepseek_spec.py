@@ -6,7 +6,8 @@ from megatron.core.transformer import ModuleSpec, TransformerLayer, TransformerL
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.identity_op import IdentityOp
 from megatron.core.models.gpt.gpt_layer_specs import _get_mlp_module_spec
-from mindspeed_llm.tasks.models.transformer.multi_head_latent_attention import MLASelfAttentionSubmodules, MultiHeadLatentAttention
+from mindspeed_llm.tasks.models.transformer.multi_head_latent_attention import (
+    MLASelfAttentionSubmodules, MLASelfAttentionWithMMSplitSubmodules, MultiHeadLatentAttention)
 from mindspeed_llm.tasks.models.transformer.mla_dot_product_attention import MlaDotProductAttention
 from mindspeed_llm.core import PTNorm
 
@@ -15,7 +16,7 @@ MultiHeadLatent Layer Specification, which is mainly for Deepseek.
 """
 
 args = get_args()
-num_experts, moe_grouped_gemm, qk_layernorm = args.num_experts, args.moe_grouped_gemm, args.qk_layernorm
+num_experts, moe_grouped_gemm, qk_layernorm, mla_mm_split = args.num_experts, args.moe_grouped_gemm, args.qk_layernorm, args.mla_mm_split
 
 
 layer_spec = ModuleSpec(
@@ -33,6 +34,17 @@ layer_spec = ModuleSpec(
                 k_layernorm=PTNorm if qk_layernorm else IdentityOp,
                 linear_qb=ColumnParallelLinear,
                 linear_kvb=ColumnParallelLinear
+            ) if not mla_mm_split else
+            MLASelfAttentionWithMMSplitSubmodules(
+                linear_qkv=ColumnParallelLinear,
+                core_attention=MlaDotProductAttention,
+                linear_proj=RowParallelLinear,
+                q_layernorm=PTNorm if qk_layernorm else IdentityOp,
+                k_layernorm=PTNorm if qk_layernorm else IdentityOp,
+                linear_qk_nope=ColumnParallelLinear,
+                linear_qk_rope=ColumnParallelLinear,
+                linear_kv_nope=ColumnParallelLinear,
+                linear_v=ColumnParallelLinear
             )
         ),
         self_attn_bda=get_bias_dropout_add,

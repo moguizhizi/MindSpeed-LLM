@@ -97,6 +97,8 @@ def _add_mla_args(parser):
     group.add_argument('--v-head-dim', type=int, default=None, help='The head dim of v')
     group.add_argument('--qk-rope-head-dim', type=int, default=None, help='The qk head dim for rope')
     group.add_argument('--qk-nope-head-dim', type=int, default=None, help='The qk head dim for only self-attn')
+    group.add_argument('--mla-fa-without-pad', action='store_true', default=False, help='Do not pad v_head_dim to q_head_dim in MLA')
+    group.add_argument('--mla-mm-split', action='store_true', default=False, help='Split 2 up-proj matmul into 4 in MLA')
 
     return parser
 
