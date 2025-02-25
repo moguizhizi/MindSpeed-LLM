@@ -284,6 +284,7 @@ class PPOActorInferWorker(BaseTrainer):
 
         self.args.model = unwrap_model(get_model(self.model_provider, wrap_with_ddp=False))
         self.inf_model = self.args.model[0]
+        self.args.dataset_additional_keys = eval(self.args.dataset_additional_keys[0]) if self.args.dataset_additional_keys else []
 
         sync_param_nums(self.inf_model)
         true_pad_to_multiple_of = self.args.pad_to_multiple_of
@@ -303,10 +304,7 @@ class PPOActorInferWorker(BaseTrainer):
         """Generate a batch identical to Llama factory"""
         args = get_args()
 
-        if self.args.dataset_with_labels:
-            self.keys = ['input_ids', 'labels']
-        else:
-            self.keys = ['input_ids']
+        self.keys = ['input_ids', *self.args.dataset_additional_keys]
 
         if (not mpu.is_pipeline_first_stage()) and (not mpu.is_pipeline_last_stage()):
             if args.variable_seq_lengths and args.pipeline_model_parallel_size > 2:
@@ -334,33 +332,33 @@ class PPOActorInferWorker(BaseTrainer):
         num_infer_steps = args.global_batch_size // (args.data_parallel_size * args.num_samples_per_step)
         responses = []
         idx_list = []
-        label_list = []
         idx_list_per_step = []
-        label_list_per_step = []
+        additional_dict = {}
+        additional_dict_per_step = {}
+
+        for k in self.args.dataset_additional_keys:
+            if not hasattr(additional_dict, k):
+                additional_dict[k] = []
 
         max_new_tokens = args.seq_length - args.max_prompt_length
         assert max_new_tokens % args.pad_to_multiple_of == 0, "please adjust pad_to_multiple_of so that \
                                                 max_new_tokens % args.pad_to_multiple_of == 0"
-        for i in range(num_infer_steps):
-            for j in range(args.num_samples_per_step):
+        for _ in range(num_infer_steps):
+            for k in self.args.dataset_additional_keys:
+                if not hasattr(additional_dict_per_step, k):
+                    additional_dict_per_step[k] = []
+
+            for _ in range(args.num_samples_per_step):
                 batch = self.get_batch(self.train_data_iterator)
 
                 tokens = batch["input_ids"]
                 tokens_list = tokens.view(-1).cpu().numpy().tolist()
-                labels = batch.get("labels", None)
 
-                if labels is not None:
-                    labels = labels.view(-1).cpu().numpy().tolist()[::-1]
-                    if -100 in labels:
-                        answer_begin_indices = len(tokens_list) - 1 - labels.index(-100)
-                        answer_list = tokens_list[answer_begin_indices + 1:]
-                        tokens_list = tokens_list[:answer_begin_indices + 1]
-                    else:
-                        answer_list = tokens_list[-1:]
-                        tokens_list = tokens_list[:-1]
+                for additional_key in self.args.dataset_additional_keys:
+                    additional_val = batch.get(additional_key).view(-1).cpu().numpy().tolist()
 
                     for _ in range(args.n_samples_per_prompt):
-                        label_list_per_step.append(copy.deepcopy(answer_list))
+                        additional_dict_per_step[additional_key].append(copy.deepcopy(additional_val))
 
                 for _ in range(args.n_samples_per_prompt):
                     idx_list_per_step.append(copy.deepcopy(tokens_list))
@@ -383,9 +381,13 @@ class PPOActorInferWorker(BaseTrainer):
 
             responses.extend(responses_per_step)
             idx_list.extend(idx_list_per_step)
-            label_list.extend(label_list_per_step)
             idx_list_per_step = []
-            label_list_per_step = []
+
+            for k in additional_dict:
+                additional_dict[k].extend(additional_dict_per_step[k])
+
+            additional_dict_per_step = {}
+        
 
         responses_ori_length, responses_pad_length = pad_to_tensor_dict(
             responses,
@@ -396,11 +398,13 @@ class PPOActorInferWorker(BaseTrainer):
             pad_multi_of=args.pad_to_multiple_of
         )
 
-        if label_list:
+        for additional_key in self.args.dataset_additional_keys:
+            tmp_val = additional_dict[additional_key]
             pad_to_tensor_dict(
-                label_list,
+                tmp_val,
                 pad_multi_of=args.pad_to_multiple_of
             )
+            additional_dict[additional_key] = tmp_val
 
         input_ids = [prompt + response for prompt, response in zip(idx_list, responses)]
 
@@ -413,31 +417,19 @@ class PPOActorInferWorker(BaseTrainer):
         else:
             batch_size = args.global_batch_size // args.data_parallel_size * args.n_samples_per_prompt
 
-        if label_list:
-            batch = TensorDict(
-                {
-                    "prompts": idx_list,
-                    "labels": label_list,
-                    "responses": responses,
-                    "input_ids": input_ids,
-                    "attention_mask": attention_mask,
-                    "position_ids": position_ids,
-                    "responses_ori_length": responses_ori_length
-                },
-                batch_size=batch_size
-            )
-        else:
-            batch = TensorDict(
-                {
-                    "prompts": idx_list,
-                    "responses": responses,
-                    "input_ids": input_ids,
-                    "attention_mask": attention_mask,
-                    "position_ids": position_ids,
-                    "responses_ori_length": responses_ori_length
-                },
-                batch_size=batch_size
-            )
+        batch = TensorDict(
+            dict(
+                    {
+                        "prompts": idx_list,
+                        "responses": responses,
+                        "input_ids": input_ids,
+                        "attention_mask": attention_mask,
+                        "position_ids": position_ids,
+                        "responses_ori_length": responses_ori_length
+                    }, **additional_dict
+                ),
+            batch_size=batch_size
+        )
 
         return DataProto(batch=batch)
 

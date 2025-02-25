@@ -25,6 +25,9 @@ class RayGRPOTrainer(object):
     def __init__(self, config):
 
         self.config = config
+        if hasattr(self.config.training, "dataset_additional_keys"):
+            self.config.training.dataset_additional_keys = config.training.dataset_additional_keys.strip().split(" ") if config.training.dataset_additional_keys else []
+
         self.role_worker_mapping = {
             Role.ActorRollout: PPOActorWorker,
             Role.RefPolicy: ReferenceWorker,
@@ -159,9 +162,7 @@ class RayGRPOTrainer(object):
                     # compute advantages, executed on the driver process
                     batch = compute_advantage(
                         batch,
-                        self.config.algorithm.gamma,
-                        self.config.algorithm.lam,
-                        adv_estimator=self.config.algorithm.adv_estimator
+                        self.config
                     )
 
                 metrics['timing/adv'] = timer.last
@@ -181,6 +182,7 @@ class RayGRPOTrainer(object):
             metrics['timing/all'] = all_timer.last
             iteration += 1
             logger.info(metrics, iteration, self.config.training.train_iters)
+            logger.flush()
 
             if iteration % self.config.training.save_interval == 0:
                 self.actor_rollout_wg.save_checkpoint(iteration)

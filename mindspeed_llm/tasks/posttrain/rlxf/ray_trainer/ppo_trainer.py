@@ -196,10 +196,10 @@ class RayPPOTrainer(object):
                     metrics.update(kl_metrics)
 
                     # compute advantages, executed on the driver process
-                    batch = compute_advantage(batch,
-                                              self.config.algorithm.gamma,
-                                              self.config.algorithm.lam,
-                                              adv_estimator=self.config.algorithm.adv_estimator)
+                    batch = compute_advantage(
+                        batch,
+                        self.config
+                    )
                 metrics['timing/adv'] = timer.last
 
                 # update critic

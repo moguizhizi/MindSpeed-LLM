@@ -213,7 +213,7 @@ class DecoderPackedMTFDataset(torch.utils.data.Dataset):
 
     def _cut_instruction_token(self, item, dtype):
         IGNORE_INDEX = -100
-        if "labels" in item.keys():
+        if "labels" in item.keys() and not self.args.dataset_additional_keys:
             token_length = len(item["input_ids"])
             if token_length <= self.seq_length:
                 return {   
@@ -280,10 +280,17 @@ class DecoderPackedMTFDataset(torch.utils.data.Dataset):
             prompt_ids = item["input_ids"]
             input_ids = prompt_ids[:self.seq_length]
 
-            res = {
-                "input_ids": input_ids.astype(dtype),
-                "attention_mask": np.ones_like(input_ids).astype(dtype)
-            }
+            add_vals = {}
+            for add_keys in self.args.dataset_additional_keys:
+                if add_keys in item.keys():
+                    add_vals[add_keys] = item[add_keys]
+
+            res = dict(
+                {
+                    "input_ids": input_ids.astype(dtype),
+                    "attention_mask": np.ones_like(input_ids).astype(dtype)
+                }, **add_vals
+            )
 
         return res
 

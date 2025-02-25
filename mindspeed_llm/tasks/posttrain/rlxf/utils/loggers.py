@@ -41,3 +41,6 @@ class Loggers(object):
         format_msg = self.handle_msg(msg, "ERROR", iteration, steps)
         self.logger.error(format_msg)
 
+    def flush(self):
+        for handler in self.logger.handlers:
+            handler.flush()

@@ -118,6 +118,11 @@ def add_data_args(parser):
                             'e.g., "qwen"')
     group.add_argument('--prompt-type-path', type=str, default=TEMPLATES_DIR,
                        help='Path to the json file of templates.')
+    group.add_argument('--dataset-additional-keys', 
+                       nargs='*',
+                       default=[],
+                       help='Additional keys need to be add from dataset.'
+                      )
     group.add_argument("--interleave-probs", default=None,
                        help='Probabilities to sample data from datasets. Use commas to separate multiple datasets. '
                             'probabilities should sum to 1. ex: "0.1, 0.2, 0.3, 0.4"')
@@ -239,7 +244,9 @@ def validate_args(args):
         "AlpacaStylePairwiseHandler",
         "SharegptStylePairwiseHandler",
         "AlpacaStyleProcessRewardHandler",
-        "PPOAlpacaStyleInstructionHandler"
+        "PPOAlpacaStyleInstructionHandler",
+        "R1AlpacaStyleInstructionHandler",
+        "R1SharegptStyleInstructionHandler"
     ]
     if args.prompt_type is not None and args.handler_name not in support_prompt_type_handler:
         raise AssertionError(f'If specify prompt_type , handler name must be in:\n{support_prompt_type_handler}.')

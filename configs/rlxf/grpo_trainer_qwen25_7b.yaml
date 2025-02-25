@@ -19,7 +19,7 @@ training:
   no_shuffle: false
   stage: ray_grpo
   sequence_parallel: true
-  dataset_with_labels: true
+  dataset_additional_keys: labels
 
 actor_rollout_ref:
   actor_rollout:
@@ -29,7 +29,7 @@ actor_rollout_ref:
     ppo_mini_batch_size: 12
     num_samples_per_step: 2
     temperature: 1.0
-    max_prompt_length: 1536
+    max_prompt_length: 2048
     max-tokens-to-oom: 1000000
     ppo_epochs: 1
     clip_ratio: 0.2
@@ -80,8 +80,9 @@ algorithm:
   missing_eos_penalty: 0.0
   verifier_function: ["acc", "format"]
   verifier_weight: [0.5, 0.5]
+  advantage_whiten: False
 
 resource_pool:
-  actor_rollout: [6, 8]
+  actor_rollout: [8, 6]
   ref: [2]
   reward: []

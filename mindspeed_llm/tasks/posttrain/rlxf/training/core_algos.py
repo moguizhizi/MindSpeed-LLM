@@ -25,7 +25,8 @@ from transformers import AutoTokenizer
 import mindspeed_llm.tasks.posttrain.rlxf.utils.torch_functional as F
 from mindspeed_llm.tasks.posttrain.rlxf.utils.loggers import Loggers
 from mindspeed_llm.tasks.posttrain.rlxf.utils.protocol import DataProto
-from mindspeed_llm.tasks.posttrain.verifier.rule_verifier import preprocess_box_response_for_qwen_prompt, format_reward, reasoning_steps_reward
+from mindspeed_llm.tasks.posttrain.verifier.rule_verifier import preprocess_box_response_for_qwen_prompt, format_reward, reasoning_steps_reward, strict_format_reward, \
+base_model_accuracy_reward
 
 logger = Loggers()
 
@@ -103,7 +104,8 @@ def compute_group_norm_advantage_return(
         token_level_rewards: torch.Tensor,
         eos_mask: torch.Tensor,
         gamma: torch.Tensor,
-        lam: torch.Tensor
+        lam: torch.Tensor,
+        config
 ):
     """
     Args:
@@ -133,7 +135,10 @@ def compute_group_norm_advantage_return(
         cumulative_return = token_level_rewards[:, t] + gamma * cumulative_return
         returns[:, t] = cumulative_return
     advantages = deepcopy(returns)
-    advantages = F.masked_whiten(advantages, eos_mask)
+    if not hasattr(config.algorithm, "advantage_whiten") or config.algorithm.advantage_whiten:
+        advantages = F.masked_whiten(advantages, eos_mask)
+    else:
+        advantages = advantages * eos_mask
     return advantages, returns
 
 
@@ -300,7 +305,7 @@ def apply_kl_penalty(config, data: DataProto, kl_ctrl: AdaptiveKLController):
     return data, metrics
 
 
-def compute_advantage(data: DataProto, gamma, lam, adv_estimator):
+def compute_advantage(data: DataProto, config):
     responses = data.batch['responses']
     response_length = responses.size(1)
     attention_mask = data.batch['attention_mask']
@@ -308,20 +313,21 @@ def compute_advantage(data: DataProto, gamma, lam, adv_estimator):
     token_level_rewards = data.batch['token_level_rewards']
 
     # TODO: add other ways to estimate advantages
-    if adv_estimator == 'gae':
+    if config.algorithm.adv_estimator == 'gae':
         values = data.batch['values']
         advantages, returns = compute_gae_advantage_return(token_level_rewards=token_level_rewards,
                                                            values=values,
                                                            eos_mask=response_mask,
-                                                           gamma=gamma,
-                                                           lam=lam)
+                                                           gamma=config.algorithm.gamma,
+                                                           lam=config.algorithm.lam)
         data.batch['advantages'] = advantages
         data.batch['returns'] = returns
-    elif adv_estimator == 'group_norm':
+    elif config.algorithm.adv_estimator == 'group_norm':
         advantages, returns = compute_group_norm_advantage_return(token_level_rewards=token_level_rewards,
                                                                   eos_mask=response_mask,
-                                                                  gamma=gamma,
-                                                                  lam=lam)
+                                                                  gamma=config.algorithm.gamma,
+                                                                  lam=config.algorithm.lam,
+                                                                  config=config)
         data.batch['advantages'] = advantages
         data.batch['returns'] = returns
     else:
@@ -362,25 +368,40 @@ def compute_verifier_score(batch, metrics, config):
     tokenizer = AutoTokenizer.from_pretrained(config.training.tokenizer_name_or_path, trust_remote_code=True)
     tokenizer.eos_token = tokenizer.decode(tokenizer.eos_token_id, skip_special_tokens=True)
 
+    question = batch.batch["prompts"]
     responses = batch.batch["responses"]
-    reward_index = batch.batch["responses_ori_length"].unsqueeze(1) - 1
-
-    str_labels = tokenizer.batch_decode(batch.batch["labels"], skip_special_tokens=True)
+    str_question = tokenizer.batch_decode(question, skip_special_tokens=True)
     str_responses = tokenizer.batch_decode(responses, skip_special_tokens=True)
 
-    scores = verifier(str_responses, str_labels, config, metrics, infos=None)
+    reward_index = batch.batch["responses_ori_length"].unsqueeze(1) - 1
+
+    logger.logger.info("=" * 50)
+    logger.logger.info(">>>>>>>>>> User:\n")
+    logger.logger.info(str_question[0])
+    logger.logger.info(">>>>>>>>>> Assistant:\n")
+    logger.logger.info(str_responses[0])
+
+    extra_data = {}
+    
+    if hasattr(config.training, "dataset_additional_keys"):
+        for k in config.training.dataset_additional_keys:
+            extra_data[k] = tokenizer.batch_decode(batch.batch[k], skip_special_tokens=True)
+            logger.logger.info(f">>>>>>>>>> {k}")
+            logger.logger.info(extra_data[k][0])
+
+    logger.logger.info("=" * 50)
+
+    scores = verifier(str_responses, extra_data, config, metrics, infos=None)
 
     scores = torch.tensor(
         scores,
         dtype=torch.float32,
         device=reward_index.device
-    ).unsqueeze(1)
+    )
 
-    logger.logger.info("=" * 50)
-    logger.logger.info(str_responses[0])
-    logger.logger.info(">" * 50)
-    logger.logger.info(str_labels[0])
-    logger.logger.info("=" * 50)
+    scores = scores.reshape(-1, config.actor_rollout_ref.actor_rollout.n_samples_per_prompt)
+    scores = (scores - scores.mean(dim=1, keepdim=True)) / (scores.std(dim=1, keepdim=True) + 1e-8)
+    scores = scores.reshape(-1).unsqueeze(1)
 
     token_level_rewards = torch.zeros_like(responses, dtype=torch.float32)
     token_level_rewards.scatter_(1, reward_index, scores)
@@ -388,7 +409,7 @@ def compute_verifier_score(batch, metrics, config):
     return token_level_rewards
 
 
-def verifier(responses, labels, config, metrics, infos=None):
+def verifier(responses, data, config, metrics, infos=None):
     """
     User-defined verifier scoring process.
 
@@ -407,9 +428,12 @@ def verifier(responses, labels, config, metrics, infos=None):
     rule_verifier_function = {
         "acc": preprocess_box_response_for_qwen_prompt,
         "format": format_reward,
-        "step": reasoning_steps_reward
+        "step": reasoning_steps_reward,
+        "strict_format": strict_format_reward,
+        "base_acc": base_model_accuracy_reward
     }
 
+    labels = data["labels"]
     scores = [0.0] * len(labels)
 
     verifier_function = config.algorithm.verifier_function if hasattr(
@@ -429,11 +453,8 @@ def verifier(responses, labels, config, metrics, infos=None):
 
 
 def get_last_reward(data, rm_scores, n_sample_batch):
-    responses = data.batch['responses']
-    response_length = responses.size(1)
-    attention_mask = data.batch['attention_mask']
-    response_mask = attention_mask[:, -response_length:]
-    eos_indices = response_mask.size(1) - 1 - response_mask.long().fliplr().argmax(dim=1, keepdim=True)
+    eos_indices = data.batch["responses_ori_length"].unsqueeze(1) - 1
+
     reward = rm_scores.gather(dim=1, index=eos_indices).squeeze(1)
     reward = reward.reshape(-1, n_sample_batch)
     reward = (reward - reward.mean(dim=1, keepdim=True)) / (reward.std(dim=1, keepdim=True) + 1e-8)

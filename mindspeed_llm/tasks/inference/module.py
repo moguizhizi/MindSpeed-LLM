@@ -464,7 +464,7 @@ class MegatronModuleForCausalLM(MegatronModuleForCausalLMABC):
 
                 if min(trunc_index.shape):
                     if self.truncate:
-                        truncated_output.append(output[idx][:trunc_index.min()])
+                        truncated_output.append(output[idx][:trunc_index.min() + 1])
                     else:
                         output[idx][trunc_index.min():] = self.tokenizer.eos_token_id
                 else:

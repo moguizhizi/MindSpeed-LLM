@@ -28,6 +28,29 @@ def qwen_math_equal_subprocess(prediction, reference, timeout_seconds=10):
         return False   
 
 
+def extract_answer_subprocess(model_output, timeout_seconds=10):
+
+    def worker(q, model_output):
+        result = extract_answer(pred_str=model_output, data_name="math")
+        q.put(result)
+
+    q = Queue()
+    p = Process(target=worker, args=(q, model_output))
+    p.start()
+    
+    p.join(timeout=timeout_seconds)
+    
+    if p.is_alive():
+        p.terminate()
+        p.join()  
+        return ""
+        
+    try:
+        return q.get_nowait()
+    except Exception as e:
+        return ""   
+
+
 def preprocess_box_response_for_qwen_prompt(sequences, answers, **kwargs):
     scores = []
 
@@ -37,7 +60,7 @@ def preprocess_box_response_for_qwen_prompt(sequences, answers, **kwargs):
         for stop_word in stop_words:
             if stop_word in model_output:
                 model_output = model_output.split(stop_word)[0].strip()
-        ext_answer = extract_answer(model_output, data_name="math")
+        ext_answer = extract_answer_subprocess(model_output=model_output)
 
         if qwen_math_equal_subprocess(prediction=ext_answer, reference=answer):
             box_match = 1.0
@@ -51,6 +74,22 @@ def preprocess_box_response_for_qwen_prompt(sequences, answers, **kwargs):
         
     return scores
 
+
+def base_model_accuracy_reward(sequences, answers, **kwargs):
+    scores = []
+
+    for sequence, answer in zip(sequences, answers):        
+        ext_answer = extract_answer_subprocess(model_output=sequence)
+
+        if qwen_math_equal_subprocess(prediction=ext_answer, reference=answer):
+            box_match = 1.0
+        else:
+            box_match = 0.0
+
+        scores.append(box_match)
+        
+    return scores
+    
 
 def format_reward(sequences, **kwargs):
     """
@@ -82,6 +121,82 @@ def format_reward(sequences, **kwargs):
     return rewards
 
 
+def validate_response_structure(processed_str: str) -> bool:
+    """Performs comprehensive validation of response structure.
+
+    Args:
+        processed_str: Processed response string from the model
+
+    Returns:
+        Boolean indicating whether all formatting requirements are met
+    """
+    validation_passed = True
+
+    tags = {
+        'think_start': ('<think>', 1),
+        'think_end': ('</think>', 1),
+        'answer_start': ('<answer>', 1),
+        'boxed_start': (r'\\boxed\{.*?\}', 1),
+        'answer_end': ('</answer>', 1)
+    }
+
+    positions = {}
+    for tag_name, (tag_str, expected_count) in tags.items():
+        if tag_name == 'boxed_start':
+            match = re.findall(tag_str, processed_str)
+            count = len(match)
+            pos = re.search(tag_str, processed_str)
+            if pos is not None:
+                positions[tag_name] = re.search(tag_str, processed_str).start()
+            else:
+                positions[tag_name] = -1
+        else:
+            count = processed_str.count(tag_str)
+            positions[tag_name] = processed_str.find(tag_str)
+
+        if count != expected_count:
+            validation_passed = False
+
+    if (positions['think_start'] > positions['think_end'] or
+            positions['think_end'] > positions['answer_start'] or
+            positions['answer_start'] > positions['boxed_start'] or
+            positions['boxed_start'] > positions['answer_end'] or
+            not processed_str.startswith('<think>') or
+            not processed_str.endswith('</answer>')
+    ):
+        validation_passed = False
+    else:
+        pass
+
+    return validation_passed
+
+
+def strict_format_reward(sequences, **kwargs):
+    """
+    Reward function that checks if the completion has a specific format.
+
+    Args:
+        sequences: A list of sequences, where each completion is a tuple containing a list of dictionaries.
+                     Each dictionary should have a "content" key with the text to be checked.
+
+    Returns:
+        A list of floats, where each float is 1.0 if the corresponding completion matches the required format,
+        and 0.0 otherwise.
+
+    Raises:
+        ValueError: If the input sequences are not in the expected format.
+    """
+
+    rewards = []
+    for completion in sequences:
+        reward = -1.0
+        format_correct = validate_response_structure(completion)
+        if format_correct:
+            reward = 1.0
+        rewards.append(reward)
+    return rewards
+
+
 def reasoning_steps_reward(sequences, **kwargs):
     r"""Reward function that checks for clear step-by-step reasoning.
     Regex pattern:
@@ -105,12 +220,12 @@ def _test_rule_verifier():
     we solve each equation for \\(x\\) and \\(y\\).\n</think>\n<answer>\nFirst, solve for \\(x\\):\n\\[38 = 2x + 4\\]
     \n\\[38 - 4 = 2x\\]\n\\[34 = 2x\\]\n\\[x = \\frac{34}{2} = 17\\]\n\nNext, solve for \\(y\\):\n\\[3y^3 = 24\\]\n\\
     [y^3 = \\frac{24}{3} = 8\\]\n\\[y = \\sqrt[3]{8} = 2\\]\n\nNow, find the product of \\(x\\) and \\(y\\):\n\\[xy = 
-    17 \\times 2 = 34\\]\n\nTherefore, the product of \\(x\\) and \\(y\\) is \\(\\boxed{34}\\)."""]
+    17 \\times 2 = 34\\]\n\nTherefore, the product of \\(x\\) and \\(y\\) is \\(\\boxed{34}\\).</answer>"""]
 
     label = ['34']
-
     print('reward_verifier=', preprocess_box_response_for_qwen_prompt(text, label))
     print('format_verifier=', format_reward(text))
+    print('strict_format_verifier=', strict_format_reward(text))
     print('step_verifier=', reasoning_steps_reward(text))
 
 

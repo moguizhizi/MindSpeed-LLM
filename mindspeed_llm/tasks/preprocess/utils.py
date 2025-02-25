@@ -63,6 +63,8 @@ def check_dataset_info_map(data_args, column_names, raw_datasets, tag_names=None
 
 def get_handler_dataset_attr(data_args, raw_datasets):
     dataset_attr = InstructionDatasetAttr("file", dataset_name=data_args.handler_name)
+    dataset_attr.dataset_additional_keys = data_args.dataset_additional_keys
+
     if "Pairwise" in data_args.handler_name:
         setattr(dataset_attr, "ranking", True)
 
@@ -231,6 +233,11 @@ def convert_alpaca_to_intermediate(sample: Dict[str, List[Any]], dataset_attr: "
     outputs["response"] = response
     outputs["system"].append(sample[dataset_attr.system] if dataset_attr.system else "")
     outputs["tools"].append("")
+
+    for add_key in dataset_attr.dataset_additional_keys:
+        if add_key != "labels":
+            outputs[add_key] = sample[add_key]
+
     return outputs
 
 
@@ -361,6 +368,9 @@ def convert_sharegpt_to_intermediate(
     outputs["response"] = response
     outputs["system"].append(system)
     outputs["tools"].append(sample[dataset_attr.tools] if dataset_attr.tools else "")
+    for add_key in dataset_attr.dataset_additional_keys:
+        if add_key != "labels":
+            outputs[add_key] = sample[add_key]
 
     return outputs
 
@@ -392,7 +402,8 @@ def align_dataset(dataset, dataset_attr, data_args):
         convert_func = partial(convert_alpaca_to_intermediate, dataset_attr=dataset_attr)
     else:
         convert_func = partial(convert_sharegpt_to_intermediate, dataset_attr=dataset_attr)
-    column_names = list(next(iter(dataset)).keys())
+    
+    column_names = [k for k in next(iter(dataset)) if k not in dataset_attr.dataset_additional_keys]
 
     kwargs = dict(
         num_proc=data_args.workers,

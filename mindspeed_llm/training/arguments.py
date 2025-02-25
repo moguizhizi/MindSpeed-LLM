@@ -731,6 +731,11 @@ def _add_rl_args(parser):
         type=float,
         help="Lambda value for GAE in PPO training.",
     )
+    group.add_argument(
+        "--advantage-whiten",
+        default=True,
+        help="advantage whiten in GRPO."
+    )
 
     return parser
 
@@ -911,10 +916,10 @@ def _add_dataset_args(parser):
                        default=False,
                        help='if no shared storage, set it'
                        )
-    group.add_argument('--dataset-with-labels', 
-                       action='store_true',
-                       default=False, 
-                       help='Whether the labels included in dataset.'
+    group.add_argument('--dataset-additional-keys', 
+                       nargs='*',
+                       default=[],
+                       help='Additional keys need to be add from dataset.'
                       )
  
     return parser
