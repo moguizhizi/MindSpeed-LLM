@@ -151,9 +151,9 @@ def run_tests(raw_txt_file):
     if filter_exec_ut(raw_txt_file)[0]:
         ut.run_ut(raw_txt_file)
     else:
-        ut.run_ut()
         st.run_st()
-
+        ut.run_ut()
+        
 
 def main():
     parent_dir = Path(__file__).absolute().parents[2]

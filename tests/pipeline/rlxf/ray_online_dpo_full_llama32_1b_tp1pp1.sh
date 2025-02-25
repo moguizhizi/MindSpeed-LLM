@@ -6,4 +6,4 @@ export HCCL_DETERMINISTIC=True
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
 
-python $basepath/ray_gpt.py --config-dir=$basepath/tests/st/configs --config-name=ray_online_dpo_full_llama32_1b_tp1pp1
+python $basepath/ray_gpt.py --config-dir=$basepath/tests/pipeline/configs --config-name=ray_online_dpo_full_llama32_1b_tp1pp1
