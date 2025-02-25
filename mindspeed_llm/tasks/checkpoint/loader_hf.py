@@ -59,6 +59,8 @@ def add_arguments(parser):
                        help='post norm after attention or mlp.', default=False)
     group.add_argument('--moe-grouped-gemm', action='store_true',
                        help='Usr moe grouped gemm.')
+    group.add_argument("--moe-tp-extend-ep", action='store_true',
+                       help="use tp group to extend experts parallelism instead of sharding weight tensor of experts in tp group")
     group.add_argument('--spec', type=str, default=None, nargs='*',
                         help='Specify the <module_location function_name> pair '
                              'that returns a spec to customize transformer layer, depending on the use case.')
@@ -101,6 +103,7 @@ def build_metadata(args, margs):
     md.embed_layernorm = margs.embed_layernorm
     md.disable_bias_linear = margs.disable_bias_linear
     md.moe_grouped_gemm = margs.moe_grouped_gemm
+    md.moe_tp_extend_ep = margs.moe_tp_extend_ep
     md.spec = margs.spec
     md.num_experts = getattr(margs, "num_experts", None)
     md.n_shared_experts = getattr(margs, "n_shared_experts", None)
@@ -346,6 +349,7 @@ def _load_checkpoint(model_provider, queue, args):
     model_hf = get_huggingface_model(args)
     args_hf = model_hf.get_args()
     args_hf.moe_grouped_gemm = args.moe_grouped_gemm
+    args_hf.moe_tp_extend_ep = args.moe_tp_extend_ep
     args_hf.spec = args.spec
 
     model_mg = get_megatron_model(model_provider, args_cmd=args)

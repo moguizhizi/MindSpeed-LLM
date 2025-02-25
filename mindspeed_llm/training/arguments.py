@@ -401,6 +401,8 @@ def _add_moe_args(parser):
     group.add_argument("--fix-router", action='store_true', help="fix router for load balancing.")
     group.add_argument('--moe-alltoall-overlap-comm', action='store_true', default=False,
                        help='moe_alltoall_overlap_comm')
+    group.add_argument("--moe-tp-extend-ep", action='store_true',
+                    help="use tp group to extend experts parallism instead of sharding weight tensor of experts in tp group")
     return parser
 
 
@@ -1046,8 +1048,9 @@ def _validate_moe_args(args):
                 '`--moe-alltoall-overlap-comm` or `--moe-allgather-overlap-comm` only support with `--moe-permutation-async-comm` and `--moe-grouped-gemm`.')
     if args.moe_alltoall_overlap_comm and not args.moe_token_dispatcher_type == 'alltoall':
         raise AssertionError('`--moe-alltoall-overlap-comm` only support with `--moe-token-dispatcher-type alltoall`.')
-    if args.moe_alltoall_overlap_comm and args.tensor_model_parallel_size > 1:
-        raise AssertionError('`--moe-alltoall-overlap-comm` do not support tp for now.')
+    if not args.moe_tp_extend_ep and args.moe_alltoall_overlap_comm and args.tensor_model_parallel_size > 1:
+        raise AssertionError(
+            '`--moe-alltoall-overlap-comm` do not support tp for now. only support with moe_tp_extend_ep when tp > 1.')
     if args.moe_alltoall_overlap_comm and args.gradient_accumulation_fusion:
         raise AssertionError('moe_alltoall_overlap_comm does not support gradient_accumulation_fusion at the same time.')
 
@@ -1253,7 +1256,6 @@ def _add_dummy_args(args):
     args.adaptive_recompute_device_swap = False
     args.adaptive_recompute_device_size = -1
     args.adaptive_recompute_profiling_step = 10
-    args.moe_tp_extend_ep = False
     args.recompute_in_bubble = False
     args.use_nanopipe = False
     args.moe_allgather_overlap_comm = False

@@ -307,6 +307,27 @@
                 "orm": null
             }
         }
+    ],
+    "test_qwen2_moe_hf2mcore_tp2pp1ep2_extend": [
+        {
+            "param": {
+                "model-type":"GPT",
+                "load-model-type":"hf",
+                "save-model-type":"mg",
+                "target-tensor-parallel-size": "2",
+                "target-pipeline-parallel-size": "1",
+                "target-expert-parallel-size": "2",
+                "load-dir":"/data/ci/qwen2_moe/hf_base/qwen2_moe_hf",
+                "save-dir":"/data/qwen2_moe_tp2_ep2_extend_mc",
+                "tokenizer-model":"/data/ci/qwen2_moe/hf_base/qwen2_moe_hf",
+                "use-mcore-models": null,
+                "moe-grouped-gemm": null,
+                "moe-tp-extend-ep":null,
+                "add-qkv-bias": null,
+                "model-type-hf": "qwen2-moe",
+                "params-dtype": "bf16"
+            }
+        }
     ]
 }
 

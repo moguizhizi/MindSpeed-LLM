@@ -395,8 +395,10 @@ def topk_router_routing(self, logits: torch.Tensor):
     # Apply Z-Loss
     logits = self.apply_z_loss(logits)
 
+    args = get_args()
     if (
-        self.config.tensor_model_parallel_size > 1
+        not args.moe_tp_extend_ep
+        and self.config.tensor_model_parallel_size > 1
         and self.config.moe_token_dispatcher_type == "alltoall"
     ):
         # Gather the logits from the TP region

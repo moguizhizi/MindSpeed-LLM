@@ -180,3 +180,12 @@ class TestCheckpoint(object):
         save_dir = os.path.join(self.test_config['test_llama2_mcore2hf_orm_pp2vpp2'][0]['save-dir'], 'mg2hf')
         assert weight_compare(base_dir, save_dir, suffix="safetensors", use_md5=True)
         shutil.rmtree(save_dir)
+
+    def test_qwen2_moe_hf2mcore_tp2pp1ep2_extend(self):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_qwen2_moe_hf2mcore_tp2pp1ep2_extend'])
+        assert exit_code == 0
+        base_dir = "/data/qwen2_moe_tp2_extend_ep2"
+        save_dir = self.test_config['test_qwen2_moe_hf2mcore_tp2pp1ep2_extend'][0]['save-dir']
+        assert weight_compare(base_dir, save_dir)
+        shutil.rmtree(save_dir)

@@ -326,10 +326,16 @@ def set_model_layer_mlp(model_mg, msg, md, total_layer_num, **kwargs):
                 mlp_moe.pop("mlp shared experts linear fc2 weight"), margs.tensor_model_parallel_size, dim=1
             )
         if margs.moe_grouped_gemm:
-            w1_ep = torch.chunk(mlp_moe.pop("mlp experts weight1 module").view(margs.num_experts, margs.hidden_size, -1), margs.expert_model_parallel_size, dim=0)
-            w2_ep = torch.chunk(mlp_moe.pop("mlp experts weight2 module").view(margs.num_experts, -1, margs.hidden_size), margs.expert_model_parallel_size, dim=0)
-            weight1 = [torch.chunk(w1, margs.tensor_model_parallel_size, dim=2) for w1 in w1_ep]
-            weight2 = [torch.chunk(w2, margs.tensor_model_parallel_size, dim=1) for w2 in w2_ep]
+            if margs.moe_tp_extend_ep:
+                w1_ep = torch.chunk(mlp_moe.pop("mlp experts weight1 module").view(margs.num_experts, margs.hidden_size, -1), margs.expert_model_parallel_size * margs.tensor_model_parallel_size, dim=0)
+                w2_ep = torch.chunk(mlp_moe.pop("mlp experts weight2 module").view(margs.num_experts, -1, margs.hidden_size), margs.expert_model_parallel_size * margs.tensor_model_parallel_size, dim=0)
+                weight1 = w1_ep
+                weight2 = w2_ep
+            else:
+                w1_ep = torch.chunk(mlp_moe.pop("mlp experts weight1 module").view(margs.num_experts, margs.hidden_size, -1), margs.expert_model_parallel_size, dim=0)
+                w2_ep = torch.chunk(mlp_moe.pop("mlp experts weight2 module").view(margs.num_experts, -1, margs.hidden_size), margs.expert_model_parallel_size, dim=0)
+                weight1 = [torch.chunk(w1, margs.tensor_model_parallel_size, dim=2) for w1 in w1_ep]
+                weight2 = [torch.chunk(w2, margs.tensor_model_parallel_size, dim=1) for w2 in w2_ep]
         for ep_rank in range(margs.expert_model_parallel_size):
             kwargs["ep_rank"] = ep_rank
             for tp_rank in range(margs.tensor_model_parallel_size):
@@ -343,10 +349,16 @@ def set_model_layer_mlp(model_mg, msg, md, total_layer_num, **kwargs):
                     model_mg.set_layers_mlp_shared_experts_linear_fc2_weight(**kwargs,
                                                                              data=shared_experts_linear_fc2_weight[tp_rank])
                 if margs.moe_grouped_gemm:
-                    model_mg.set_layers_mlp_experts_weight1_module(**kwargs,
-                                                                   data=weight1[ep_rank][tp_rank].view(margs.hidden_size, -1))
-                    model_mg.set_layers_mlp_experts_weight2_module(**kwargs,
-                                                                   data=weight2[ep_rank][tp_rank].view(-1, margs.hidden_size))
+                    if margs.moe_tp_extend_ep:
+                        model_mg.set_layers_mlp_experts_weight1_module(**kwargs,
+                                                                   data=weight1[ep_rank * 2 + tp_rank].view(margs.hidden_size, -1))
+                        model_mg.set_layers_mlp_experts_weight2_module(**kwargs,
+                                                                   data=weight2[ep_rank * 2 + tp_rank].view(-1, margs.hidden_size))
+                    else:
+                        model_mg.set_layers_mlp_experts_weight1_module(**kwargs,
+                                                                    data=weight1[ep_rank][tp_rank].view(margs.hidden_size, -1))
+                        model_mg.set_layers_mlp_experts_weight2_module(**kwargs,
+                                                                    data=weight2[ep_rank][tp_rank].view(-1, margs.hidden_size))
             if not margs.moe_grouped_gemm:
                 for expert_idx in range(num_experts_local):
                     kwargs["expert_idx"] = expert_idx
