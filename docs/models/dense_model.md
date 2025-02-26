@@ -34,7 +34,7 @@
       <th>Legacy</th>
       <td> 1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/BAAI/Aquila2-34B/tree/main">34B</a></td>
@@ -42,7 +42,7 @@
       <th>Legacy</th>
       <td> 2x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="https://huggingface.co/baichuan-inc">Baichuan</a></td>
@@ -106,21 +106,21 @@
       <th>Mcore</th>
       <td >1x8</td>
       <td>【Ascend】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td>32K</td>
       <th>Mcore</th>
       <td >1x8</td>
       <td>【Ascend】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td>64K</td>
       <th>Mcore</th>
       <td >2x8</td>
       <td>【Ascend】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="https://huggingface.co/THUDM">GLM4</a></td>
@@ -130,14 +130,14 @@
       <th>Mcore</th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td> 32K </td>
       <th>Mcore</th>
       <td> 2x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="1"><a href="https://huggingface.co/codellama">CodeLlama</a></td>
@@ -147,7 +147,7 @@
       <th>Mcore</th>
       <td> 2x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="https://huggingface.co/internlm">InternLM</a></td>
@@ -175,13 +175,13 @@
       <th> Mcore </th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> 32K </td>
       <th> Mcore </th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="3"> <a href="https://huggingface.co/internlm">InternLM2.5</a> </td>
@@ -191,7 +191,7 @@
       <th> Mcore </th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/internlm/internlm2_5-7b/tree/main">7B</a></td>
@@ -199,7 +199,7 @@
       <th> Mcore </th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/internlm/internlm2_5-20b/tree/main">20B</a></td>
@@ -285,7 +285,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/v2ray/Llama-3-70B/tree/main">70B</a></td>
@@ -293,7 +293,7 @@
       <th>Mcore</th>
       <td>4x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="https://modelscope.cn/organization/LLM-Research">LLaMA3.1</td>
@@ -303,14 +303,14 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td>128K</td>
       <th>Mcore</th>
       <td>4x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-70B">70B</a></td>
@@ -318,7 +318,7 @@
       <th>Mcore</th>
       <td>4x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="https://huggingface.co/meta-llama">LLaMA3.2</td>
@@ -328,7 +328,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/unsloth/Llama-3.2-3B/tree/main">3B</a></td>
@@ -336,7 +336,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="1"><a href="https://huggingface.co/meta-llama">LLaMA3.3</a></td>
@@ -383,56 +383,56 @@
       <th>Mcore</th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> <a href="https://huggingface.co/Qwen/Qwen1.5-1.8B/tree/main">1.8B</a> </td>
       <td> 8K </td>
       <th>Mcore</th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> <a href="https://huggingface.co/Qwen/Qwen1.5-4B/tree/main">4B</a> </td>
       <td> 8K </td>
       <th>Mcore</th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> <a href="https://huggingface.co/Qwen/Qwen1.5-7B/tree/main">7B</a> </td>
       <td> 8K </td>
       <th>Mcore</th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> <a href="https://huggingface.co/Qwen/Qwen1.5-14B/tree/main">14B</a> </td>
       <td> 8K </td>
       <th>Mcore</th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> <a href="https://huggingface.co/Qwen/Qwen1.5-32B/tree/main">32B</a> </td>
       <td> 8K </td>
       <th> Mcore </th>
       <td> 4x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> <a href="https://huggingface.co/Qwen/Qwen1.5-72B/tree/main">72B</a> </td>
       <td> 8K </td>
       <th> Mcore </th>
       <td> 8x8 </td>
       <td>【GTS】</td>    
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> <a href="https://huggingface.co/Qwen/Qwen1.5-110B/tree/main">110B</a> </td>
       <td> 8K </td>
       <th>Mcore</th>
       <td> 8x8 </td>
       <td>【GTS】</td>    
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     </tr>
       <td rowspan="1"><a href="https://huggingface.co/Qwen">CodeQwen1.5</a></td>
@@ -441,7 +441,7 @@
       <th>Mcore</th>
       <td> 1x8 </td>
       <td>【GTS】</td>    
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     </tr>
        <tr>
@@ -452,46 +452,46 @@
       <th> Mcore </th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> 32K </td>
       <th> Mcore </th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td rowspan="2"> <a href="https://huggingface.co/Qwen/Qwen2-1.5B/tree/main">1.5B</a> </td>
       <td> 4K </td>
       <th> Mcore </th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> 32K </td>
       <th> Mcore </th>
       <td> 1x8 </td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td rowspan="2"><a href="https://huggingface.co/Qwen/Qwen2-7B/tree/main">7B</a></td>
       <td> 4K</td>
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td> 32K</td>
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
       <td><a href="https://huggingface.co/Qwen/Qwen2-72B/tree/main">72B</a></td>
       <td> 4K</td>
       <th>Mcore</th>
       <td>4x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="7"><a href="https://huggingface.co/Qwen">Qwen2.5</a></td>
@@ -501,21 +501,21 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
       <td><a href="https://huggingface.co/Qwen/Qwen2.5-1.5B/tree/main">1.5B</a></td>
       <td> 32K </td>
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
       <td><a href="https://huggingface.co/Qwen/Qwen2.5-3B/tree/main">3B</a></td>
       <td> 32K </td>
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/Qwen/Qwen2.5-7B/tree/main">7B</a></td>
@@ -523,7 +523,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【Ascend】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/Qwen/Qwen2.5-14B/tree/main">14B</a></td>
@@ -531,7 +531,7 @@
       <th>Mcore</th>
       <td>2x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/Qwen/Qwen2.5-32B/tree/main">32B</a></td>
@@ -539,7 +539,7 @@
       <th>Mcore</th>
       <td>4x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/Qwen/Qwen2.5-72B/tree/main">72B</a></td>
@@ -557,7 +557,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/Qwen/Qwen2.5-Math-7B/tree/main">7B</a></td>
@@ -565,7 +565,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/Qwen/Qwen2.5-Math-72B/tree/main">72B</a></td>
@@ -601,7 +601,7 @@
       <th>Mcore</th>
       <td>2x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="3"><a href="https://huggingface.co/01-ai">Yi1.5</a></td>
@@ -611,7 +611,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/01-ai/Yi-1.5-9B/tree/main">9B</a></td>
@@ -619,7 +619,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/01-ai/Yi-1.5-34B/tree/main">34B</a></td>
@@ -647,7 +647,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/google/gemma-7b">7B</a></td>
@@ -655,7 +655,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="2"><a href="https://huggingface.co/google">Gemma2</a></td>
@@ -665,7 +665,7 @@
       <th>Mcore</th>
       <td>1x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td><a href="https://huggingface.co/google/gemma-2-27b/tree/main">27B</a></td>
@@ -673,7 +673,7 @@
       <th>Mcore</th>
       <td>2x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td>GPT3</td>
@@ -683,7 +683,7 @@
       <th>Legacy</th>
       <td> 16x8 </td>
       <td>【Ascend】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="1"><a href="https://github.com/OpenBMB/MiniCPM">MiniCPM</a></td>
@@ -693,7 +693,7 @@
       <th> Mcore </th>
       <td> 1x8 </td>
       <td>【NAIE】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td rowspan="1"><a href="https://huggingface.co/openbmb/MiniCPM3-4B/tree/main">MiniCPM3</a></td>
