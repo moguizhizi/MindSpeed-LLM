@@ -28,8 +28,7 @@ from mindspeed_llm.tasks.posttrain.rlxf.utils.protocol import DataProto, make_ba
 from mindspeed_llm.tasks.posttrain.base import BaseTrainer
 import mindspeed_llm.tasks.posttrain.rlxf.training.parallel_state as ps
 from mindspeed_llm.tasks.inference.module import MegatronModuleForCausalLM
-from mindspeed_llm.tasks.preprocess.decoder_packed_mtf_dataset import \
-    build_train_valid_test_datasets as build_instruction_dataset
+from mindspeed_llm.tasks.preprocess.blended_mtf_dataset import build_blended_mtf_dataset
 from mindspeed_llm.training.initialize import set_jit_fusion_options
 from mindspeed_llm.training.utils import get_finetune_data_on_this_tp_rank, get_tune_attention_mask
 from mindspeed_llm.tasks.posttrain.utils import compute_log_probs, append_to_dict
@@ -44,7 +43,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
     args = get_args()
     print("> building train, validation, and test datasets for GPT ...")
 
-    train_ds, valid_ds, test_ds = build_instruction_dataset(
+    train_ds, valid_ds, test_ds = build_blended_mtf_dataset(
         data_prefix=args.data_path,
         splits_string=args.split,
         train_valid_test_num_samples=train_val_test_num_samples,
@@ -316,9 +315,16 @@ class PPOActorInferWorker(BaseTrainer):
         # Items and their type.
 
         data_type = torch.int64
+        cur_data = next(data_iterator)
+
+        # add problem category for reward choosing
+        if args.dataset_category is not None:
+            dataset_category = [int(item) for item in args.dataset_category.split(",")]
+            categories = [dataset_category[id.item()] for id in cur_data['dataset_id']]
+            cur_data['categories'] = torch.tensor(categories, dtype=torch.int64)
 
         # Broadcast data.
-        data_b = tensor_parallel.broadcast_data(self.keys, next(data_iterator), data_type)
+        data_b = tensor_parallel.broadcast_data(self.keys, cur_data, data_type)
 
         # Unpack
         batch = {}
@@ -387,7 +393,7 @@ class PPOActorInferWorker(BaseTrainer):
                 additional_dict[k].extend(additional_dict_per_step[k])
 
             additional_dict_per_step = {}
-        
+
 
         responses_ori_length, responses_pad_length = pad_to_tensor_dict(
             responses,

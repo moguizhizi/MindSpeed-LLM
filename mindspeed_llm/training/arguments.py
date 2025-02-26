@@ -738,6 +738,18 @@ def _add_rl_args(parser):
         default=True,
         help="advantage whiten in GRPO."
     )
+    group.add_argument(
+        '--dataset-category',
+        type=str,
+        default=None,
+        help='Comma-separated list of dataset category for training,'
+             ' 0 for general problems with no accurate answer, 1 for math problems'
+    )
+    group.add_argument(
+        "--extract-content-for-reward",
+        default=False,
+        help="Extract content in answer tag for reward model to judge."
+    )
 
     return parser
 
@@ -918,7 +930,7 @@ def _add_dataset_args(parser):
                        default=False,
                        help='if no shared storage, set it'
                        )
-    group.add_argument('--dataset-additional-keys', 
+    group.add_argument('--dataset-additional-keys',
                        nargs='*',
                        default=[],
                        help='Additional keys need to be add from dataset.'

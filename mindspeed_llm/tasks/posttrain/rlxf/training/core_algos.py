@@ -338,21 +338,32 @@ def compute_advantage(data: DataProto, config):
 def compute_score(reward_wg, batch, metrics, config):
     token_level_rewards = torch.zeros_like(batch.batch["responses"], dtype=torch.float32)
 
-    if reward_wg:
+    assert reward_wg is not None or config.reward.verifier, "At least one reward should be provided for score computing."
+
+    # 0 for default/general problems, 1 for math problems
+    if "categories" in batch.batch.keys():
+        use_verifier_mask = batch.batch["categories"][:, 0].squeeze().bool()
+    elif hasattr(config.reward, "verifier") and config.reward.verifier:
+        use_verifier_mask = torch.ones(len(batch.batch["input_ids"]), dtype=torch.bool)
+    else:
+        use_verifier_mask = torch.zeros(len(batch.batch["input_ids"]), dtype=torch.bool)
+
+    if reward_wg and (~use_verifier_mask).sum():
         score_tensor = reward_wg.compute_rm_score(batch).batch['rm_scores']
 
         rm_token_level_rewards = get_last_reward(
             batch,
             rm_scores=score_tensor,
-            n_sample_batch=config.actor_rollout_ref.actor_rollout.n_samples_per_prompt
+            n_sample_batch=config.actor_rollout_ref.actor_rollout.n_samples_per_prompt,
+            metrics=metrics,
+            valid_mask=~use_verifier_mask
         )
+        token_level_rewards[~use_verifier_mask] += rm_token_level_rewards
 
-        token_level_rewards += rm_token_level_rewards
 
-
-    if hasattr(config.reward, "verifier") and config.reward.verifier:
-        verifier_token_level_rewards = compute_verifier_score(batch, metrics, config)
-        token_level_rewards += verifier_token_level_rewards
+    if hasattr(config.reward, "verifier") and config.reward.verifier and use_verifier_mask.sum():
+        verifier_token_level_rewards = compute_verifier_score(batch, metrics, config, use_verifier_mask)
+        token_level_rewards[use_verifier_mask] += verifier_token_level_rewards
 
     rewards = DataProto.from_dict(
         tensors={
@@ -363,17 +374,16 @@ def compute_score(reward_wg, batch, metrics, config):
 
     return batch.union(rewards)
 
-
-def compute_verifier_score(batch, metrics, config):
+def compute_verifier_score(batch, metrics, config, valid_mask):
     tokenizer = AutoTokenizer.from_pretrained(config.training.tokenizer_name_or_path, trust_remote_code=True)
-    tokenizer.eos_token = tokenizer.decode(tokenizer.eos_token_id, skip_special_tokens=True)
 
-    question = batch.batch["prompts"]
-    responses = batch.batch["responses"]
-    str_question = tokenizer.batch_decode(question, skip_special_tokens=True)
+    responses = batch.batch["responses"][valid_mask]
     str_responses = tokenizer.batch_decode(responses, skip_special_tokens=True)
+    question = batch.batch["prompts"][valid_mask]
+    str_question = tokenizer.batch_decode(question, skip_special_tokens=True)
 
     reward_index = batch.batch["responses_ori_length"].unsqueeze(1) - 1
+    reward_index = reward_index[valid_mask]
 
     logger.logger.info("=" * 50)
     logger.logger.info(">>>>>>>>>> User:\n")
@@ -382,16 +392,19 @@ def compute_verifier_score(batch, metrics, config):
     logger.logger.info(str_responses[0])
 
     extra_data = {}
-    
+
     if hasattr(config.training, "dataset_additional_keys"):
         for k in config.training.dataset_additional_keys:
             extra_data[k] = tokenizer.batch_decode(batch.batch[k], skip_special_tokens=True)
+            if k == "categories":
+                continue
             logger.logger.info(f">>>>>>>>>> {k}")
-            logger.logger.info(extra_data[k][0])
+            logger.logger.info(extra_data[k][valid_mask.nonzero()[0]])
 
     logger.logger.info("=" * 50)
 
-    scores = verifier(str_responses, extra_data, config, metrics, infos=None)
+    labels = [label for label, mask in zip(extra_data["labels"], valid_mask) if mask]
+    scores = verifier(str_responses, labels, config, metrics, infos=None)
 
     scores = torch.tensor(
         scores,
@@ -409,7 +422,7 @@ def compute_verifier_score(batch, metrics, config):
     return token_level_rewards
 
 
-def verifier(responses, data, config, metrics, infos=None):
+def verifier(responses, labels, config, metrics, infos=None):
     """
     User-defined verifier scoring process.
 
@@ -433,7 +446,6 @@ def verifier(responses, data, config, metrics, infos=None):
         "base_acc": base_model_accuracy_reward
     }
 
-    labels = data["labels"]
     scores = [0.0] * len(labels)
 
     verifier_function = config.algorithm.verifier_function if hasattr(
@@ -452,10 +464,18 @@ def verifier(responses, data, config, metrics, infos=None):
     return scores
 
 
-def get_last_reward(data, rm_scores, n_sample_batch):
+def get_last_reward(data, rm_scores, n_sample_batch, metrics, valid_mask):
     eos_indices = data.batch["responses_ori_length"].unsqueeze(1) - 1
 
+    # gather reward from eos position
+    rm_scores = rm_scores[valid_mask]
+    eos_indices = eos_indices[valid_mask]
     reward = rm_scores.gather(dim=1, index=eos_indices).squeeze(1)
+
+    # record raw reward
+    metrics[f"grpo/reward_model_rewards/mean"] = sum(reward) / max(len(reward), 1)
+
+    # calculate group norm
     reward = reward.reshape(-1, n_sample_batch)
     reward = (reward - reward.mean(dim=1, keepdim=True)) / (reward.std(dim=1, keepdim=True) + 1e-8)
     reward = reward.reshape(-1)

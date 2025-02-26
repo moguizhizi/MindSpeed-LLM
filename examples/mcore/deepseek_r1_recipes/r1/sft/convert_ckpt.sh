@@ -1,0 +1,13 @@
+python convert_ckpt.py \
+       --use-mcore-models \
+       --model-type GPT \
+       --load-model-type hf \
+       --save-model-type mg \
+       --target-tensor-parallel-size 2 \
+       --target-pipeline-parallel-size 4 \
+       --add-qkv-bias \
+       --load-dir ${LOAD_DIR} \
+       --save-dir ${SAVE_DIR} \
+       --tokenizer-model ${LOAD_DIR} \
+       --model-type-hf llama2 \
+       --params-dtype bf16

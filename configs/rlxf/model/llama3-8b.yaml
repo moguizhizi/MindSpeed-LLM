@@ -24,7 +24,7 @@ llama3-8b:
   init_method_std: 0.02
   hidden_dropout: 0.0
   position_embedding_type: rope
-  rotary_base: 500000.0
+  rotary_base: 500000
   normalization: RMSNorm
   norm_epsilon: 1e-5
   swiglu: true

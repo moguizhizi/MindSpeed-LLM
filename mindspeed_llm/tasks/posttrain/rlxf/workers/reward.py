@@ -2,9 +2,11 @@
 import os
 import time
 from functools import partial
+import re
 
 import ray
 import torch
+from transformers import AutoTokenizer
 
 from megatron.training import print_rank_0
 from megatron.training import get_args, get_timers, get_one_logger
@@ -19,6 +21,8 @@ from megatron.core.pipeline_parallel import get_forward_backward_func
 from mindspeed_llm.training.initialize import set_jit_fusion_options
 from mindspeed_llm.training.utils import get_tune_attention_mask
 from mindspeed_llm.tasks.posttrain.orm import ORMTrainer
+from mindspeed_llm.tasks.posttrain.rlxf.workers.actor_train_infer import pad_to_tensor_dict, \
+    generate_attention_mask, generate_position_ids_from_attention_mask
 from mindspeed_llm.tasks.posttrain.rlxf.utils.protocol import DataProto
 from mindspeed_llm.tasks.posttrain.rlxf.utils.torch_functional import split_dict_tensor_into_batches
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker import MegatronWorker
@@ -118,6 +122,7 @@ class MegatronPPORM(ORMTrainer):
 
         # Print setup timing.
         self.train_args = [self.forward_step, model, config]
+        self.tokenizer = AutoTokenizer.from_pretrained(self.args.tokenizer_name_or_path)
 
     def compute_rm_score(self, data: DataProto):
         args = get_args()
@@ -179,9 +184,48 @@ class MegatronPPORM(ORMTrainer):
     def _get_tokens(self, data_iterator):
         self.timers('batch-generator', log_level=2).start()
         batch = next(data_iterator)
-        input_ids = batch["input_ids"]
-        attention_mask_1d = batch["attention_mask"]
-        attention_mask = get_tune_attention_mask(attention_mask_1d)
-        position_ids = batch["position_ids"]
+
+        if self.args.extract_content_for_reward:
+            str_responses = tokenizer.batch_decode(batch["responses"])
+            pattern = r'<answer>(.*?)</answer>'
+            contents = []
+            for str_response in str_responses:
+                first_pad_position = str_response.find(tokenizer.pad_token)
+                if first_pad_position != -1:
+                    str_response = str_response[:first_pad_position]
+                within_answer = re.findall(pattern, str_response)
+                if within_answer:
+                    content = within_answer[0]
+                else:
+                    content = str_response
+                contents.append(tokenizer.encode(content))
+
+            responses_ori_length, responses_pad_length = pad_to_tensor_dict(
+                contents,
+                pad_multi_of=self.args.pad_to_multiple_of
+            )
+
+            prompts = batch["prompts"]
+            prompts_pad_length = torch.LongTensor([len(prompts[0])]).cuda()
+            pad_token_id = tokenizer.pad_token_id
+            prompts_ori_length = [len(prompts[i]) - (prompts[i] == pad_token_id).sum().item() for i in range(len(prompts))]
+            prompts = prompts.cpu().numpy().tolist()
+
+            input_ids = [prompt + response for prompt, response in zip(prompts, contents)]
+            attention_mask = generate_attention_mask(input_ids, prompts_ori_length, prompts_pad_length,
+                                                     responses_ori_length, responses_pad_length)
+            position_ids = generate_position_ids_from_attention_mask(input_ids, prompts_ori_length, prompts_pad_length)
+
+            device = batch["input_ids"].device
+            input_ids = torch.tensor(input_ids).long().to(device)
+            attention_mask_1d = torch.tensor(attention_mask).long().to(device)
+            attention_mask = get_tune_attention_mask(attention_mask_1d)
+            position_ids = torch.tensor(position_ids).long().to(device)
+
+        else:
+            input_ids = batch["input_ids"]
+            attention_mask_1d = batch["attention_mask"]
+            attention_mask = get_tune_attention_mask(attention_mask_1d)
+            position_ids = batch["position_ids"]
 
         return input_ids, attention_mask, position_ids

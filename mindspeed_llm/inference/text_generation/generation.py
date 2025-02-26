@@ -20,6 +20,7 @@ import torch
 import torch.nn.functional as F
 
 from megatron.training import get_args, get_tokenizer
+from megatron.core.parallel_state import get_expert_model_parallel_world_size
 from megatron.core import mpu
 from megatron.inference.text_generation.communication import (
     copy_from_last_to_first_pipeline_stage,
@@ -69,7 +70,7 @@ def generate_tokens_probs_and_return_on_first_stage(
 
     if max_sequence_length > args.max_position_embeddings:
         raise ValueError("Length of prompt + tokens_to_generate longer than allowed")
-    
+
     if max_sequence_length * batch_size > args.max_tokens_to_oom:
         raise ValueError("Too many tokens.  " + str(max_sequence_length*batch_size) + " is greater than " + str(args.max_tokens_to_oom))
 
@@ -100,7 +101,7 @@ def generate_tokens_probs_and_return_on_first_stage(
         generated_sequence_lengths = torch.ones(
                 batch_size, dtype=torch.int64,
                 device=torch.cuda.current_device()) * max_sequence_length
-    
+
     # Whether we have reached a termination id.
     is_generation_done = torch.zeros(batch_size, dtype=torch.uint8,
                                      device=torch.cuda.current_device())
@@ -145,9 +146,9 @@ def generate_tokens_probs_and_return_on_first_stage(
                                     top_k=top_k,
                                     top_p=top_p,
                                     temperature=temperature)
-                
+
                 # end of megatron_adaptation
-                
+
                 # If a prompt length is smaller or equal th current context
                 # length, it means we have started generating tokens
                 started = lengths <= context_length
@@ -174,14 +175,15 @@ def generate_tokens_probs_and_return_on_first_stage(
                 # instead tokenization should be in the inference loop so stop sequences can be used
                 done_token = (new_sample == termination_id).byte() & \
                         started.byte()
-                
+
                 just_finished = (done_token & ~is_generation_done).bool()
                 generated_sequence_lengths[just_finished.view(-1)] = \
                     context_length + 1
                 is_generation_done = is_generation_done | done_token
                 done = torch.all(is_generation_done)
-            
-            torch.distributed.all_reduce(done, op=torch.distributed.ReduceOp.MAX)
+
+            if get_expert_model_parallel_world_size() > 1:
+                torch.distributed.all_reduce(done, op=torch.distributed.ReduceOp.MAX)
 
             if output_log_probs is None:
                 output_log_probs = torch.empty(output_log_probs_size,
@@ -194,7 +196,7 @@ def generate_tokens_probs_and_return_on_first_stage(
                                                       tensor=done)
             if use_eod_token_for_early_termination and done:
                 break
-            
+
     # ===================================================
     # Update the length of based on max generated length.
     # ===================================================
@@ -219,12 +221,12 @@ def generate_tokens_probs_and_return_on_first_stage(
 
 
 def beam_search_and_return_on_first_stage(
-        model, tokens=None, lengths=0, 
-        beam_size=0, 
+        model, tokens=None, lengths=0,
+        beam_size=0,
         do_sample=False,
-        stop_token=None, 
-        num_return_gen=1, 
-        length_penalty=1, 
+        stop_token=None,
+        num_return_gen=1,
+        length_penalty=1,
         top_k=0, top_p=0.0,
         temperature=1.0):
     args = get_args()
@@ -242,7 +244,7 @@ def beam_search_and_return_on_first_stage(
         termination_id = args.eos_id
     else:
         termination_id = tokenizer.eod
-    
+
     # If the context is too big, this happens
     if prompt_length >= final_sequence_length:
         raise ValueError("context length + tokens_to_generate too large")
@@ -338,13 +340,14 @@ def beam_search_and_return_on_first_stage(
 
                 if beam_hyp.is_done(best_scores.max().item(), context_length + 1 - prompt_length):
                     done = torch.ones(1, dtype=torch.uint8, device=torch.cuda.current_device())
-            
+
                 best_batches = tokens.new([item[2] for item in next_beams])
                 tokens = tokens[best_batches, :]
                 tokens[:, context_length] = tokens.new([item[0] for item in next_beams])
                 scores = scores.new([item[1] for item in next_beams]).unsqueeze(1)
-          
-            torch.distributed.all_reduce(done, op=torch.distributed.ReduceOp.MAX)
+
+            if get_expert_model_parallel_world_size() > 1:
+                torch.distributed.all_reduce(done, op=torch.distributed.ReduceOp.MAX)
             done = broadcast_from_last_pipeline_stage(1, torch.uint8, done)
             if done:
                 break
