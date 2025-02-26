@@ -36,6 +36,7 @@ class TestRotaryPosEmbedding:
             test_name_space.tp_2d = False
             test_name_space.tp_x = 1
             test_name_space.tp_y = 1
+            test_name_space.dynamic_factor = 1.0
             return test_name_space
         # set up name space function
         import mindspeed_llm

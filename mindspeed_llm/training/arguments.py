@@ -1265,6 +1265,13 @@ def _add_dummy_args(args):
     args.moe_zero_memory = 'disable'
     args.moe_zero_memory_num_layers = None
     args.attention_mask_type = args.cp_attention_mask_type
+    args.hccl_group_buffer_adaptive = False
+    args.moe_bmm_mc2 = False
+    args.moe_hierarchical_alltoallv = False
+    args.moe_experts_pipeline_degree = 0
+    args.context_parallel_kv_cache_policy = None
+    args.context_parallel_cache_interval = 0
+    args.use_ulysses_allgather_kv = False
 
 
 def _validate_noop_layer(args):

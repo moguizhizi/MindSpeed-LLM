@@ -59,6 +59,7 @@ def run_attention_module(test_args, use_mcore, use_cp, cp_size, u_size, use_alib
     args.tp_y = 1
     args.use_nd_matmul = False
     args.ampipe_degree = 0
+    args.hccl_group_buffer_adaptive = False
 
     if use_alibi:
         args.position_embedding_type = 'alibi'

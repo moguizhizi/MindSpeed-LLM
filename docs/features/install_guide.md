@@ -44,7 +44,7 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh  # source ascend-toolkit环�
 # 安装MindSpeed加速库
 git clone https://gitee.com/ascend/MindSpeed.git
 cd MindSpeed
-git checkout 9b3ad3fd928  # checkout commit from MindSpeed core_r0.8.0 in 2024.12.25
+git checkout 0b832e42  # checkout commit from MindSpeed core_r0.8.0 in 2025.02.22
 pip install -r requirements.txt 
 pip3 install -e .
 cd ..

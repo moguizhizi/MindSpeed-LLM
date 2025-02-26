@@ -20,6 +20,7 @@ import argparse
 import torch
 import tensordict
 from torch_npu.contrib import transfer_to_npu
+from mindspeed.features_manager import FEATURES_LIST
 
 
 def dummy_jit(fn):
@@ -90,6 +91,10 @@ class MegatronAdaptation:
             group.add_argument('--adaptive-recompute-device-swap', type=bool, default=False)
             group.add_argument('--swap-attention', action='store_true', default=False)
             group.add_argument('--memory-fragmentation', type=bool, default=False)
+            group.add_argument('--layerzero', action='store_true', default=False)
+            
+            for feature in FEATURES_LIST:
+                feature.default_patches = False
             return parser
 
         def _get_dummy_args():

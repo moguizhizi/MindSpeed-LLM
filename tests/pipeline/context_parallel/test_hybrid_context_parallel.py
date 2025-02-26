@@ -72,6 +72,7 @@ def run_hybridattn_cp(test_args, cp_size, u_size, cp_args):
     args.tp_y = 1
     args.use_nd_matmul = False
     args.ampipe_degree = 0
+    args.hccl_group_buffer_adaptive = False
     set_args(args)
     # clear global attention mask set by last test case
     set_attention_mask(None)

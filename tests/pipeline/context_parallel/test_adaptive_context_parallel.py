@@ -86,6 +86,7 @@ def run_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
     args.use_nd_matmul = False
     args.ampipe_degree = 0
     args.use_cp_send_recv_overlap = True
+    args.hccl_group_buffer_adaptive = False
     set_args(args)
     initialize_model_parallel_nest = initialize_model_parallel_decorator(initialize_model_parallel)
     initialize_model_parallel_nest(context_parallel_size=cp_size)
@@ -191,6 +192,7 @@ def run_hybrid_adaptive_cp(cp_size, bs, seq_len, dtype, cp_args):
     args.tp_x = 1
     args.tp_y = 1
     args.use_nd_matmul = False
+    args.hccl_group_buffer_adaptive = False
     args.ampipe_degree = 0
     set_args(args)
     initialize_model_parallel_nest = initialize_model_parallel_decorator(initialize_model_parallel)

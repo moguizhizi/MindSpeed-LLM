@@ -15,7 +15,9 @@ from megatron.core.transformer.dot_product_attention import DotProductAttention
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.utils import attention_mask_func
 from megatron.core.utils import divide
+from megatron.core.packed_seq_params import PackedSeqParams
 from mindspeed.core.context_parallel.ring_context_parallel import ringattn_context_parallel
+from mindspeed.core.context_parallel.ulysses_context_parallel import ulyssesattn_context_parallel
 from mindspeed.core.parallel_state import (get_context_parallel_group_for_hybrid_ring,
                                            get_context_parallel_for_hybrid_ring_world_size,
                                            get_context_parallel_for_hybrid_ring_rank,
@@ -29,6 +31,8 @@ from mindspeed.core.context_parallel.adaptive_context_parallel import adaptive_a
 from mindspeed.core.context_parallel.utils import get_scheduling_info
 from mindspeed.model.transformer import get_attention_mask
 from mindspeed.utils import get_actual_seq_len
+from mindspeed.core.context_parallel.context_parallel_kv_cache import get_cache_policy
+from mindspeed.utils import get_actual_seq_len, compute_qkv_index, get_position_ids
 
 from mindspeed_llm.core.models.common.embeddings.rotary_pos_embedding import yarn_get_mscale
 from mindspeed_llm.tasks.models.common.alibi import Alibi
@@ -39,9 +43,20 @@ except ImportError:
     rearrange = None
 
 
-def do_ring_context_parallel(q, k, v, head_num, softmax_scale, attn_mask, dropout_p=0., pse=None, pse_type=None):
+def do_ring_context_parallel(q, k, v, head_num, softmax_scale, attn_mask, dropout_p=0., pse=None, pse_type=None, packed_seq_params=None):
     args = get_args()
     actual_seq_len = get_actual_seq_len()
+    if args.shape_order == "TND":
+        packed_seq_params = PackedSeqParams(
+            cu_seqlens_q=torch.tensor(actual_seq_len, dtype=torch.int64, device=torch.cuda.current_device()),
+            cu_seqlens_kv=torch.tensor(actual_seq_len, dtype=torch.int64, device=torch.cuda.current_device())
+        )
+        
+        q_index, kv_index = compute_qkv_index(torch.tensor(actual_seq_len, dtype=torch.int64, device=torch.cuda.current_device()).clone().tolist())
+        packed_seq_params.q_index = q_index
+        packed_seq_params.kv_index = kv_index
+        packed_seq_params.position_ids = get_position_ids()
+    
     in_hybrid_mode = get_context_parallel_group_for_hybrid_ring(check_initialized=False) is not None
     if in_hybrid_mode:
         cp_group = get_context_parallel_group_for_hybrid_ring()
@@ -74,7 +89,7 @@ def do_ring_context_parallel(q, k, v, head_num, softmax_scale, attn_mask, dropou
         cp_para['cp_group_for_intra_window_send_recv_overlap'] = get_ring_group_for_intra_window_send_recv_overlap()
 
         output = ringattn_context_parallel(q, k, v, head_num, cp_para, softmax_scale, attn_mask, dropout_p,
-                                           actual_seq_len, actual_seq_len)
+                                           packed_seq_params)
     else:
         cp_para['scheduling_info'] = get_scheduling_info()
         output = adaptive_attn_context_parallel(q, k, v, head_num, cp_para, softmax_scale, attn_mask,
@@ -82,6 +97,39 @@ def do_ring_context_parallel(q, k, v, head_num, softmax_scale, attn_mask, dropou
     return output
 
 
+def do_ulyssesattn_context_parallel(self,
+        query: Tensor,
+        key: Tensor,
+        value: Tensor,
+        attention_mask,
+        attn_mask_type,
+        packed_seq_params):
+    args = get_args()
+    
+    sparse_mode = args.sparse_mode
+    if attn_mask_type == AttnMaskType.no_mask:
+        sparse_mode = 0  # default mask
+        
+    scale = 1.0 / math.sqrt(
+        self.hidden_size_per_attention_head) if self.scale_mask_softmax.scale is None else self.softmax_scale
+    
+    self.ulysses_comm_para['cache_policy'] = get_cache_policy(
+        self.layer_number, args.context_parallel_kv_cache_policy, args.context_parallel_cache_interval
+    )
+    self.ulysses_comm_para['use_ulysses_allgather_kv'] = args.use_ulysses_allgather_kv
+    attn_para = dict()
+    attn_para['packed_seq_params'] = packed_seq_params
+    attn_para['attention_mask'] = attention_mask
+    attn_para['scale'] = scale
+    attn_para['pre_tokens'] = args.pre_tockens
+    attn_para['next_tokens'] = args.next_tockens
+    attn_para['keep_prob'] = 1 - self.attention_dropout.p
+    attn_para['sparse_mode'] = sparse_mode
+    output = ulyssesattn_context_parallel(query, key, value, attn_para, self.ulysses_comm_para)
+    
+    return output
+    
+    
 def dot_product_attention_init(
         self,
         config: TransformerConfig,
@@ -209,7 +257,8 @@ def dot_product_attention_forward_wrapper(fn):
         if args.use_flash_attn and args.tp_2d:
             from mindspeed.core.transformer.dot_product_attention import dot_product_attention_forward
             return dot_product_attention_forward(self, query, key, value, attention_mask, attn_mask_type, packed_seq_params)
-
+        if self.config.context_parallel_size > 1 and args.context_parallel_algo == "ulysses_cp_algo":
+            return do_ulyssesattn_context_parallel(self, query, key, value, attention_mask, attn_mask_type, packed_seq_params)
         # ===================================
         # Raw attention scores. [b, n/p, s, s]
         # ===================================
@@ -365,7 +414,7 @@ def flash_attention_forward(
         query, key, value = [rearrange(x, 's b h d -> s b (h d)') for x in [query, key, value]]
         return do_ring_context_parallel(
             query, key, value, head_num=n_head, softmax_scale=scale, attn_mask=attention_mask, pse=self.pse,
-            pse_type=self.pse_type)
+            pse_type=self.pse_type, packed_seq_params=packed_seq_params)
 
     if args.shape_order == "TND":  # varlen FA
         query, key, value = [rearrange(x, 's b h d -> (s b) h d') for x in [query, key, value]]
