@@ -2,7 +2,7 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 python convert_ckpt.py \
     --model-type GPT \
-    --use-mcore-model \
+    --use-mcore-models \
     --load-model-type mg \
     --save-model-type hf \
     --load-dir ./model_weights/llama-2-7b-mcore/ \

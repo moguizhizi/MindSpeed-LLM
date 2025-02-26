@@ -1,3 +1,4 @@
+export CUDA_DEVICE_MAX_CONNECTIONS=1
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 python convert_ckpt.py \

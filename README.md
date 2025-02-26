@@ -912,7 +912,7 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <td>【NAIE】</td>
     </tr>
     <tr>
-      <td><a href="https://www.juhe.cn/market/product/id/10243">BoolQ</a></td>
+      <td><a href="https://github.com/google-research-datasets/boolean-questions">BoolQ</a></td>
       <td>✅</td>
       <td>✅</td>
       <td>❌</td>
