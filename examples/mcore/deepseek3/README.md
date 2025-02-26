@@ -4,7 +4,7 @@
 
 可以将已经反量化为bf16数据格式的[huggingface权重](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base/tree/main)转换为mcore权重，用于微调、推理、评估等任务。反量化方法请参考DeepSeek官方提供的[代码](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base/blob/main/inference/fp8_cast_bf16.py)。
 
-注：mcore权重转回huggingface权重、tp并行切分、vpp并行切分特性开发中，暂未支持。
+注：mcore权重转回huggingface权重、vpp并行切分特性开发中，暂未支持。
 
 ### 启动脚本
 
@@ -15,6 +15,10 @@
 【--moe-grouped-gemm】
 
 当每个专家组有多个专家时，可以使用Grouped GEMM功能来提高利用率和性能。
+
+【--target-tensor-parallel-size】
+
+张量并行度，默认值为1。
 
 【--target-pipeline-parallel-size】
 
