@@ -7,7 +7,11 @@ from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.identity_op import IdentityOp
 from megatron.core.models.gpt.gpt_layer_specs import _get_mlp_module_spec
 from mindspeed_llm.tasks.models.transformer.multi_head_latent_attention import (
-    MLASelfAttentionSubmodules, MLASelfAttentionWithMMSplitSubmodules, MultiHeadLatentAttention)
+    MLASelfAttentionSubmodules,
+    MLASelfAttentionWithMMSplitSubmodules,
+    MultiHeadLatentAttention,
+    LinearNoTP,
+)
 from mindspeed_llm.tasks.models.transformer.mla_dot_product_attention import MlaDotProductAttention
 from mindspeed_llm.core import PTNorm
 
@@ -16,7 +20,12 @@ MultiHeadLatent Layer Specification, which is mainly for Deepseek.
 """
 
 args = get_args()
-num_experts, moe_grouped_gemm, qk_layernorm, mla_mm_split = args.num_experts, args.moe_grouped_gemm, args.qk_layernorm, args.mla_mm_split
+num_experts, moe_grouped_gemm, qk_layernorm, mla_mm_split = (
+    args.num_experts,
+    args.moe_grouped_gemm,
+    args.qk_layernorm,
+    args.mla_mm_split,
+)
 
 
 layer_spec = ModuleSpec(
@@ -27,16 +36,17 @@ layer_spec = ModuleSpec(
             module=MultiHeadLatentAttention,
             params={"attn_mask_type": AttnMaskType.causal},
             submodules=MLASelfAttentionSubmodules(
-                linear_qkv=ColumnParallelLinear,
+                linear_qkv=LinearNoTP,
                 core_attention=MlaDotProductAttention,
                 linear_proj=RowParallelLinear,
                 q_layernorm=PTNorm if qk_layernorm else IdentityOp,
                 k_layernorm=PTNorm if qk_layernorm else IdentityOp,
                 linear_qb=ColumnParallelLinear,
-                linear_kvb=ColumnParallelLinear
-            ) if not mla_mm_split else
-            MLASelfAttentionWithMMSplitSubmodules(
-                linear_qkv=ColumnParallelLinear,
+                linear_kvb=ColumnParallelLinear,
+            )
+            if not mla_mm_split
+            else MLASelfAttentionWithMMSplitSubmodules(
+                linear_qkv=LinearNoTP,
                 core_attention=MlaDotProductAttention,
                 linear_proj=RowParallelLinear,
                 q_layernorm=PTNorm if qk_layernorm else IdentityOp,
@@ -44,8 +54,8 @@ layer_spec = ModuleSpec(
                 linear_qk_nope=ColumnParallelLinear,
                 linear_qk_rope=ColumnParallelLinear,
                 linear_kv_nope=ColumnParallelLinear,
-                linear_v=ColumnParallelLinear
-            )
+                linear_v=ColumnParallelLinear,
+            ),
         ),
         self_attn_bda=get_bias_dropout_add,
         pre_mlp_layernorm=PTNorm,
@@ -56,8 +66,8 @@ layer_spec = ModuleSpec(
         ),
         mlp_bda=get_bias_dropout_add,
         sharded_state_dict_keys_map={
-            'input_layernorm.': 'self_attention.linear_qkv.layer_norm_',
-            'pre_mlp_layernorm.': 'mlp.linear_fc1.layer_norm_',
+            "input_layernorm.": "self_attention.linear_qkv.layer_norm_",
+            "pre_mlp_layernorm.": "mlp.linear_fc1.layer_norm_",
         },
     ),
 )
