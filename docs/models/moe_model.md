@@ -25,7 +25,7 @@
       <th>Mcore</th>
       <td>8x8</td>
       <td>【GTS】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
       <tr>
     </tr>
     <tr>
@@ -44,7 +44,7 @@
       <th>Mcore</th>
       <td>8x8</td>
       <td>【NAIE】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
     <tr>
       <td> 64K</td>
@@ -61,7 +61,7 @@
       <th>Mcore</th>
       <td> 20x8 </td>
       <td>【Ascend】</td>
-      <td>【Test】</td>
+      <td>【Pass】</td>
     </tr>
         <tr>
       <td rowspan="1"><a href="https://huggingface.co/deepseek-ai/DeepSeek-Coder-V2-Base">DeepSeek-V2-coder</a></td>
