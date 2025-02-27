@@ -407,6 +407,12 @@ def _add_moe_args(parser):
                        help='moe_alltoall_overlap_comm')
     group.add_argument("--moe-tp-extend-ep", action='store_true',
                     help="use tp group to extend experts parallism instead of sharding weight tensor of experts in tp group")
+    group.add_argument("--moe-zero-memory", type=str, default='disable',
+                       choices=['disable', 'level0', 'level1'],
+                       help="Save activation memory in moe layer.")
+    group.add_argument('--moe-zero-memory-num-layers', type=int, default=None,
+                       help='the number of layers using moe-zero-memory level1'
+                            'in each pp stage.')
     return parser
 
 
@@ -1067,6 +1073,16 @@ def _validate_moe_args(args):
     if not args.moe_tp_extend_ep and args.moe_alltoall_overlap_comm and args.tensor_model_parallel_size > 1:
         raise AssertionError(
             '`--moe-alltoall-overlap-comm` do not support tp for now. only support with moe_tp_extend_ep when tp > 1.')
+    if args.moe_zero_memory_num_layers is not None:
+        num_layers_per_pipeline_stage = args.num_layers // args.pipeline_model_parallel_size
+        if args.moe_zero_memory_num_layers < 0 or args.moe_zero_memory_num_layers > num_layers_per_pipeline_stage:
+            raise AssertionError('`--moe-zero-memory-num-layers` must be between 0 and num layers per pipeline stage')
+        if args.moe_zero_memory == "disable":
+            raise AssertionError('`--moe-zero-memory` must be enabled when using `--moe-zero-memory-num-layers`')
+    if args.moe_zero_memory != "disable" and not args.moe_alltoall_overlap_comm:
+        raise AssertionError('`--moe-zero-memory` only supports `--moe-alltoall-overlap-comm` for now.')
+    if args.moe_zero_memory != "disable" and args.recompute_method is not None:
+        raise AssertionError('`--moe-zero-memory` does not support full recomputation for now.')
     if args.moe_alltoall_overlap_comm and args.gradient_accumulation_fusion:
         raise AssertionError('moe_alltoall_overlap_comm does not support gradient_accumulation_fusion at the same time.')
 
@@ -1278,8 +1294,6 @@ def _add_dummy_args(args):
     args.moe_without_activation = False
     args.disable_gloo_group = None
     args.ampipe_degree = 0
-    args.moe_zero_memory = 'disable'
-    args.moe_zero_memory_num_layers = None
     args.attention_mask_type = args.cp_attention_mask_type
     args.hccl_group_buffer_adaptive = False
     args.moe_bmm_mc2 = False

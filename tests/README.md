@@ -32,7 +32,7 @@
     </tr>
     <tr>
         <td>Mcore</td>
-        <td>moe_alltoall_overlap_comm，swap-attention，reuse_fp32_param，fused_rmsnorm，fused_swiglu</td>
+        <td>moe_alltoall_overlap_comm，moe-zero-memory，swap-attention，reuse_fp32_param，fused_rmsnorm，fused_swiglu</td>
         <td><a href="st/shell_scripts/deepseek_500b_tp1_pp2_ep2_cp2_overlap.sh">deepseek_500b_tp1_pp2_ep2_cp2_overlap.sh</a></td>
         <td>Y</td>
         <td>Y</td>

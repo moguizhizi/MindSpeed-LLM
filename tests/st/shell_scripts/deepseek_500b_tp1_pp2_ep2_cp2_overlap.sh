@@ -40,7 +40,7 @@ MOE_ARGS="
     --moe-token-dispatcher-type alltoall \
     --moe-alltoall-overlap-comm \
     --moe-router-topk 5 \
-    --moe-permutation-async-comm
+    --moe-permutation-async-comm \
 "
 
 GPT_ARGS="
@@ -102,9 +102,8 @@ GPT_ARGS="
 
 MEMORY_ARGS="
     --swap-attention \
-    --recompute-num-layers 4 \
-    --recompute-method block \
-    --enable-recompute-layers-per-pp-rank \
+    --moe-zero-memory level1 \
+    --moe-zero-memory-num-layers 2 \
 "
 
 CKPT_ARGS="
