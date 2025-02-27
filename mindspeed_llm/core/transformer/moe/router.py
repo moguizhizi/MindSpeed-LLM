@@ -347,7 +347,7 @@ def topk_router_init_wrapper(function):
         function(self, *args, **kwargs)
         mg_args = get_args()
 
-        self.n_group = mg_args.expert_model_parallel_size
+        self.n_group = mg_args.n_group if mg_args.n_group is not None else mg_args.expert_model_parallel_size
         self.topk_group = mg_args.topk_group
         self.norm_topk_prob = mg_args.norm_topk_prob
         self.routed_scaling_factor = mg_args.routed_scaling_factor

@@ -123,6 +123,10 @@ def _add_deepseek_moe_args(parser):
     group.add_argument('--n-shared-experts', type=int, default=None,
                        help='This value is the number of shared experts, which is equal to the intermediate_size '
                             'of the shared experts divided by the moe_intermediate_size.')
+    group.add_argument('--n-group', type=int, default=None,
+                       help='Number of groups for routed experts.'
+                            'Tips: in deepseek3, set n-group equal to EP to limit each token to experts on a subset of devices,'
+                            'set n-group equal to number of nodes in EP group to limit each token to experts on a subset of nodes.')
     group.add_argument('--topk-group', type=int, default=None,
                        help='Choose topK group experts in group_limited_greedy_topK method')
     group.add_argument('--routed-scaling-factor', type=float, default=None, help='The routed scaling factor')
