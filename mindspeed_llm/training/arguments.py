@@ -1288,6 +1288,7 @@ def _add_dummy_args(args):
     args.context_parallel_kv_cache_policy = None
     args.context_parallel_cache_interval = 0
     args.use_ulysses_allgather_kv = False
+    args.use_pipe_experts = False
 
 
 def _validate_noop_layer(args):

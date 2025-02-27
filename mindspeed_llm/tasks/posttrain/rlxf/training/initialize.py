@@ -16,8 +16,8 @@ from megatron.training.initialize import (
     _init_autoresume, _initialize_tp_communicators,
 )
 
+from mindspeed.core.tensor_parallel.ascend_turbo.initialize import initialize_cfg_from_args
 from mindspeed_llm.training.arguments import parse_args_decorator
-from mindspeed_llm.core.tensor_parallel.ascend_turbo.initialize import initialize_cfg_from_args
 from mindspeed_llm.tasks.utils.error_utils import ensure_valid
 from mindspeed_llm.training.utils import seed_all
 from mindspeed_llm.tasks.posttrain.rlxf.training.parallel_state import initialize_model_parallel_2megatron

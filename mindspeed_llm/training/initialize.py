@@ -30,8 +30,8 @@ from megatron.training.initialize import (
     _warmup_jit_function
 )
 
+from mindspeed.core.tensor_parallel.ascend_turbo.initialize import initialize_cfg_from_args
 from mindspeed_llm.training.arguments import parse_args_decorator
-from mindspeed_llm.core.tensor_parallel.ascend_turbo.initialize import initialize_cfg_from_args
 from mindspeed_llm.tasks.utils.error_utils import ensure_valid
 from mindspeed_llm.training.utils import seed_all
 
