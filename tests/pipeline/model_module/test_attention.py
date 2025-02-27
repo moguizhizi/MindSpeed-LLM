@@ -60,6 +60,9 @@ def run_attention_module(test_args, use_mcore, use_cp, cp_size, u_size, use_alib
     args.use_nd_matmul = False
     args.ampipe_degree = 0
     args.hccl_group_buffer_adaptive = False
+    args.context_parallel_kv_cache_policy = None
+    args.context_parallel_cache_interval = 0
+    args.use_ulysses_allgather_kv = False
 
     if use_alibi:
         args.position_embedding_type = 'alibi'
@@ -145,9 +148,9 @@ def run_attention_module(test_args, use_mcore, use_cp, cp_size, u_size, use_alib
 
     if use_mcore:
         # test core branch, which uses core.transformer.DotProductAttention as core attention
-        config = TransformerConfig(num_layers=2, hidden_size=n * d, num_attention_heads=n, use_cpu_initialization=True)
+        config = TransformerConfig(num_layers=2, hidden_size=n * d, num_attention_heads=n, use_cpu_initialization=True, context_parallel_size=cp_size)
         local_attn = DotProductAttention(config=config, layer_number=1,
-                                         attn_mask_type=None, attention_type='self',
+                                         attn_mask_type=args.attention_mask_type, attention_type='self',
                                          attention_dropout=0.)
     else:
         # test legacy branch, which uses legacy.model.transformer.FlashSelfAttention as core attention
