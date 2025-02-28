@@ -158,14 +158,9 @@ def topk_softmax_with_capacity(
             scores = torch.gather(scores, dim=1, index=top_indices).type_as(logits)
         else:
             scores, top_indices = compute_topk(scores, topk, num_groups, group_topk)
-        probs = scores
+        probs = scores / (scores.sum(dim=-1, keepdim=True) + 1e-20) if topk > 1 else scores
     else:
         raise ValueError(f"Invalid score_function: {score_function}")
-
-    # norm gate to sum 1
-    if topk > 1 and norm_topk_prob:
-        denominator = probs.sum(dim=-1, keepdim=True) + 1e-20
-        probs = probs / denominator
 
     if scaling_factor:
         probs = probs * scaling_factor
@@ -221,7 +216,7 @@ def track_moe_metrics_wrapper(fn):
     @wraps(fn)
     def wrapper(self, *args, **kwargs):
         _args = get_args()
-        if _args.moe_router_load_balancing_type in ["noaux_tc"]:
+        if _args.moe_router_load_balancing_type in ["none", "noaux_tc"] and not _args.seq_aux:
             return
         fn(self, *args, **kwargs)
 

@@ -372,7 +372,7 @@ def _add_moe_args(parser):
                             'The default is "aux_loss".')
     group.add_argument('--expert-interval', type=int, default=1,
                        help='Use experts in every "expert-interval" layers')
-    group.add_argument('--moe-z-loss-coeff', type=float, default=0.0,
+    group.add_argument('--moe-z-loss-coeff', type=float, default=None,
                        help='Scaling coefficient for the z-loss: a starting value of 1e-3 is recommended.')
     group.add_argument('--moe-train-capacity-factor', type=float, default=1.0,
                        help='The capacity of the MoE expert at training time used in legacy moe layer called SwitchMLP.')

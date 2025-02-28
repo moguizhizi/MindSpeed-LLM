@@ -18,8 +18,13 @@ from functools import wraps
 import torch
 import torch.nn.functional as F
 from einops import rearrange
+from functools import partial
 
 from megatron.core.tensor_parallel import gather_from_sequence_parallel_region
+from megatron.core.tensor_parallel.mappings import _split_along_first_dim
+from megatron.core.transformer.moe.router import MoEAuxLossAutoScaler
+from megatron.core.transformer.moe.moe_utils import save_to_aux_losses_tracker
+from megatron.core import parallel_state
 from megatron.training import get_args
 
 from mindspeed_llm.core.transformer.moe.moe_utils import topk_softmax_with_capacity
@@ -32,7 +37,7 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
     
     scores = F.softmax(logits, dim=1)
     group_scores = (
-        scores.view(args.micro_batch_size * seq_length, args.expert_model_parallel_size, -1).max(dim=-1).values
+        scores.view(args.micro_batch_size * seq_length, self.n_group, -1).max(dim=-1).values
     )  # [n, EP]
 
     group_idx = torch.topk(group_scores, k=args.topk_group, dim=-1, sorted=False)[1]  # [n, top_k_group]
@@ -42,7 +47,7 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
     score_mask = (
         group_mask.unsqueeze(-1)
         .expand(
-            args.micro_batch_size * seq_length, args.expert_model_parallel_size, args.num_experts // args.expert_model_parallel_size
+            args.micro_batch_size * seq_length, self.n_group, args.num_experts // self.n_group
         )
         .reshape(args.micro_batch_size * seq_length, -1)
     )  # [n, e]
@@ -79,7 +84,6 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
         if args.seq_aux:
             scores_for_seq_aux = scores_for_aux.view(args.micro_batch_size, seq_length, -1)
             # [b, s, n_global_experts]
-
             ce = torch.zeros(
                 args.micro_batch_size, args.num_experts, device=logits.device
             )  # [b, n_global_experts]
@@ -88,7 +92,15 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
                 topk_idx_for_aux_loss,
                 torch.ones(args.micro_batch_size, seq_length * args.moe_router_topk, device=logits.device),
             )
-            fi = ce.div(seq_length * args.moe_router_topk / args.num_experts)  # [b, n_global_experts]
+
+            num_sub_sequence = 1
+            sequence_partition_group = parallel_state.get_context_parallel_group()
+            if sequence_partition_group is not None:
+                num_sub_sequence = torch.distributed.get_world_size(sequence_partition_group)
+                torch.distributed.all_reduce(ce, group=sequence_partition_group)
+
+            num_tokens = seq_length * num_sub_sequence
+            fi = ce.div(num_sub_sequence * num_tokens * args.moe_router_topk / args.num_experts) # [b, n_global_experts]
             Pi = scores_for_seq_aux.mean(dim=1)  # [b, n_global_experts]
             l_expert_aux = (Pi * fi).sum(dim=1).mean() * self.config.moe_aux_loss_coeff
         else:
@@ -107,7 +119,6 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
     ################ Device-Level Balance Loss ##############
     #########################################################
     P_devi = None
-    args.n_group = args.expert_model_parallel_size
     if args.moe_device_level_aux_loss_coeff > 0:
         l_device_aux = 0
         if args.seq_aux:
@@ -125,8 +136,8 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
                 fi = ce.div(seq_length * args.moe_router_topk / args.num_experts)  # [b, n_global_experts]
                 Pi = scores_for_seq_aux.mean(dim=1)  # [b, n_global_experts]
 
-            P_devi = Pi.view(args.micro_batch_size, args.n_group, -1).sum(-1)  # [b, n_group]
-            f_devi = fi.view(args.micro_batch_size, args.n_group, -1).mean(-1)
+            P_devi = Pi.view(args.micro_batch_size, self.n_group, -1).sum(-1)  # [b, n_group]
+            f_devi = fi.view(args.micro_batch_size, self.n_group, -1).mean(-1)
             l_device_aux = (f_devi * P_devi).sum(dim=1).mean() * args.moe_device_level_aux_loss_coeff
 
         else:
@@ -138,8 +149,8 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
                 Pi = scores_for_aux.mean(0)
                 fi = ce * args.num_experts
 
-            P_devi = Pi.view(args.n_group, -1).sum(-1)
-            f_devi = fi.view(args.n_group, -1).mean(-1)
+            P_devi = Pi.view(self.n_group, -1).sum(-1)
+            f_devi = fi.view(self.n_group, -1).mean(-1)
             l_device_aux = (f_devi * P_devi).sum() * args.moe_device_level_aux_loss_coeff
 
         self.l_device_aux = l_device_aux
@@ -156,7 +167,7 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
                     scores_for_seq_aux = scores_for_aux.view(args.micro_batch_size, seq_length, -1)
                     Pi = scores_for_seq_aux.mean(dim=1)
 
-                P_devi = Pi.view(args.micro_batch_size, args.n_group, -1).sum(-1)  # [b, n_group]
+                P_devi = Pi.view(args.micro_batch_size, self.n_group, -1).sum(-1)  # [b, n_group]
 
             ge = torch.zeros(
                 args.micro_batch_size, seq_length, args.num_experts, device=logits.device
@@ -168,8 +179,8 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
                 torch.ones(args.micro_batch_size, seq_length, args.moe_router_topk, device=logits.device),
             )
 
-            ge = (ge.view(args.micro_batch_size, seq_length, args.n_group, -1).sum(-1) > 0).to(logits.dtype).sum(dim=1)
-            ge.div_(seq_length * args.topk_group / args.n_group)
+            ge = (ge.view(args.micro_batch_size, seq_length, self.n_group, -1).sum(-1) > 0).to(logits.dtype).sum(dim=1)
+            ge.div_(seq_length * args.topk_group / self.n_group)
 
             l_comm_aux = (ge * P_devi).sum(dim=1).mean() * args.moe_comm_aux_loss_coeff
 
@@ -178,7 +189,7 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
                 if Pi is None:
                     Pi = scores_for_aux.mean(0)
 
-                P_devi = Pi.view(args.n_group, -1).sum(-1)
+                P_devi = Pi.view(self.n_group, -1).sum(-1)
 
             ge = torch.zeros(
                 args.micro_batch_size, seq_length, args.num_experts, device=logits.device
@@ -190,8 +201,8 @@ def group_limited_greedy_topKgating(self, logits: torch.Tensor):
                 torch.ones(args.micro_batch_size, seq_length, args.moe_router_topk, device=logits.device),
             )
 
-            ge = rearrange(ge, 'b s (ng gs) -> (b s) ng gs', ng=args.n_group, gs=args.num_experts // args.n_group)
-            ge = (ge.sum(dim=-1) > 0).to(logits.dtype).mean(0).div(args.topk_group / args.n_group)
+            ge = rearrange(ge, 'b s (ng gs) -> (b s) ng gs', ng=self.n_group, gs=args.num_experts // self.n_group)
+            ge = (ge.sum(dim=-1) > 0).to(logits.dtype).mean(0).div(args.topk_group / self.n_group)
 
             l_comm_aux = (ge * P_devi).sum() * args.moe_comm_aux_loss_coeff
 
@@ -371,6 +382,64 @@ def topk_router_init_wrapper(function):
     return topk_router_init
 
 
+def apply_seq_aux_loss(self, activation, logits, topk_idx):
+    """
+        Apply complementary sequence-wise auxiliary loss
+    """
+
+    args = get_args()
+    moe_aux_loss_coeff = self.config.moe_aux_loss_coeff / parallel_state.get_tensor_model_parallel_world_size()
+    if moe_aux_loss_coeff == 0:
+        return activation
+
+    num_tokens, num_experts = logits.shape
+    seq_length = num_tokens // args.micro_batch_size
+    if self.score_function == "softmax":
+        scores = torch.softmax(logits, dim=-1)
+    elif self.score_function == "sigmoid":
+        scores = torch.sigmoid(logits)
+        if self.expert_bias is not None:
+            scores = scores + self.expert_bias
+        scores = scores / (scores.sum(dim=-1, keepdim=True) + 1e-20)
+    else:
+        raise ValueError(f"Invalid score_function: {self.score_function}")
+
+    scores_for_aux = scores  # [s*b, n_global_experts]
+    topk_idx_for_aux_loss = topk_idx.view(args.micro_batch_size, -1)  # [b, s*top_k]
+    scores_for_seq_aux = scores_for_aux.view(args.micro_batch_size, seq_length, -1)
+    # [b, s, n_global_experts]
+    ce = torch.zeros(
+        args.micro_batch_size, args.num_experts, device=logits.device
+    )  # [b, n_global_experts]
+    ce.scatter_add_(
+        1,
+        topk_idx_for_aux_loss,
+        torch.ones(args.micro_batch_size, seq_length * args.moe_router_topk, device=logits.device),
+    )
+
+    num_sub_sequence = 1
+    sequence_partition_group = parallel_state.get_context_parallel_group()
+    if sequence_partition_group is not None:
+        num_sub_sequence = torch.distributed.get_world_size(sequence_partition_group)
+        moe_aux_loss_coeff /= num_sub_sequence
+        torch.distributed.all_reduce(ce, group=sequence_partition_group)
+
+    num_tokens = seq_length * num_sub_sequence
+    fi = ce.div(num_sub_sequence * num_tokens * args.moe_router_topk / args.num_experts)  # [b, n_global_experts]
+    Pi = scores_for_seq_aux.mean(dim=1)  # [b, n_global_experts]
+    aux_loss = (Pi * fi).sum(dim=1).mean() * moe_aux_loss_coeff
+
+    save_to_aux_losses_tracker(
+        "load_balancing_loss",
+        aux_loss / moe_aux_loss_coeff,
+        self.layer_number,
+        self.config.num_layers,
+        reduce_group=sequence_partition_group,
+    )
+    activation = MoEAuxLossAutoScaler.apply(activation, aux_loss)
+    return activation
+
+
 def topk_router_gating_func(self, input: torch.Tensor):
     _args = get_args()
     if _args.router_gating_in_fp32:
@@ -435,8 +504,18 @@ def topk_router_routing(self, logits: torch.Tensor):
             expert_bias=self.expert_bias,
             norm_topk_prob=self.norm_topk_prob,
         )
+        args = get_args()
+        if self.training and args.seq_aux:
+            scores = apply_seq_aux_loss(self,
+                                        activation=scores,
+                                        logits=logits,
+                                        topk_idx=indices,
+                                        )
     else:
         raise ValueError(f"Unsupported MoE routing type: {self.routing_type}")
+    if args.moe_tp_extend_ep:
+        scores = _split_along_first_dim(scores)
+        indices = _split_along_first_dim(indices)
     # Prevent extra local tokens accumulation on evaluation or activation recomputation
     if self.enable_expert_bias and torch.is_grad_enabled():
         with torch.no_grad():
