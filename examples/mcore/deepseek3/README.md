@@ -4,7 +4,7 @@
 
 可以将已经反量化为bf16数据格式的[huggingface权重](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base/tree/main)转换为mcore权重，用于微调、推理、评估等任务。反量化方法请参考DeepSeek官方提供的[代码](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base/blob/main/inference/fp8_cast_bf16.py)。
 
-注：mcore权重转回huggingface权重、vpp并行切分特性开发中，暂未支持。
+注：mcore权重转回huggingface权重开发中，暂未支持。
 
 ### 启动脚本
 
@@ -27,6 +27,10 @@
 【--target-expert-parallel-size】
 
 专家并行度，默认值为1。
+
+【--num-layers-per-virtual-pipeline-stage】
+
+虚拟流水线并行，默认值为None, 注意参数--num-layers-per-virtual-pipeline-stage 和 --num-layer-list 不能同时使用。
 
 【--load-dir】
 

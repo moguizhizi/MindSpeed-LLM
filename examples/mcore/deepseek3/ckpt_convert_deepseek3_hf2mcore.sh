@@ -10,4 +10,4 @@ python examples/mcore/deepseek3/convert_ckpt_deepseek3.py \
     --num-layers 61 \
     --num-nextn-predict-layers 1 \
     --num-layer-list 7,7,8,8,8,8,8,7
-    # --num-layer-list, --noop-layers等参数根据任务需要进行配置
+    # --num-layer-list, --noop-layers, --num-layers-per-virtual-pipeline-stage等参数根据任务需要进行配置

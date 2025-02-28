@@ -7,10 +7,10 @@ import logging as logger
 import os
 from collections import defaultdict
 
-import bitsandbytes as bnb
 import safetensors
-import safetensors.torch
 import torch
+import safetensors.torch
+import bitsandbytes as bnb
 
 logger.basicConfig(format="")
 logger.getLogger().setLevel(logger.INFO)
@@ -32,6 +32,7 @@ class CkptConvert(object):
         tp_size (int, optional): Degree of tensor model parallelism. Defaults to 1.
         pp_size (int, optional): Degree of pipeline model parallelism. Defaults to 1.
         ep_size (int, optional): Degree of expert model parallelism. Defaults to 1.
+        vpp_stage (int, optional): The stage number in the virtual pipeline parallelism. Defaults to None.
         num_dense_layers (int, optional): The number of first k dense layers. Defaults to 3.
         num_layer_list (str, optional): Specifies the number of parallel pipeline layers. If None, all blocks have the same number of layers. Defaults to None.
         noop_layers (str, optional): should be skipped during conversion. Defaults to None.
@@ -51,6 +52,7 @@ class CkptConvert(object):
             num_dense_layers: int = 3,
             num_layer_list: str = None,
             noop_layers: str = None,
+            vpp_stage: int = None,
             moe_grouped_gemm: bool = True,
             num_nextn_predict_layers: int = 0,
             qlora_nf4: bool = False,
@@ -58,9 +60,12 @@ class CkptConvert(object):
         self.tp_size = tp_size
         self.pp_size = pp_size
         self.ep_size = ep_size
-        self.hf_model_path = hf_model_path
-        self.mg_save_path = mg_save_path
         self.num_layers = num_layers
+        self.vpp_stage = vpp_stage
+        if vpp_stage is not None:
+            self.vpp_size = self.num_layers // self.pp_size // self.vpp_stage     
+        self.hf_model_path = hf_model_path
+        self.mg_save_path = mg_save_path     
         self.num_layer_list = num_layer_list
         self.noop_layers = noop_layers
         self.moe_grouped_gemm = moe_grouped_gemm
@@ -75,7 +80,9 @@ class CkptConvert(object):
 
         self._valid_parameter()
         self.pprank_layer_idxs = {}
+        self.vpprank_layer_idxs = {}
         self.get_pprank_hf_layeridxs()
+        self.get_vpprank_hf_layeridxs()
 
     @staticmethod
     def qlora_nf4_weight(weight):
@@ -130,9 +137,13 @@ class CkptConvert(object):
         if self.num_layer_list is None:
             assert self.num_layers % self.pp_size == 0, \
                 'number of layers should be divisible by the pipeline parallel size'
+            if self.vpp_stage is not None:
+                assert self.num_layers % self.pp_size % self.vpp_stage == 0, \
+                    'number of pp_stage should bu divisible by the vpp_stage'
         else:
             layer_list = list(map(int, self.num_layer_list.split(',')))
 
+            assert self.vpp_stage is None, 'num_layer_list and vpp cannot be configured at the same time'
             assert len(layer_list) == self.pp_size, \
                 'number of layer_list should be equal to pipeline parallel size'
             assert sum(layer_list) == self.num_layers, \
@@ -186,10 +197,39 @@ class CkptConvert(object):
             nextn_layer_list = [self.mtp_layer_number + i for i in range(self.num_nextn_predict_layers)]
             self.pprank_layer_idxs[self.pp_size - 1].extend(nextn_layer_list)
 
-    def load_matched_hf_weights(self, pp_rank):
+    def get_vpprank_hf_layeridxs(self) -> None:
+        num_noop_layers = 0 if self.noop_layers is None else len(list(map(int, self.noop_layers.split(","))))
+        num_real_layers = self.num_layers - num_noop_layers
+        num_layer_list_ = [i for i in range(num_real_layers)]
+        if self.first_k_dense_replace < FIRST_K_DENSE_REPLACE:
+            num_real_layers = self.num_layers - num_noop_layers
+            num_moe_layers = num_real_layers - self.first_k_dense_replace
+            num_layer_list_ = [i for i in range(self.first_k_dense_replace)] + [i + 3 for i in range(num_moe_layers)]
+        if self.vpp_stage is not None:
+            layers_each_vpp = [[self.vpp_stage] * self.vpp_size for _ in range(self.pp_size)] 
+
+            if self.noop_layers is not None:
+                for layer in list(map(int, self.noop_layers.split(","))):
+                    vpp_idx = layer // self.vpp_stage // self.pp_size 
+                    pp_idx = layer % (self.pp_size * self.vpp_stage) // self.vpp_stage
+                    layers_each_vpp[pp_idx][vpp_idx] -= 1
+
+            for vpp_rank in range(self.vpp_size):
+                for pp_rank in range(self.pp_size):
+                    if pp_rank not in self.vpprank_layer_idxs:
+                        self.vpprank_layer_idxs[pp_rank] = {}
+                    self.vpprank_layer_idxs[pp_rank][vpp_rank] = [num_layer_list_.pop(0) for _ in range(layers_each_vpp[pp_rank][vpp_rank])]
+
+    def load_matched_hf_weights(self, pp_rank, vpp_rank=None):
         """Read the safetensors file corresponding to the layer of pp_rank."""
-        layer_list = self.pprank_layer_idxs[pp_rank]
-        layer_files_map_dict = self.get_layer_files_map()
+        if vpp_rank is None:
+            layer_list = self.pprank_layer_idxs[pp_rank]
+        else:
+            layer_list = self.vpprank_layer_idxs[pp_rank][vpp_rank].copy()
+            if pp_rank == self.pp_size - 1 and self.num_nextn_predict_layers > 0:
+                nextn_layer_list = [self.mtp_layer_number + i for i in range(self.num_nextn_predict_layers)]
+                layer_list.extend(nextn_layer_list)
+        layer_files_map_dict = self.get_layer_files_map()           
 
         st_filename_list = []
         for layer in layer_list:
@@ -253,8 +293,8 @@ class CkptConvert(object):
                     self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, f"mtp_layers.{mtp_layer_idx}.eh_proj.weight",
                                          eh_proj_lst[tp_rank].clone())
 
-            if not self.share_mtp_embedding_and_output_weight:
-                mg_model[ep_rank][f"mtp_layers.{mtp_layer_idx}.word_embeddings.weight"] = emb_lst[tp_rank].clone()
+            if not self.share_mtp_embedding_and_output_weight or self.vpp_stage is not None:
+                mg_model[ep_rank][tp_rank][f"mtp_layers.{mtp_layer_idx}.embedding.word_embeddings.weight"] = emb_lst[tp_rank].clone()
 
     def set_mtp_postprocess(self, hf_layer_idx, mtp_layer_idx, weights_dict, mg_model):
         """MTP layer postprocess"""
@@ -343,8 +383,7 @@ class CkptConvert(object):
         """MLP layer process"""
 
         def _generate_moe_layer_key(local_idx, mtp_flag):
-            prefix = f"mtp_layers.{local_idx}" if mtp_flag else f"decoder.layers.{local_layer_idx}"
-
+            prefix = f"mtp_layers.{local_idx}.transformer_layer" if mtp_flag else f"decoder.layers.{local_layer_idx}"
             router_key = f"{prefix}.mlp.router.weight"
             router_bias_key = f"{prefix}.mlp.router.expert_bias"
             shared_fc1_key = f"{prefix}.mlp.shared_experts.linear_fc1.weight"
@@ -492,57 +531,131 @@ class CkptConvert(object):
 
         return pp_local_layer_idx
 
-    def run(self):
-        """save magetron format checkpoint"""
-        pp_loacl_layer_idx = self.generate_pp_local_layer_idx()
-        save_model_path = self.mg_path_process(self.mg_save_path)
+    def generate_vpp_local_layer_idx(self):
+        vpp_local_layer_idx = defaultdict()
+        for pp_rank in range(self.pp_size):
+            vpp_local_layer_idx[pp_rank] = defaultdict()
 
         for pp_rank in range(self.pp_size):
-            mg_model = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
+            for vpp_rank in range(self.vpp_size):
+                vpp_local_layer_idx[pp_rank][vpp_rank] = [i for i in range(self.vpp_stage)]
 
-            pp_weights = self.load_matched_hf_weights(pp_rank)
-            if pp_rank == 0:
-                self.set_model_preprocess(pp_weights, mg_model)
+        if self.noop_layers is not None:
+            noop_list = list(map(int, self.noop_layers.split(",")))
+            num_layers_each_pp = self.num_layers // self.pp_size
+            for num_noop_layer in noop_list:
+                pp_idx = num_noop_layer // num_layers_each_pp
+                vpp_idx = num_noop_layer % num_layers_each_pp // self.vpp_stage
+                local_noop_idx = num_noop_layer % num_layers_each_pp % self.vpp_stage
+                vpp_local_layer_idx[pp_idx][vpp_idx].remove(local_noop_idx)
 
-            layer_list = self.pprank_layer_idxs[pp_rank]
+        return vpp_local_layer_idx
 
-            if self.num_nextn_predict_layers >= 1 and pp_rank == self.pp_size - 1:
-                layer_list.sort()
-                mtp_layer_list = [layer_list.pop() for _ in range(self.num_nextn_predict_layers)]
+    def run(self):
+        """save magetron format checkpoint"""
+        pp_local_layer_idx = self.generate_pp_local_layer_idx()
+        save_model_path = self.mg_path_process(self.mg_save_path)
 
-                local_mtp_idx = 0
-                for mtp_layer in mtp_layer_list:
-                    self.set_mtp_preprocess(mtp_layer, local_mtp_idx, pp_weights, mg_model)
-                    self.set_model_layer_norm(mtp_layer, local_mtp_idx, pp_weights, mg_model, mtp_layer_flag=True)
-                    self.set_model_layer_attn(mtp_layer, local_mtp_idx, pp_weights, mg_model, mtp_layer_flag=True)
-                    self.set_model_layer_mlp(mtp_layer, local_mtp_idx, pp_weights, mg_model, mtp_layer_flag=True)
-                    self.set_mtp_postprocess(mtp_layer, local_mtp_idx, pp_weights, mg_model)
-                    local_mtp_idx += 1
+        if self.vpp_stage is None:
+            for pp_rank in range(self.pp_size):
+                mg_model = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
 
-            local_idx = 0
-            cur_pp_local_idx = pp_loacl_layer_idx[pp_rank]
+                pp_weights = self.load_matched_hf_weights(pp_rank)
+                if pp_rank == 0:
+                    self.set_model_preprocess(pp_weights, mg_model)
 
-            for hf_layer in layer_list:
-                logger.info(f"Converting the weights of layer {hf_layer}.")
-                local_layer_idx = cur_pp_local_idx[local_idx]
-                self.set_model_layer_norm(hf_layer, local_layer_idx, pp_weights, mg_model)
-                self.set_model_layer_attn(hf_layer, local_layer_idx, pp_weights, mg_model)
-                self.set_model_layer_mlp(hf_layer, local_layer_idx, pp_weights, mg_model)
-                local_idx += 1
+                layer_list = self.pprank_layer_idxs[pp_rank]
 
-            if pp_rank == self.pp_size - 1:
-                self.set_model_postprocess(pp_weights, mg_model)
+                if self.num_nextn_predict_layers >= 1 and pp_rank == self.pp_size - 1:
+                    layer_list.sort()
+                    mtp_layer_list = [layer_list.pop() for _ in range(self.num_nextn_predict_layers)]
 
-            for ep_rank in range(self.ep_size):
-                for tp_rank in range(self.tp_size):
-                    save_prefix = self.generate_mg_weights_dir(tp_rank=tp_rank, pp_rank=pp_rank, ep_rank=ep_rank)
-                    parallel_save_path = os.path.join(save_model_path, save_prefix)
-                    os.makedirs(parallel_save_path)
-                    save_file_name = os.path.join(parallel_save_path, "model_optim_rng.pt")
-                    logger.info(f"Saving to {save_file_name}")
+                    local_mtp_idx = 0
+                    for mtp_layer in mtp_layer_list:
+                        self.set_mtp_preprocess(mtp_layer, local_mtp_idx, pp_weights, mg_model)
+                        self.set_model_layer_norm(mtp_layer, local_mtp_idx, pp_weights, mg_model, mtp_layer_flag=True)
+                        self.set_model_layer_attn(mtp_layer, local_mtp_idx, pp_weights, mg_model, mtp_layer_flag=True)
+                        self.set_model_layer_mlp(mtp_layer, local_mtp_idx, pp_weights, mg_model, mtp_layer_flag=True)
+                        self.set_mtp_postprocess(mtp_layer, local_mtp_idx, pp_weights, mg_model)
+                        local_mtp_idx += 1
 
-                    torch.save({"model": mg_model[ep_rank][tp_rank], "checkpoint_version": 3.0, "iteration": 1}, save_file_name,
-                            pickle_protocol=4, _use_new_zipfile_serialization=True)
+                local_idx = 0
+                cur_pp_local_idx = pp_local_layer_idx[pp_rank]
+
+                for hf_layer in layer_list:
+                    logger.info(f"Converting the weights of layer {hf_layer}.")
+                    local_layer_idx = cur_pp_local_idx[local_idx]
+                    self.set_model_layer_norm(hf_layer, local_layer_idx, pp_weights, mg_model)
+                    self.set_model_layer_attn(hf_layer, local_layer_idx, pp_weights, mg_model)
+                    self.set_model_layer_mlp(hf_layer, local_layer_idx, pp_weights, mg_model)
+                    local_idx += 1
+
+                if pp_rank == self.pp_size - 1:
+                    self.set_model_postprocess(pp_weights, mg_model)
+
+                for ep_rank in range(self.ep_size):
+                    for tp_rank in range(self.tp_size):
+                        save_prefix = self.generate_mg_weights_dir(tp_rank=tp_rank, pp_rank=pp_rank, ep_rank=ep_rank)
+                        parallel_save_path = os.path.join(save_model_path, save_prefix)
+                        os.makedirs(parallel_save_path)
+                        save_file_name = os.path.join(parallel_save_path, "model_optim_rng.pt")
+                        logger.info(f"Saving to {save_file_name}")
+
+                        torch.save({"model": mg_model[ep_rank][tp_rank], "checkpoint_version": 3.0, "iteration": 1}, save_file_name,
+                                pickle_protocol=4, _use_new_zipfile_serialization=True)
+        else:
+            vpp_local_layer_idx = self.generate_vpp_local_layer_idx()
+            for pp_rank in range(self.pp_size):            
+                mg_model = defaultdict()
+                layer_list = self.pprank_layer_idxs[pp_rank]
+                for vpp_rank in range(self.vpp_size):
+                    pp_weights = self.load_matched_hf_weights(pp_rank, vpp_rank)
+                    mg_model[vpp_rank] = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
+                    vpp_list = self.vpprank_layer_idxs[pp_rank][vpp_rank]
+                    
+                    if pp_rank == 0 and vpp_rank == 0:
+                        self.set_model_preprocess(pp_weights, mg_model[vpp_rank])
+
+                    if self.num_nextn_predict_layers >= 1 and pp_rank == self.pp_size - 1 and vpp_rank == self.vpp_size - 1:
+                        layer_list.sort()
+                        mtp_layer_list = [layer_list.pop() for _ in range(self.num_nextn_predict_layers)]
+                        local_mtp_idx = 0
+                        for mtp_layer in mtp_layer_list:
+                            self.set_mtp_preprocess(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank])
+                            self.set_model_layer_norm(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank], mtp_layer_flag=True)
+                            self.set_model_layer_attn(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank], mtp_layer_flag=True)
+                            self.set_model_layer_mlp(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank], mtp_layer_flag=True)
+                            self.set_mtp_postprocess(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank])
+                            local_mtp_idx += 1
+
+                    local_idx = 0
+                    cur_vpp_local_idx = vpp_local_layer_idx[pp_rank][vpp_rank]  
+                    
+                    for hf_layer in vpp_list:
+                        logger.info(f"Converting the weights of layer {hf_layer}.")
+                        local_layer_idx = cur_vpp_local_idx[local_idx]
+                        self.set_model_layer_norm(hf_layer, local_layer_idx, pp_weights, mg_model[vpp_rank])
+                        self.set_model_layer_attn(hf_layer, local_layer_idx, pp_weights, mg_model[vpp_rank])
+                        self.set_model_layer_mlp(hf_layer, local_layer_idx, pp_weights, mg_model[vpp_rank])
+                        local_idx += 1 
+
+                    if pp_rank == self.pp_size - 1 and vpp_rank == self.vpp_size - 1:
+                        self.set_model_postprocess(pp_weights, mg_model[vpp_rank])
+
+                for ep_rank in range(self.ep_size):
+                    for tp_rank in range(self.tp_size):
+                        save_prefix = self.generate_mg_weights_dir(tp_rank=tp_rank, pp_rank=pp_rank, ep_rank=ep_rank)
+                        parallel_save_path = os.path.join(save_model_path, save_prefix)
+                        os.makedirs(parallel_save_path, exist_ok=True)
+                        save_file_name = os.path.join(parallel_save_path, "model_optim_rng.pt")
+                        logger.info(f"Saving to {save_file_name}")
+                        model_dict = {"checkpoint_version": 3.0, "iteration": 1}
+                            
+                        for vpp_rank in range(self.vpp_size):
+                            model_key = f"model{vpp_rank}"
+                            model_dict[model_key] = mg_model[vpp_rank][ep_rank][tp_rank]
+
+                        torch.save(model_dict, save_file_name, pickle_protocol=4, _use_new_zipfile_serialization=True)
 
 
 def get_args():
@@ -557,6 +670,8 @@ def get_args():
                         help='Target pipeline model parallel size, defaults to 1.')
     parser.add_argument('--target-expert-parallel-size', type=int, default=1,
                         help='Target expert model parallel size, defaults to 1.')
+    parser.add_argument('--num-layers-per-virtual-pipeline-stage', type=int, default=None,
+                       help='Number of layers per virtual pipeline stage')
     parser.add_argument('--moe-grouped-gemm', action='store_true',
                         help='Usr moe grouped gemm.')
     parser.add_argument("--noop-layers", type=str, default=None, help='Specity the noop layers.')
@@ -570,7 +685,7 @@ def get_args():
     parser.add_argument('--qlora-nf4', action='store_true',
                         help='use bitsandbytes nf4 to quantize model.')
 
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     return args
 
 
@@ -590,6 +705,7 @@ def main():
         moe_grouped_gemm=args.moe_grouped_gemm,
         num_nextn_predict_layers=args.num_nextn_predict_layers,
         qlora_nf4=args.qlora_nf4,
+        vpp_stage=args.num_layers_per_virtual_pipeline_stage
     )
     converter.run()
 
