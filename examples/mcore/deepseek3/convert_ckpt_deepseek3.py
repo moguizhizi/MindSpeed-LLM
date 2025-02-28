@@ -270,7 +270,10 @@ class CkptConvert(object):
         for ep_rank in range(self.ep_size):
             lm_head_lst = torch.chunk(lm_head, self.tp_size, dim=0)
             for tp_rank in range(self.tp_size):
-                mg_model[ep_rank][tp_rank]["decoder.final_layernorm.weight"] = final_norm.clone()
+                if self.num_nextn_predict_layers > 0:
+                    mg_model[ep_rank][tp_rank]["final_layernorm.weight"] = final_norm.clone()
+                else:
+                    mg_model[ep_rank][tp_rank]["decoder.final_layernorm.weight"] = final_norm.clone()
                 mg_model[ep_rank][tp_rank]["output_layer.weight"] = lm_head_lst[tp_rank].clone()
                 if self.qlora_nf4:
                     self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, "output_layer.weight", lm_head_lst[tp_rank].clone())

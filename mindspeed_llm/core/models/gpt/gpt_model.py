@@ -22,6 +22,8 @@ from torch import Tensor
 from megatron.core import InferenceParams, tensor_parallel, parallel_state
 from megatron.core.models.common.language_module.language_module import LanguageModule
 from megatron.core.packed_seq_params import PackedSeqParams
+from megatron.core.transformer import build_module
+from megatron.core.transformer.custom_layers.transformer_engine import TENorm
 from megatron.training import get_args
 
 from mindspeed.utils import set_actual_seq_len, set_position_ids
@@ -93,6 +95,18 @@ def gpt_model_init_wrapper(fn):
                     for i in range(self.num_nextn_predict_layers)
                 ]
             )
+
+        if self.post_process and self.num_nextn_predict_layers:
+            # move block main model final norms here
+            self.final_layernorm = build_module(
+                    TENorm,
+                    config=self.config,
+                    hidden_size=self.config.hidden_size,
+                    eps=self.config.layernorm_epsilon,
+                )
+        else:
+            self.final_layernorm = None
+
         if self.pre_process or self.post_process:
             setup_mtp_embeddings_layer(self)
 
@@ -248,22 +262,6 @@ def gpt_model_forward(self, input_ids: Tensor,
     if self.share_embeddings_and_output_weights:
         output_weight = self.shared_embedding_or_output_weight()
 
-    if args.dim_model_base is not None:
-        hidden_states = hidden_states / (args.hidden_size / args.dim_model_base)
-    logits, _ = self.output_layer(hidden_states, weight=output_weight)
-    # new add to scale logits
-    if args.output_multiplier_scale:
-        logits = logits * args.output_multiplier_scale
-
-    if args.output_logit_softcapping:
-        logits = logits / args.output_logit_softcapping
-        logits = torch.tanh(logits)
-        logits = logits * args.output_logit_softcapping
-
-    if labels[0] is None:
-        # [s b h] => [b s h]
-        return logits.transpose(0, 1).contiguous()
-
     loss = 0
     # Multi token predication module
     if args.num_nextn_predict_layers and self.training:
@@ -276,8 +274,10 @@ def gpt_model_forward(self, input_ids: Tensor,
                 set_position_ids(position_ids[i + 1].transpose(0, 1).contiguous())
                 actual_seq_len = compute_actual_seq_len(position_ids[i + 1])
                 set_actual_seq_len(actual_seq_len)
+            if i == 0:
+                mtp_hidden_states = hidden_states
             mtp_hidden_states, mtp_loss = self.mtp_layers[i](
-                hidden_states,  # [s,b,h]
+                mtp_hidden_states,  # [s,b,h]
                 input_ids[i + 1],
                 position_ids[i + 1] if position_ids[0] is not None else None,
                 attention_mask[i + 1] if attention_mask[0] is not None else None,
@@ -289,15 +289,33 @@ def gpt_model_forward(self, input_ids: Tensor,
                 embeding_weight=embedding_weight,
                 output_weight=output_weight,
             )
-
             loss += args.mtp_loss_scale / args.num_nextn_predict_layers * mtp_loss
-    if isinstance(labels, List):
-        labels = labels[0]
-    if args.is_instruction_dataset:
-        labels = labels[:, 1:].contiguous()
-        logits = logits[:-1, :, :].contiguous()
 
-    loss += self.compute_language_model_loss(labels, logits)
+    if args.num_nextn_predict_layers and self.final_layernorm is not None:
+        # move block main model final norms here
+        hidden_states = self.final_layernorm(hidden_states)
+
+    if args.dim_model_base is not None:
+        hidden_states = hidden_states / (args.hidden_size / args.dim_model_base)
+    logits, _ = self.output_layer(hidden_states, weight=output_weight)
+
+    # new add to scale logits
+    if args.output_multiplier_scale:
+        logits = logits * args.output_multiplier_scale
+
+    if args.output_logit_softcapping:
+        logits = logits / args.output_logit_softcapping
+        logits = torch.tanh(logits)
+        logits = logits * args.output_logit_softcapping
+
+    if labels[0] is None:
+        # [s b h] => [b s h]
+        return logits.transpose(0, 1).contiguous()
+    if args.is_instruction_dataset:
+        for i in range(len(labels)):
+            labels[i] = labels[i][:, 1:].contiguous()
+        logits = logits[:-1, :, :].contiguous()
+    loss += self.compute_language_model_loss(labels[0], logits)
     return loss
 
 
