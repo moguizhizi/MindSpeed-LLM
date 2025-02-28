@@ -2,7 +2,7 @@
 该特性是基于GPRO+ORM基础上扩展打分器进行混合打分而来，可用于复现DeepSeek-R1-Zero的工作
 
 ## 整体流程示意图
-![](../../../sources/images/r1/R1-Zero-qwen.png)
+![](../../../../sources/images/r1/R1-Zero-qwen.png)
 
 
 
@@ -15,32 +15,37 @@
 该模型指令遵从度高，有一定概率能引导模型输出`<think>...</think><answer>...$\boxed{}</answer>`格式回复
 
 ##### 权重转换
-同MindSpeed-LLM仓一样，模型需要从HuggingFace权重转换为MindSpeed权重，可参考[**这里**](../../../docs/features/checkpoint.md)
+同MindSpeed-LLM仓一样，模型需要从HuggingFace权重转换为megatron权重，可参考[**权重转换特性**](../../../../docs/features/checkpoint.md)
 
 
 ## 模板构造
 
-* Qwen2.5-Math-7B
-本身指令遵从度低，仅使用官方系统模板，不做格式要求
-```
-<|im_start|>system\nPlease reason step by step, and put your final answer within \\boxed{}.<|im_end|>\n<|im_start|>user\n{你真正的问题}<|im_end|>\n<|im_start|>assistant\n{模型真正的回答}
-```
+**Qwen2.5-Math-7B**
 
-* Qwen2.5-7B-Instruct
-需要编写prompt模板激发`<think>...</think><answer>...$\boxed{}</answer>`
-```
-<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\nA conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>Put your final answer within \\boxed{}.\n{你真正的问题}<|im_end|>\n<|im_start|>assistant\n{模型真正的回答}
-```
+* 本身指令遵从度低，仅使用官方系统模板，不做格式要求
+  ```
+  <|im_start|>system\nPlease reason step by step, and put your final answer within \\boxed{}.<|im_end|>\n<|im_start|>user\n{你真正的问题}<|im_end|>\n<|im_start|>assistant\n{模型真正的回答}
+  ```
 
-用户可以在`configs/finetune/templates.json`添加自己的自定义模板，添加的新数据模板需要在`preprocess_data.py`与`mindspeed_llm/training/arguments.py`中的`prompt-type`参数choices里加上响应的自定义模板名字
+**Qwen2.5-7B与Qwen2.5-7B-Instruct**
+
+* 需要编写prompt模板激发`<think>...</think><answer>...$\boxed{}</answer>`
+  ```
+  <|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\nA conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>Put your final answer within \\boxed{}.\n{你真正的问题}<|im_end|>\n<|im_start|>assistant\n{模型真正的回答}
+  ```
+
+* 用户可以在`configs/finetune/templates.json`添加自己的自定义模板，添加的新数据模板需要在`preprocess_data.py`与`mindspeed_llm/training/arguments.py`中的`prompt-type`参数choices里加上响应的自定义模板名字
 
 
 ## 数据集
 使用SimpleRL仓默认的8K数据集
-* [pe-nlp/math_level3to5_data_processed_with_qwen_prompt](https://huggingface.co/datasets/pe-nlp/math_level3to5_data_processed_with_qwen_prompt?row=0)
+* [**pe-nlp/math_level3to5_data_processed_with_qwen_prompt**](https://huggingface.co/datasets/pe-nlp/math_level3to5_data_processed_with_qwen_prompt?row=0)
 
-* Qwen2.5-Math-7B
-  处理的时候要使用qwen_math_r1的模板（或者自行参考上一节进行构造，自定义数据集需要设置--map-keys映射，具体参考[**这里**](../../../docs/features/alpaca_dataset.md)）
+自定义数据集需要设置--map-keys映射，具体参考[**Alpaca数据集处理**](../../../../docs/features/alpaca_dataset.md)与[**ShareGPT数据集处理**](../../../../docs/features/sharegpt_dataset.md)章节
+
+**Qwen2.5-Math-7B**
+
+* 处理的时候默认使用qwen_math_r1的模板
 
   ```
   python ./preprocess_data.py \
@@ -52,13 +57,13 @@
           --workers 4 \
           --log-interval 1000 \
           --prompt-type qwen_math_r1 \
-          --dataset-additional-keys answer subject \
+          --dataset-additional-keys labels \
           --map-keys '{"prompt":"question", "query":"", "response": "ground_truth_answer", "system":""}' \
 
   ```
 
-* Qwen2.5-7B-Instruct
-  处理的时候要使用qwen_r1的模板（或者自行参考上一节进行构造，自定义数据集需要设置--map-keys映射，具体参考[**这里**](../../../docs/features/alpaca_dataset.md)）
+**Qwen2.5-7B与Qwen2.5-7B-Instruct**
+* 处理的时候默认使用qwen_r1的模板
 
   ```
   python ./preprocess_data.py \
@@ -70,7 +75,7 @@
           --workers 4 \
           --log-interval 1000 \
           --prompt-type qwen_r1 \
-          --dataset-additional-keys answer subject \
+          --dataset-additional-keys labels \
           --map-keys '{"prompt":"question", "query":"", "response": "ground_truth_answer", "system":""}' \
 
   ```
@@ -95,7 +100,7 @@ DeepSeek-R1-Zero训练的过程中仅使用了基于程序的打分器而没有�
 ```
 GRPO通过分组采样n个输出，利用组内的平均奖励作为基线计算每个输出在组内的相对奖励，并基于相对奖励计算优势值，从而避免了引入额外的价值网络（critic model）
 ```
-![](../../../sources/images/r1/GRPO.png)
+![](../../../../sources/images/r1/GRPO.png)
 
 DeepSeek-R1-Zero的训练过程使用GRPO算法，将ORM（结果奖励模型）替换为基于规则的打分器。
 
