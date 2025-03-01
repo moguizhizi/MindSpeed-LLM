@@ -466,8 +466,7 @@ def topk_router_routing(self, logits: torch.Tensor):
 
     args = get_args()
     if (
-        not args.moe_tp_extend_ep
-        and self.config.tensor_model_parallel_size > 1
+        self.config.tensor_model_parallel_size > 1
         and self.config.moe_token_dispatcher_type == "alltoall"
     ):
         # Gather the logits from the TP region
