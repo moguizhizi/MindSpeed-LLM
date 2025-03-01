@@ -405,6 +405,10 @@ def _add_moe_args(parser):
     group.add_argument("--fix-router", action='store_true', help="fix router for load balancing.")
     group.add_argument('--moe-alltoall-overlap-comm', action='store_true', default=False,
                        help='moe_alltoall_overlap_comm')
+    group.add_argument("--cla-share-factor", type=int, default=1,
+                       help="Cross-Layer Attention share kv between cla-share-factor layers")
+    group.add_argument("--moe-revert-type-after-topk", action='store_true',
+                       help="revert the type of logits after the topk has been computed")
     group.add_argument("--moe-tp-extend-ep", action='store_true',
                     help="use tp group to extend experts parallism instead of sharding weight tensor of experts in tp group")
     group.add_argument("--moe-zero-memory", type=str, default='disable',
@@ -533,6 +537,8 @@ def _add_algorithm_args(parser):
                        help='use bf16 exponential moving average to greatly save up memory.')
     group.add_argument('--o2-gradient', action='store_true',
                        help='use bf16 gradient accumulation to greatly save up memory.')
+    group.add_argument('--share-kvstates', action='store_true',
+                       help='CLA share kv states.')
 
     return parser
 
@@ -567,6 +573,7 @@ def _add_network_args(parser):
         choices=["sft", "dpo", "orm", "prm", "simpo", "ray_ppo", "ray_online_dpo", "ray_grpo", "trl_ppo"],
         help='Determine training mode'
     )
+    group.add_argument('--cut-max-seqlen', action="store_true", help='Determine training mode')
 
     return parser
 
@@ -824,7 +831,7 @@ def _add_training_args(parser):
     group.add_argument('--prompt-type', type=str, default=None,
                        choices=['default', 'empty', 'trl', 'chatglm2', 'chatglm3', 'chatglm3_system', 'glm4', 'chatml',
                                 'chatml_de', 'qwen', 'qwen_r1', "qwen_math_r1", 'llama3', 'llama2', 'mistral', 'mixtral', 'gemma', 'alpaca',
-                                'deepseek2', 'deepseek2-lite', 'minicpm3', 'cpm', 'baichuan2', 'deepseek3', 'intern2'],
+                                'deepseek2', 'deepseek2-lite', 'minicpm3', 'cpm', 'baichuan2', 'deepseek3', 'intern2', 'hunyuan'],
                        help='Which template to use for constructing prompts in training/inference.'  'e.g., "qwen"')
     group.add_argument('--prompt-type-path', type=str, default=TEMPLATES_DIR,
                        help='Path to the json file of templates.')

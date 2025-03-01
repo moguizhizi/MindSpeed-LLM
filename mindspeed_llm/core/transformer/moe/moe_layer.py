@@ -65,9 +65,14 @@ def moe_layer_forward(self, hidden_states: torch.Tensor):
     # process MoE
     scores, indices = self.router(hidden_states)
     
-    (dispatched_input, tokens_per_expert) = self.token_dispatcher.token_permutation(
-        hidden_states, scores, indices
-    )
+    if global_args.moe_revert_type_after_topk:
+        (dispatched_input, tokens_per_expert) = self.token_dispatcher.token_permutation(
+            hidden_states, scores.type_as(hidden_states), indices
+        )
+    else:
+        (dispatched_input, tokens_per_expert) = self.token_dispatcher.token_permutation(
+            hidden_states, scores, indices
+        )
     
     router_expert_output, mlp_bias = self.experts(dispatched_input, tokens_per_expert)
     

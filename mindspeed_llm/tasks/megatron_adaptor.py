@@ -301,10 +301,17 @@ class CoreAdaptation(MegatronAdaptationABC):
         setattr(GPTModel, 'shared_embedding_weight', shared_embedding_weight)
 
         # For recomputation
-        from mindspeed.core.transformer.transformer_block import transformer_block_checkpointed_forward_wrapper
-        MegatronAdaptation.register(
-            'megatron.core.transformer.transformer_block.TransformerBlock._checkpointed_forward',
-            transformer_block_checkpointed_forward_wrapper)
+        args = MegatronAdaptation.get_args()
+        if args.share_kvstates:
+            from mindspeed_llm.core.transformer.transformer_block import share_kvstates_checkpointed_forward_func
+            MegatronAdaptation.register(
+                'megatron.core.transformer.transformer_block.TransformerBlock._checkpointed_forward',
+                share_kvstates_checkpointed_forward_func)
+        else:
+            from mindspeed.core.transformer.transformer_block import transformer_block_checkpointed_forward_wrapper
+            MegatronAdaptation.register(
+                'megatron.core.transformer.transformer_block.TransformerBlock._checkpointed_forward',
+                transformer_block_checkpointed_forward_wrapper)
 
     def patch_core_transformers(self):
         import megatron.core
