@@ -452,8 +452,12 @@ class CkptConvert(object):
                 gate_proj = weights_dict.pop(f"model.layers.{hf_layer_idx}.mlp.experts.{expert_idx}.gate_proj.weight")
                 up_proj = weights_dict.pop(f"model.layers.{hf_layer_idx}.mlp.experts.{expert_idx}.up_proj.weight")
 
-                gate_w_list = torch.chunk(gate_proj, self.tp_size, dim=0)
-                up_w_list = torch.chunk(up_proj, self.tp_size, dim=0)
+                expert_tp_size = self.tp_size
+                if self.moe_tp_extend_ep:
+                    expert_tp_size = 1
+
+                gate_w_list = torch.chunk(gate_proj, expert_tp_size, dim=0)
+                up_w_list = torch.chunk(up_proj, expert_tp_size, dim=0)
                 fc1_weight = torch.cat([torch.cat(weights, dim=0) for weights in zip(gate_w_list, up_w_list)], dim=0)
 
                 fc2_weight = weights_dict.pop(f"model.layers.{hf_layer_idx}.mlp.experts.{expert_idx}.down_proj.weight")
@@ -497,9 +501,9 @@ class CkptConvert(object):
                     for tp_rank in range(self.tp_size):
                         if self.moe_tp_extend_ep:
                             mg_model[ep_rank][tp_rank][experts_weight1_key] = gemm_fc1_ep[
-                                ep_rank * 2 + tp_rank].reshape(self.hidden_size, -1).clone()
+                                ep_rank * self.tp_size + tp_rank].reshape(self.hidden_size, -1).clone()
                             mg_model[ep_rank][tp_rank][experts_weight2_key] = gemm_fc2_ep[
-                                ep_rank * 2 + tp_rank].reshape(-1, self.hidden_size).clone()
+                                ep_rank * self.tp_size + tp_rank].reshape(-1, self.hidden_size).clone()
                         else:
                             mg_model[ep_rank][tp_rank][experts_weight1_key] = gemm_fc1_ep_tp[tp_rank].reshape(
                                 self.hidden_size, -1).clone()
