@@ -63,7 +63,7 @@ GPT_ARGS="
     --init-method-std 0.02 \
     --hidden-dropout 0.0 \
     --position-embedding-type rope \
-    --rotary-base 500000.0 \
+    --rotary-base 500000 \
     --normalization RMSNorm \
     --norm-epsilon 1e-5 \
     --swiglu \

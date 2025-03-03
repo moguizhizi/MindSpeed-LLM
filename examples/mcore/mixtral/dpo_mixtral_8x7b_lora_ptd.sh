@@ -28,7 +28,7 @@ CKPT_LOAD_DIR="your model ckpt path"
 LORA_CKPT_DIR='your lora ckpt path'
 
 TP=1
-PP=4
+PP=8
 EP=1
 CP=1
 CP_TYPE='megatron_cp_algo'
