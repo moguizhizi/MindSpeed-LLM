@@ -739,7 +739,10 @@
     </tr>
 </table>
 
+### DT覆盖率看护
+在NPU机器运行 `run_coverage.sh` 脚本，运行目录将生成 `htmlcov` 文件夹，将该文件夹复制到本地电脑，在浏览器中打开 `htmlcov/index.html` 文件，可以看到覆盖率信息。
 
+脚本中 `branch` 的值改为 `True` ，可以测试分支覆盖率。
 
 
 ### 开发规则
