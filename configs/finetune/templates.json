@@ -562,5 +562,19 @@
     "stop_words": [
       "<|im_end|>"
     ]
+  },
+  {
+    "name": "hunyuan",
+    "format_user": {
+      "slots": [
+        "{{content}}"
+      ]
+    },
+    "format_assistant": {
+      "slots": [
+        "{{content}}"
+      ]
+    },
+    "default_system": "You are a helpful assistant."
   }
 ]

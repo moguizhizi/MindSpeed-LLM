@@ -398,6 +398,76 @@ class SharegptStyleInstructionHandler(LlamaFactoryInstructionHandler):
         super().__init__(args, raw_datasets, tokenizer, splitter)
 
 
+class HunyuanInstructionHandler(BaseDatasetHandler):
+    """
+    Handle HunyuanLarge supported dataset format
+    a HunyuanLarge instruction dataset handler
+    """
+
+    def __init__(self, args, raw_datasets, tokenizer, splitter):
+        super().__init__(args, raw_datasets, tokenizer, splitter)
+        self.prompter = None
+        self.train_on_inputs = False
+        self.args.json_keys = ["input_ids", "attention_mask", "labels"]
+        # use 'packed' string to mark that this is a packed dataset
+        self.args.output_prefix = self.args.output_prefix + "_packed"
+        self.ignored_label = -100
+        self.is_multi_turn = True
+
+        self.hunyuanlarge_template = get_model_template(args.prompt_type.strip(), args.prompt_type_path.strip())
+
+    def _format_msg(self, sample):
+        return sample
+
+    def apply_chat_template(self, conversations):
+        return self.tokenizer.tokenizer.apply_chat_template(conversations)
+
+    def _tokenize_prompt(
+            self,
+            example,
+            template,
+            tokenizer,
+    ) -> Dict[str, List[List[int]]]:
+        model_inputs = {"input_ids": [], "attention_mask": [], "labels": []}
+        input_ids, labels = [], []
+        messages = example["prompt"] + example["response"]
+
+        message_tokens = torch.tensor(self.tokenizer.tokenizer.apply_chat_template(messages))
+
+        IGNORE_INDEX = -100
+
+        extra_0_token_id = self.tokenizer.tokenizer.convert_tokens_to_ids('<|extra_0|>')
+        eos_token_id = self.tokenizer.tokenizer.convert_tokens_to_ids('<|eos|>')
+        loss_token_begins = (message_tokens == extra_0_token_id).nonzero(as_tuple=True)[0].tolist()
+        loss_token_ends = (message_tokens == eos_token_id).nonzero(as_tuple=True)[0].tolist()
+        message_labels = torch.tensor([IGNORE_INDEX] * message_tokens.shape[0])
+        for begin_idx, end_idx in zip(loss_token_begins, loss_token_ends):
+            message_labels[begin_idx:end_idx + 1] = message_tokens[begin_idx:end_idx + 1]
+        input_ids = message_tokens.to(torch.long)
+        labels = message_labels.to(torch.long)
+
+        input_ids = input_ids[:self.max_seq_len]
+        labels = labels[:self.max_seq_len]
+        attention_mask = [1 if val != self.tokenizer.tokenizer.pad_id else 0 for val in input_ids]
+        model_inputs["input_ids"] = input_ids
+        model_inputs["attention_mask"] = torch.tensor(attention_mask, dtype=torch.bool)
+        model_inputs["labels"] = labels
+
+        return model_inputs
+
+    def _filter(self, sample):
+        messages = self._format_msg(sample)
+        tokenized_full_prompt = self._tokenize_prompt(messages, self.hunyuanlarge_template, self.tokenizer.tokenizer)
+        if self.args.append_eod:
+            tokenized_full_prompt["input_ids"].append(self.tokenizer.eod)
+            tokenized_full_prompt["attention_mask"].append(1)
+            tokenized_full_prompt["labels"].append(self.tokenizer.eod)
+
+        for key in self.args.json_keys:
+            tokenized_full_prompt[key] = [tokenized_full_prompt[key]]
+        return tokenized_full_prompt
+
+
 class AlpacaStylePairwiseHandler(BaseDatasetHandler):
     """
     Handle alpaca style dataset format in pairwise dataset used in RM | DPO training
@@ -983,6 +1053,7 @@ def build_dataset(args):
             "AlpacaStylePairwiseHandler",
             "SharegptStylePairwiseHandler",
             "PPOAlpacaStyleInstructionHandler",
+            "HunyuanInstructionHandler",
             "R1AlpacaStyleInstructionHandler",
             "R1SharegptStyleInstructionHandler"
         ]:

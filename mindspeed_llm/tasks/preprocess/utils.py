@@ -76,7 +76,7 @@ def get_handler_dataset_attr(data_args, raw_datasets):
             for column_name, target_name in data_args.map_keys.items():
                 setattr(dataset_attr, column_name, target_name)
 
-    elif "SharegptStyle" in data_args.handler_name:
+    elif "SharegptStyle" or "hunyuan" in data_args.handler_name:
         dataset_attr.formatting = "sharegpt"
         tag_names = ["role_tag", "content_tag", "user_tag", "assistant_tag", "observation_tag", "function_tag", "system_tag"]
         column_names = ["messages", "tags", "system", "tools", "chosen", "rejected", "kto_tag"]
@@ -375,6 +375,95 @@ def convert_sharegpt_to_intermediate(
     return outputs
 
 
+def convert_hunyuan_to_intermediate(
+    sample: Dict[str, List[Any]], dataset_attr: "InstructionDatasetAttr"):
+
+    outputs = {"prompt": [], "response": [], "system": [], "tools": []}
+
+    tag_mapping = {
+        dataset_attr.user_tag: Role.USER.value,
+        dataset_attr.assistant_tag: Role.ASSISTANT.value,
+        dataset_attr.observation_tag: Role.OBSERVATION.value,
+        dataset_attr.function_tag: Role.FUNCTION.value,
+        dataset_attr.system_tag: Role.SYSTEM.value,
+    }
+
+    # "human" and "observation" must appear in odd-numbered positions
+    # "gpt" and "function" must appear in even-numbered positions.
+    sys_tags = (dataset_attr.system_tag)
+    odd_tags = (dataset_attr.user_tag, dataset_attr.observation_tag)
+    even_tags = (dataset_attr.assistant_tag, dataset_attr.function_tag)
+    accept_tags = (sys_tags, odd_tags, even_tags)
+
+    messages = sample[dataset_attr.messages]
+
+    if len(messages) == 0:
+        return outputs
+
+    aligned_messages = []
+    broken_data = False
+    for turn_idx, message in enumerate(messages):
+        if message[dataset_attr.role_tag] not in accept_tags[turn_idx % 3]:
+            logger.warning("Invalid role tag in {}.".format(messages))
+            broken_data = True
+
+        content_value = message.get(dataset_attr.content_tag)
+
+        if content_value is not None:
+            aligned_messages.append(
+                {"role": tag_mapping.get(message.get(dataset_attr.role_tag), "unknown"), "content": content_value}
+            )
+        else:
+            logger.warning(f"Missing content tag in message at turn {turn_idx}: {message}")
+
+    is_message_count_divisible_by_3 = len(aligned_messages) % 3 == 0
+    if (not dataset_attr.ranking and not is_message_count_divisible_by_3) or (
+        dataset_attr.ranking and is_message_count_divisible_by_3
+    ):
+        logger.warning("Invalid message count in {}.".format(messages))
+        broken_data = True
+
+    elif (
+            dataset_attr.ranking
+            and isinstance(sample[dataset_attr.chosen], dict)
+            and isinstance(sample[dataset_attr.rejected], dict)
+    ):
+        chosen = sample[dataset_attr.chosen]
+        rejected = sample[dataset_attr.rejected]
+        if (
+                chosen[dataset_attr.role_tag] not in accept_tags[-1]
+                or rejected[dataset_attr.role_tag] not in accept_tags[-1]
+        ):
+            logger.warning("Invalid role tag in {}.".format([chosen, rejected]))
+            broken_data = True
+
+        prompt = aligned_messages
+        response = [
+            {
+                "role": tag_mapping.get(chosen.get(dataset_attr.role_tag, "gpt"), "assistant"),
+                "content": chosen[dataset_attr.content_tag]
+            },
+            {
+                "role": tag_mapping.get(rejected.get(dataset_attr.role_tag, "gpt"), "assistant"),
+                "content": rejected[dataset_attr.content_tag]
+            },
+        ]
+
+    else:  # normal example
+        prompt = aligned_messages[:-1]
+        response = aligned_messages[-1:]
+
+    if broken_data:
+        logger.warning("Skipping this abnormal example.")
+        return outputs
+
+    outputs["prompt"] = prompt
+    outputs["response"] = response
+    outputs["system"] = ""
+    outputs["tools"].append(sample[dataset_attr.tools] if dataset_attr.tools else "")
+    return outputs
+
+
 def align_dataset(dataset, dataset_attr, data_args):
     """
     Aligned dataset:
@@ -400,6 +489,8 @@ def align_dataset(dataset, dataset_attr, data_args):
     """
     if dataset_attr.formatting == "alpaca":
         convert_func = partial(convert_alpaca_to_intermediate, dataset_attr=dataset_attr)
+    elif data_args.handler_name == "HunyuanInstructionHandler":
+        convert_func = partial(convert_hunyuan_to_intermediate, dataset_attr=dataset_attr)
     else:
         convert_func = partial(convert_sharegpt_to_intermediate, dataset_attr=dataset_attr)
     
