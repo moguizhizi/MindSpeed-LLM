@@ -113,6 +113,9 @@ def generate_tokens_probs_and_return_on_first_stage(
     with torch.no_grad():
         attention_mask, position_ids = _build_attention_mask_and_position_ids(
             tokens)
+        if get_args().spec is not None and get_args().spec[0] == "mindspeed_llm.tasks.models.spec.hunyuan_spec":
+            pad_id = 127961
+            attention_mask = tokens.ne(pad_id)
         prev_context_length = 0
         for context_length in range(min_prompt_length, max_sequence_length):
 
@@ -266,6 +269,9 @@ def beam_search_and_return_on_first_stage(
         tokens = tokens.repeat(beam_size, 1)
         lengths = lengths.repeat(beam_size, 1)
         attention_mask, position_ids = _build_attention_mask_and_position_ids(tokens)
+        if get_args().spec is not None and get_args().spec[0] == "mindspeed_llm.tasks.models.spec.hunyuan_spec":
+            pad_id = 127961
+            attention_mask = tokens.ne(pad_id)
         prev_context_length = 0
         for context_length in range(prompt_length, final_sequence_length):
 

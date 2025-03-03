@@ -62,34 +62,53 @@ class SFTTrainer(BaseTrainer):
             attention_mask_1d = torch.cat([attention_mask_1d, pad_tensor.to(attention_mask_1d.dtype) * 0], -1)
             loss_mask = torch.cat([loss_mask, pad_tensor.to(loss_mask.dtype) * 0], -1)
 
-        if args.reset_position_ids:
-            position_ids = data_b.get('position_ids').long()
-            generate_actual_seq_len(data_b)
+        if get_args().spec is not None and args.spec[0] == "mindspeed_llm.tasks.models.spec.hunyuan_spec":
+            input_ids = tokens
+            pad_id = 127961
 
-            # Adapt to MTP
-            if args.num_nextn_predict_layers:
-                pad_tensor = torch.zeros((labels.shape[0], args.num_nextn_predict_layers)).to(labels.device)
-                position_ids = torch.cat([position_ids, pad_tensor.to(position_ids.dtype)], -1)
+            input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=pad_id)
+            labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX)
 
+            loss_mask = torch.where(labels == IGNORE_INDEX, 0, 1)
+            attention_mask = input_ids.ne(pad_id)
+
+            position_ids = None
             batch = {
-                'tokens': tokens,
-                'labels': labels,
-                'loss_mask': loss_mask,
-            }
-            batch = get_batch_on_this_cp_rank(batch)
-            batch['attention_mask'] = None
-            batch['position_ids'] = position_ids
-            return batch.values()
-
-        attention_mask = get_tune_attention_mask(attention_mask_1d)
-        position_ids = None
-        batch = {
-                'tokens': tokens,
+                'tokens': input_ids,
                 'labels': labels,
                 'loss_mask': loss_mask,
                 'attention_mask': attention_mask,
                 'position_ids': position_ids
             }
+        else:
+            if args.reset_position_ids:
+                position_ids = data_b.get('position_ids').long()
+                generate_actual_seq_len(data_b)
+
+                # Adapt to MTP
+                if args.num_nextn_predict_layers:
+                    pad_tensor = torch.zeros((labels.shape[0], args.num_nextn_predict_layers)).to(labels.device)
+                    position_ids = torch.cat([position_ids, pad_tensor.to(position_ids.dtype)], -1)
+
+                batch = {
+                    'tokens': tokens,
+                    'labels': labels,
+                    'loss_mask': loss_mask,
+                }
+                batch = get_batch_on_this_cp_rank(batch)
+                batch['attention_mask'] = None
+                batch['position_ids'] = position_ids
+                return batch.values()
+
+            attention_mask = get_tune_attention_mask(attention_mask_1d)
+            position_ids = None
+            batch = {
+                    'tokens': tokens,
+                    'labels': labels,
+                    'loss_mask': loss_mask,
+                    'attention_mask': attention_mask,
+                    'position_ids': position_ids
+                }
         batch = get_batch_on_this_cp_rank(batch)
         return batch.values()
 

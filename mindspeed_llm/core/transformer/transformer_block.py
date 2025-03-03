@@ -197,29 +197,55 @@ def transformer_block_forward(
     else:
         fp8_context = nullcontext()
 
+    global_args = get_args()
+    key_value_states = None
+
     with rng_context and fp8_context:
         # Forward pass.
         if self.config.recompute_granularity == 'full' and self.training:
-            hidden_states = self._checkpointed_forward(
-                hidden_states=hidden_states,
-                attention_mask=attention_mask,
-                context=context,
-                context_mask=context_mask,
-                rotary_pos_emb=rotary_pos_emb,
-                packed_seq_params=packed_seq_params,
-            )
+            if global_args.share_kvstates:
+                hidden_states, key_value_states = self._checkpointed_forward(
+                    hidden_states=hidden_states,
+                    attention_mask=attention_mask,
+                    key_value_states=key_value_states,
+                    context=context,
+                    context_mask=context_mask,
+                    rotary_pos_emb=rotary_pos_emb,
+                    packed_seq_params=packed_seq_params,
+                )
+            else:
+                hidden_states = self._checkpointed_forward(
+                    hidden_states=hidden_states,
+                    attention_mask=attention_mask,
+                    context=context,
+                    context_mask=context_mask,
+                    rotary_pos_emb=rotary_pos_emb,
+                    packed_seq_params=packed_seq_params,
+                )
         else:
             for layer in self.layers:
                 with self.offload_context:
-                    hidden_states, context = layer(
-                        hidden_states=hidden_states,
-                        attention_mask=attention_mask,
-                        context=context,
-                        context_mask=context_mask,
-                        rotary_pos_emb=rotary_pos_emb,
-                        inference_params=inference_params,
-                        packed_seq_params=packed_seq_params,
-                    )
+                    if global_args.share_kvstates:
+                        hidden_states, context, key_value_states = layer(
+                            hidden_states=hidden_states,
+                            attention_mask=attention_mask,
+                            key_value_states=key_value_states,
+                            context=context,
+                            context_mask=context_mask,
+                            rotary_pos_emb=rotary_pos_emb,
+                            inference_params=inference_params,
+                            packed_seq_params=packed_seq_params,
+                        )
+                    else:
+                        hidden_states, context = layer(
+                            hidden_states=hidden_states,
+                            attention_mask=attention_mask,
+                            context=context,
+                            context_mask=context_mask,
+                            rotary_pos_emb=rotary_pos_emb,
+                            inference_params=inference_params,
+                            packed_seq_params=packed_seq_params,
+                        )
 
                 if (
                         torch.is_grad_enabled()
@@ -312,3 +338,125 @@ def _block_method_checkpointed_forward_func(
             )
 
     return hidden_states
+
+
+def share_kvstates_checkpointed_forward_func(
+    self,
+    hidden_states: Tensor,
+    attention_mask: Tensor,
+    key_value_states: Tensor,
+    context: Tensor,
+    context_mask: Tensor,
+    rotary_pos_emb: Tensor,
+    packed_seq_params: PackedSeqParams,
+):
+    """Forward method with activation checkpointing."""
+
+    def custom(start: int, end: int):
+        def custom_forward(
+            hidden_states,
+            attention_mask,
+            key_states,
+            value_states,
+            context,
+            context_mask,
+            rotary_pos_emb,
+            packed_seq_params,
+        ):
+            for index in range(start, end):
+                layer = self._get_layer(index)
+                if key_states is not None:
+                    key_value_states = [key_states, value_states]
+                else:
+                    key_value_states = None
+                hidden_states, context, key_value_states = layer(
+                    hidden_states=hidden_states,
+                    attention_mask=attention_mask,
+                    key_value_states=key_value_states,
+                    context=context,
+                    context_mask=context_mask,
+                    rotary_pos_emb=rotary_pos_emb,
+                    inference_params=None,
+                    packed_seq_params=packed_seq_params,
+                )
+
+            return hidden_states, context, key_value_states
+
+        return custom_forward
+
+    def checkpoint_handler(forward_func):
+        if self.config.fp8:
+            return te_checkpoint(
+                forward_func,
+                self.config.distribute_saved_activations,
+                tensor_parallel.random.get_cuda_rng_tracker,
+                parallel_state.get_tensor_model_parallel_group(),
+                hidden_states,
+                attention_mask,
+                key_value_states,
+                context,
+                context_mask,
+                rotary_pos_emb,
+                packed_seq_params,
+            )
+        else:
+            if key_value_states is None:
+                key_states = None
+                value_states = None
+            else:
+                key_states, value_states = key_value_states
+            return tensor_parallel.checkpoint(
+                forward_func,
+                self.config.distribute_saved_activations,
+                hidden_states,
+                attention_mask,
+                key_states,
+                value_states,
+                context,
+                context_mask,
+                rotary_pos_emb,
+                packed_seq_params,
+            )
+
+    if self.config.recompute_method == 'uniform':
+        # Uniformly divide the total number of Transformer layers and checkpoint
+        # the input activation of each divided chunk.
+        # A method to further reduce memory usage reducing checkpoints.
+        l = 0
+        while l < self.num_layers_per_pipeline_rank:
+            hidden_states, context, key_value_states = checkpoint_handler(
+                custom(l, l + self.config.recompute_num_layers)
+            )
+
+            l += self.config.recompute_num_layers
+
+    elif self.config.recompute_method == 'block':
+        # Checkpoint the input activation of only a set number of individual
+        # Transformer layers and skip the rest.
+        # A method fully use the device memory removing redundant re-computation.
+        recompute_skip_num_layers = 0
+        for l in range(self.num_layers_per_pipeline_rank):
+            # Skip recomputation when input grad computation is not needed.
+            # Need to have at least one input tensor with gradient computation
+            # for re-enterant autograd engine.
+            if self.config.fp8 and not hidden_states.requires_grad:
+                recompute_skip_num_layers += 1
+            if (
+                l >= recompute_skip_num_layers
+                and l < self.config.recompute_num_layers + recompute_skip_num_layers
+            ):
+                hidden_states, context, key_value_states = checkpoint_handler(custom(l, l + 1))
+            else:
+                hidden_states, context, key_value_states = custom(l, l + 1)(
+                    hidden_states,
+                    attention_mask,
+                    context,
+                    key_value_states,
+                    context_mask,
+                    rotary_pos_emb,
+                    packed_seq_params,
+                )
+    else:
+        raise ValueError("Invalid activation recompute method.")
+
+    return hidden_states, key_value_states

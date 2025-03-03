@@ -459,6 +459,8 @@ def topk_router_routing(self, logits: torch.Tensor):
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Probs and the indices tensor.
     """
+    args = get_args()
+
     logits = logits.view(-1, self.config.num_moe_experts)
 
     # Apply Z-Loss
@@ -478,7 +480,10 @@ def topk_router_routing(self, logits: torch.Tensor):
         scores, indices = self.aux_loss_load_balancing(logits)
     # add softmax_topk for softmax before topk that difference form routing_type is none
     elif self.routing_type == "softmax_topk":
-        logits_ = torch.softmax(logits, dim=-1, dtype=torch.float32).type_as(logits)
+        if args.moe_revert_type_after_topk:
+            logits_ = torch.softmax(logits, dim=-1, dtype=torch.float32)
+        else:
+            logits_ = torch.softmax(logits, dim=-1, dtype=torch.float32).type_as(logits)
         scores, indices = torch.topk(logits_, k=self.topk, dim=1)
     elif self.routing_type == "group_limited_greedy":
         scores, indices = group_limited_greedy_topKgating(self, logits)
@@ -521,7 +526,6 @@ def topk_router_routing(self, logits: torch.Tensor):
             self.local_tokens_per_expert += tokens_per_expert
 
     # fix router if needed
-    args = get_args()
     if args.fix_router:
         def fix_indices(index_tensor, logits_shape):
             return torch.arange(index_tensor.numel(), device=index_tensor.device,
