@@ -36,7 +36,8 @@ class CkptConvert(object):
         num_dense_layers (int, optional): The number of first k dense layers. Defaults to 3.
         num_layer_list (str, optional): Specifies the number of parallel pipeline layers. If None, all blocks have the same number of layers. Defaults to None.
         noop_layers (str, optional): should be skipped during conversion. Defaults to None.
-        moe_grouped_gemm (bool, optional): Whether to use grouped GEMM for MoE layers. Defaults to True.
+        moe_grouped_gemm (bool, optional): Whether to use grouped GEMM for MoE layers.
+        moe_tp_extend_ep (bool, optional): Whether to use tp group to extend experts parallism.
         num_nextn_predict_layers (int, optional): The number of MTP layers. Defaults to 0.
         qlora_nf4 (bool, optional): Whether to use QLORA NF4. Defaults to False.
     """
@@ -53,7 +54,8 @@ class CkptConvert(object):
             num_layer_list: str = None,
             noop_layers: str = None,
             vpp_stage: int = None,
-            moe_grouped_gemm: bool = True,
+            moe_grouped_gemm: bool = False,
+            moe_tp_extend_ep: bool = False,
             num_nextn_predict_layers: int = 0,
             qlora_nf4: bool = False,
     ):
@@ -69,6 +71,7 @@ class CkptConvert(object):
         self.num_layer_list = num_layer_list
         self.noop_layers = noop_layers
         self.moe_grouped_gemm = moe_grouped_gemm
+        self.moe_tp_extend_ep = moe_tp_extend_ep
         self.first_k_dense_replace = num_dense_layers
         self.num_nextn_predict_layers = num_nextn_predict_layers
 
@@ -476,15 +479,32 @@ class CkptConvert(object):
             if self.moe_grouped_gemm:
                 gemm_fc1 = torch.cat(experts_linear_fc1_list).view(self.hidden_size, -1)
                 gemm_fc2 = torch.cat(experts_linear_fc2_list).view(-1, self.hidden_size)
-                gemm_fc1_ep = torch.chunk(gemm_fc1.view(self.num_experts, self.hidden_size, -1), self.ep_size, dim=0)
-                gemm_fc2_ep = torch.chunk(gemm_fc2.view(self.num_experts, -1, self.hidden_size), self.ep_size, dim=0)
+                if self.moe_tp_extend_ep:
+                    gemm_fc1_ep = torch.chunk(gemm_fc1.view(self.num_experts, self.hidden_size, -1),
+                                              self.ep_size * self.tp_size, dim=0)
+                    gemm_fc2_ep = torch.chunk(gemm_fc2.view(self.num_experts, -1, self.hidden_size),
+                                              self.ep_size * self.tp_size, dim=0)
+                else:
+                    gemm_fc1_ep = torch.chunk(gemm_fc1.view(self.num_experts, self.hidden_size, -1), self.ep_size,
+                                              dim=0)
+                    gemm_fc2_ep = torch.chunk(gemm_fc2.view(self.num_experts, -1, self.hidden_size), self.ep_size,
+                                              dim=0)
 
                 for ep_rank in range(self.ep_size):
-                    gemm_fc1_ep_tp = torch.chunk(gemm_fc1_ep[ep_rank], self.tp_size, dim=2)
-                    gemm_fc2_ep_tp = torch.chunk(gemm_fc2_ep[ep_rank], self.tp_size, dim=1)
+                    if not self.moe_tp_extend_ep:
+                        gemm_fc1_ep_tp = torch.chunk(gemm_fc1_ep[ep_rank], self.tp_size, dim=2)
+                        gemm_fc2_ep_tp = torch.chunk(gemm_fc2_ep[ep_rank], self.tp_size, dim=1)
                     for tp_rank in range(self.tp_size):
-                        mg_model[ep_rank][tp_rank][experts_weight1_key] = gemm_fc1_ep_tp[tp_rank].reshape(self.hidden_size, -1).clone()
-                        mg_model[ep_rank][tp_rank][experts_weight2_key] = gemm_fc2_ep_tp[tp_rank].reshape(-1, self.hidden_size).clone()
+                        if self.moe_tp_extend_ep:
+                            mg_model[ep_rank][tp_rank][experts_weight1_key] = gemm_fc1_ep[
+                                ep_rank * 2 + tp_rank].reshape(self.hidden_size, -1).clone()
+                            mg_model[ep_rank][tp_rank][experts_weight2_key] = gemm_fc2_ep[
+                                ep_rank * 2 + tp_rank].reshape(-1, self.hidden_size).clone()
+                        else:
+                            mg_model[ep_rank][tp_rank][experts_weight1_key] = gemm_fc1_ep_tp[tp_rank].reshape(
+                                self.hidden_size, -1).clone()
+                            mg_model[ep_rank][tp_rank][experts_weight2_key] = gemm_fc2_ep_tp[tp_rank].reshape(
+                                -1, self.hidden_size).clone()
             else:
                 num_local_experts = self.num_experts // self.ep_size
                 for ep_rank in range(self.ep_size):
@@ -685,6 +705,8 @@ def get_args():
                         help='Number of transformer layers.')
     parser.add_argument('--first-k-dense-replace', type=int, default=3,
                         help='Customizing the number of dense layers.')
+    parser.add_argument("--moe-tp-extend-ep", action='store_true',
+                        help="use tp group to extend experts parallism instead of sharding weight tensor of experts in tp group")
     parser.add_argument('--qlora-nf4', action='store_true',
                         help='use bitsandbytes nf4 to quantize model.')
 
@@ -706,6 +728,7 @@ def main():
         num_layer_list=args.num_layer_list,
         noop_layers=args.noop_layers,
         moe_grouped_gemm=args.moe_grouped_gemm,
+        moe_tp_extend_ep=args.moe_tp_extend_ep,
         num_nextn_predict_layers=args.num_nextn_predict_layers,
         qlora_nf4=args.qlora_nf4,
         vpp_stage=args.num_layers_per_virtual_pipeline_stage
