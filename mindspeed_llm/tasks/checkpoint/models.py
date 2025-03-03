@@ -507,14 +507,20 @@ class HuggingfaceModel(ModelBase):
 
         qkv_type = self.args.qkv_type
         if qkv_type == "unpack":
-            q_proj = self.get_layers_self_attention_linear_q_proj_module(layer_idx=layer_idx)
-            k_proj = self.get_layers_self_attention_linear_k_proj_module(layer_idx=layer_idx)
-            v_proj = self.get_layers_self_attention_linear_v_proj_module(layer_idx=layer_idx)
-            query_key_value_weight = [q_proj.weight, k_proj.weight, v_proj.weight]
-            query_key_value_bias = [q_proj.bias, k_proj.bias, v_proj.bias]
-            self.layers_self_attention_linear_qkv_caches["weight"] = (qkv_concatenate_weight(query_key_value_weight))
-            if self.args_cmd.add_qkv_bias:
-                self.layers_self_attention_linear_qkv_caches["bias"] = (qkv_concatenate_bias(query_key_value_bias))
+            if hasattr(self.args, 'cla_share_factor') and layer_idx % self.args.cla_share_factor == 1:
+                q_proj = self.get_layers_self_attention_linear_q_proj_module(layer_idx=layer_idx)
+                query_key_value_weight = q_proj.weight
+                self.layers_self_attention_linear_qkv_caches["weight"] = query_key_value_weight
+            else:
+                q_proj = self.get_layers_self_attention_linear_q_proj_module(layer_idx=layer_idx)
+                k_proj = self.get_layers_self_attention_linear_k_proj_module(layer_idx=layer_idx)
+                v_proj = self.get_layers_self_attention_linear_v_proj_module(layer_idx=layer_idx)
+                query_key_value_weight = [q_proj.weight, k_proj.weight, v_proj.weight]
+                query_key_value_bias = [q_proj.bias, k_proj.bias, v_proj.bias]
+                self.layers_self_attention_linear_qkv_caches["weight"] = (
+                    qkv_concatenate_weight(query_key_value_weight))
+                if self.args_cmd.add_qkv_bias:
+                    self.layers_self_attention_linear_qkv_caches["bias"] = (qkv_concatenate_bias(query_key_value_bias))
         elif qkv_type == "pack_mla":
             q_proj = self.get_layers_self_attention_linear_q_proj_module(layer_idx=layer_idx)
             kv_proj = self.get_layers_self_attention_linear_kv_proj_module(layer_idx=layer_idx)
@@ -681,10 +687,14 @@ class HuggingfaceModel(ModelBase):
 
         qkv_type = self.args.qkv_type
         if qkv_type == "unpack":
-            q_weight, k_weight, v_weight = qkv_split_weight(data)
-            self.set_layers_self_attention_linear_q_proj_weight(layer_idx=layer_idx, data=q_weight)
-            self.set_layers_self_attention_linear_k_proj_weight(layer_idx=layer_idx, data=k_weight)
-            self.set_layers_self_attention_linear_v_proj_weight(layer_idx=layer_idx, data=v_weight)
+            if hasattr(self.args, 'cla_share_factor') and layer_idx % self.args.cla_share_factor == 1:
+                q_weight = data
+                self.set_layers_self_attention_linear_q_proj_weight(layer_idx=layer_idx, data=q_weight)
+            else:
+                q_weight, k_weight, v_weight = qkv_split_weight(data)
+                self.set_layers_self_attention_linear_q_proj_weight(layer_idx=layer_idx, data=q_weight)
+                self.set_layers_self_attention_linear_k_proj_weight(layer_idx=layer_idx, data=k_weight)
+                self.set_layers_self_attention_linear_v_proj_weight(layer_idx=layer_idx, data=v_weight)
         elif qkv_type == "pack_gqa":
             qw, k_weight, v_weight = qkv_split_weight(data)
             qkv = torch.cat((qw, k_weight, v_weight), dim=0)
@@ -796,6 +806,9 @@ class MegatronModel(ModelBase):
                     )
                     setattr(self.args, arg, value)
 
+            if hasattr(self.md, 'cla_share_factor'):
+                self.args.cla_share_factor = self.md.cla_share_factor
+
             if hasattr(self.md, 'consumed_train_samples'):
                 self.args.consumed_train_samples = self.md.consumed_train_samples
                 self.args.consumed_valid_samples = self.md.consumed_valid_samples
@@ -847,6 +860,7 @@ class MegatronModel(ModelBase):
             self.args.first_k_dense_replace = getattr(hf_args, "first_k_dense_replace", None)
             self.args.moe_layer_freq = getattr(hf_args, "moe_layer_freq", None)
             self.args.multi_head_latent_attention = getattr(hf_args, "multi_head_latent_attention", False)
+            self.args.cla_share_factor = getattr(hf_args, "cla_share_factor", 1)
             self.args.shared_expert_intermediate_size = getattr(hf_args, "shared_expert_intermediate_size", None)
             if self.args.shared_expert_intermediate_size is not None and self.args.n_shared_experts is None:
                 self.args.n_shared_experts = self.args.shared_expert_intermediate_size // self.args.moe_intermediate_size
@@ -856,7 +870,7 @@ class MegatronModel(ModelBase):
                 self.args.q_lora_rank = getattr(hf_args, "q_lora_rank", None)
                 self.args.kv_lora_rank = getattr(hf_args, "kv_lora_rank", None)
                 self.args.v_head_dim = getattr(hf_args, "v_head_dim", None)
-
+            self.args.q_lora_rank = getattr(hf_args, "q_lora_rank", None)
             if self.args.add_dense_bias:
                 self.args.skip_bias_add = False
 

@@ -101,6 +101,7 @@ def build_metadata(args, margs):
     md.moe_intermediate_size = getattr(margs, "moe_intermediate_size", None)
     md.first_k_dense_replace = getattr(margs, "first_k_dense_replace", None)
     md.moe_layer_freq = getattr(margs, "moe_layer_freq", None)
+    md.q_lora_rank = getattr(margs, "q_lora_rank", None)
     md.multi_head_latent_attention = getattr(margs, "multi_head_latent_attention", False)
     if md.multi_head_latent_attention:
         md.qk_rope_head_dim = getattr(margs, "qk_rope_head_dim", None)
