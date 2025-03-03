@@ -3,7 +3,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 GPUS_PER_NODE=8
 MASTER_ADDR=localhost
-MASTER_PORT=6023
+MASTER_PORT=6012
 NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE * $NNODES))
@@ -86,7 +86,7 @@ GPT_ARGS=(
     --tokenizer-type Llama2Tokenizer
     --tokenizer-model ${TOKENIZER_MODEL}
     --micro-batch-size 1
-    --global-batch-size 16
+    --global-batch-size 2
     --lr 1e-5
     --train-iters ${TRAIN_ITER}
     --lr-decay-iters 1280

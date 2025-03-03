@@ -7,7 +7,7 @@ export HCCL_EXEC_TIMEOUT=1200
 
 GPUS_PER_NODE=1
 MASTER_ADDR=localhost
-MASTER_PORT=6080
+MASTER_PORT=6014
 NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
@@ -47,8 +47,8 @@ TRAINING_ARGS=(
     --use-mcore-models
     --tokenizer-type PretrainedFromHF
     --tokenizer-name-or-path ${TOKENIZER_MODEL}
-    --micro-batch-size 4
-    --global-batch-size 32
+    --micro-batch-size 2
+    --global-batch-size 4
     --make-vocab-size-divisible-by 1
     --padded-vocab-size 32000
     --lr 1.25e-6

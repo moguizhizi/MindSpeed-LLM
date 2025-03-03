@@ -1,7 +1,7 @@
 #!/bin/bash
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-NPUS_PER_NODE=8
+NPUS_PER_NODE=4
 MASTER_ADDR=localhost
 MASTER_PORT=6001
 NNODES=1
@@ -16,9 +16,9 @@ CKPT_LOAD_DIR="/data/chatglm3-6b-tp1-pp1-cp8/"
 
 TP=1
 PP=1
-CP=8
+CP=4
 MBS=1
-GBS=8
+GBS=2
 SEQ_LEN=65536
 CP_ALGO=hybrid_cp_algo
 
@@ -40,7 +40,7 @@ GPT_ARGS="
     --hidden-size 4096 \
     --ffn-hidden-size 13696 \
     --num-attention-heads 32 \
-    --ulysses-degree-in-cp 4 \
+    --ulysses-degree-in-cp 2 \
     --seq-length ${SEQ_LEN} \
     --micro-batch-size ${MBS} \
     --global-batch-size ${GBS} \

@@ -1,9 +1,9 @@
 #!/bin/bash
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-NPUS_PER_NODE=8
+NPUS_PER_NODE=4
 MASTER_ADDR=localhost
-MASTER_PORT=6001
+MASTER_PORT=6009
 NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
@@ -31,7 +31,7 @@ GPT_ARGS="
     --pipeline-model-parallel-size ${PP} \
     --use-mcore-models \
     --micro-batch-size 1 \
-    --global-batch-size 16 \
+    --global-batch-size 2 \
     --sequence-parallel \
     --use-mc2 \
     --use-flash-attn \

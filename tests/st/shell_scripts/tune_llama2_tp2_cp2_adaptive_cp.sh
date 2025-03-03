@@ -4,9 +4,9 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export HCCL_DETERMINISITIC=True
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
-GPUS_PER_NODE=8
+GPUS_PER_NODE=4
 MASTER_ADDR=localhost
-MASTER_PORT=6079
+MASTER_PORT=6015
 NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
@@ -19,7 +19,7 @@ TOKENIZER_MODEL="/data/llama-2-7b-hf"
 
 TP=2
 PP=1
-CP=4
+CP=2
 
 DISTRIBUTED_ARGS=(
     --nproc_per_node $GPUS_PER_NODE
@@ -67,7 +67,7 @@ TRAINING_ARGS=(
     --tokenizer-name-or-path ${TOKENIZER_MODEL}
     --tokenizer-not-use-fast
     --micro-batch-size 1
-    --global-batch-size 8
+    --global-batch-size 2
     --make-vocab-size-divisible-by 1
     --lr 1.25e-6
     --train-iters 15
