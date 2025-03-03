@@ -13,7 +13,7 @@
         <th>Mem.</th>
     </tr>
     <tr>
-        <td rowspan="28">ST</td>
+        <td rowspan="17">ST</td>
         <td rowspan="13">Pretrain</td>
         <td>Mcore</td>
         <td>TP，PP，VPP，distributed_optimizer，o2_gradient，o2_optimizer，重计算，enable_recompute_layers_per_pp_rank，FA_TND，use_fused_rotary_pos_emb_new</td>
@@ -152,99 +152,6 @@
         <td>Y</td>
         <td>Y</td>
     </tr>
-   <tr>
-        <td rowspan="3">DPO</td>
-        <td rowspan="3">Mcore</td>
-        <td>DPO, CCLoRA, TP, PP, CP, MOE, use_fused_moe_token_permute_and_unpermute</td>
-        <td><a href="st/shell_scripts/dpo_lora_mixtral_8x7b_ptd_tp2pp1ep2cp2.sh">dpo_lora_mixtral_8x7b_ptd_tp2pp1ep2cp2.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td>DPO, TP, PP, CP, VPP, fused_rmsnorm, fused_swiglu, fused_rope</td>
-        <td><a href="st/shell_scripts/dpo_full_llama3_8b_ptd_tp2pp2vpp2cp2.sh">dpo_full_llama3_8b_ptd_tp2pp2vpp2cp2.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td>DPO, PP, EP, CP, VPP, distributed_optimizer, used_rmsnorm，fused_swiglu, fused_rope，overlap_grad_reduce, overlap_param_gather</td>
-        <td><a href="st/shell_scripts/dpo_full_mixtral_8x7b_ptd_tp1pp2vpp2ep2cp2.sh">dpo_full_mixtral_8x7b_ptd_tp1pp2vpp2ep2cp2.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td rowspan="1">Grpo</td>
-        <td rowspan="1">Mcore</td>
-        <td>GRPO, tp, pp</td>
-        <td><a href="st/shell_scripts/ray_grpo_full_llama32_1b_tp1pp1.sh">ray_grpo_full_llama32_1b_tp1pp1.sh</a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td rowspan="1">Online_DPO</td>
-        <td rowspan="1">Mcore</td>
-        <td>Online_DPO, tp, pp</td>
-        <td><a href="st/shell_scripts/ray_online_dpo_full_llama32_1b_tp1pp1.sh">ray_online_dpo_full_llama32_1b_tp1pp1.sh</a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td rowspan="1">Ray_PPO</td>
-        <td rowspan="1">Mcore</td>
-        <td>PPO, tp, pp</td>
-        <td><a href="st/shell_scripts/ray_ppo_full_llama32_1b_tp1pp1.sh">ray_ppo_full_llama32_1b_tp1pp1.sh</a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td rowspan="1">Trl_PPO</td>
-        <td rowspan="1">Mcore</td>
-        <td>PPO, CCLoRA, TP, PP</td>
-        <td><a href="st/shell_scripts/trl_ppo_llama32_1b_ptd_tp2pp2.sh">trl_ppo_llama32_1b_ptd_tp2pp2.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td rowspan="3">OutcomeRewardModel</td>
-        <td>Mcore</td>
-        <td>prompt_type, variable_seq_lengths</td>
-        <td><a href="st/shell_scripts/train_orm_chatglm3_tp2_pp4_full.sh">train_orm_chatglm3_tp2_pp4_full.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td>Mcore</td>
-        <td>TP, PP, CP, EP, distributed_optimizer, 全重计算</td>
-        <td><a href="st/shell_scripts/train_orm_mixtral_tp2_pp2_cp2_ep2.sh">train_orm_mixtral_tp2_pp2_cp2_ep2.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td>Mcore</td>
-        <td>PP, VPP, DP, recompute-activation-function</td>
-        <td><a href="st/shell_scripts/train_orm_llama2_7b_pp2_vpp2_dp2.sh">train_orm_llama2_7b_pp2_vpp2_dp2.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
-    <tr>
-        <td rowspan="1">ProcessRewardModel</td>
-        <td>Mcore</td>
-        <td>TP, PP, variable_seq_lengths</td>
-        <td><a href="st/shell_scripts/train_prm_llama2_tp1_pp8_full_ptd.sh">train_prm_llama2_tp1_pp8_full_ptd.sh</a></td>
-        <td>Y</td>
-        <td>Y</td>
-        <td>Y</td>
-    </tr>
     <tr>
         <td rowspan="10">UT</td>
         <td>Inference</td>
@@ -293,34 +200,10 @@
         <td></td>
     </tr>
 	<tr>
-        <td rowspan="4">ProcessData</td>
-        <td rowspan="4">Mcore</td>
+        <td rowspan="1">ProcessData</td>
+        <td rowspan="1">Mcore</td>
         <td>pretrain_data_alpaca, pretrain_merge_datasets, instruction_data_alpaca, instruction_merge_datasets</td>
         <td><a href="ut/process_data/test_preprocess_data.py">test_preprocess_data.py</a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-	<tr>
-        <td>instruction_data_alpaca,
-        instruction_data_alpaca_history,
-        instruction_data_sharegpt,
-        instruction_data_openai,</td>
-        <td><a href="ut/process_data/test_process_instruction_data_lf.py">test_process_instruction_data_lf.py</a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-	<tr>
-        <td>instruction_data_handler</td>
-        <td><a href="ut/process_data/test_process_instruction_pack_data.py">test_process_instruction_pack_data.py</a></td>
-        <td>Y</td>
-        <td></td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>pairwise_data_alpaca, pairwise_data_sharegpt</td>
-        <td><a href="ut/process_data/test_process_pairwise_data_lf.py">test_process_pairwise_data_lf.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
@@ -434,6 +317,32 @@
         <td>Legacy</td>
         <td>prompt_boolq, prompt_ceval, lora_mmlu, humaneval</td>
         <td><a href="pipeline/common/test_evaluate.py">test_evaluate.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+	<tr>
+        <td rowspan="3"><a href="pipeline/common">ProcessData</td>
+        <td rowspan="3">Mcore</td>
+        <td>instruction_data_alpaca,
+        instruction_data_alpaca_history,
+        instruction_data_sharegpt,
+        instruction_data_openai,</td>
+        <td><a href="ut/process_data/test_process_instruction_data_lf.py">test_process_instruction_data_lf.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+	<tr>
+        <td>instruction_data_handler</td>
+        <td><a href="ut/process_data/test_process_instruction_pack_data.py">test_process_instruction_pack_data.py</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>pairwise_data_alpaca, pairwise_data_sharegpt</td>
+        <td><a href="ut/process_data/test_process_pairwise_data_lf.py">test_process_pairwise_data_lf.py</a></td>
         <td>Y</td>
         <td></td>
         <td></td>
@@ -736,6 +645,99 @@
         <td>Y</td>
         <td></td>
         <td></td>
+    </tr>
+    <tr>
+        <td rowspan="3"><a href="pipeline/rlhf">DPO</td>
+        <td rowspan="3">Mcore</td>
+        <td>DPO, CCLoRA, TP, PP, CP, MOE, use_fused_moe_token_permute_and_unpermute</td>
+        <td><a href="st/shell_scripts/dpo_lora_mixtral_8x7b_ptd_tp2pp1ep2cp2.sh">dpo_lora_mixtral_8x7b_ptd_tp2pp1ep2cp2.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>DPO, TP, PP, CP, VPP, fused_rmsnorm, fused_swiglu, fused_rope</td>
+        <td><a href="st/shell_scripts/dpo_full_llama3_8b_ptd_tp2pp2vpp2cp2.sh">dpo_full_llama3_8b_ptd_tp2pp2vpp2cp2.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>DPO, PP, EP, CP, VPP, distributed_optimizer, used_rmsnorm，fused_swiglu, fused_rope，overlap_grad_reduce, overlap_param_gather</td>
+        <td><a href="st/shell_scripts/dpo_full_mixtral_8x7b_ptd_tp1pp2vpp2ep2cp2.sh">dpo_full_mixtral_8x7b_ptd_tp1pp2vpp2ep2cp2.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td rowspan="1"><a href="pipeline/rlhf">Grpo</td>
+        <td rowspan="1">Mcore</td>
+        <td>GRPO, tp, pp</td>
+        <td><a href="st/shell_scripts/ray_grpo_full_llama32_1b_tp1pp1.sh">ray_grpo_full_llama32_1b_tp1pp1.sh</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan="1"><a href="pipeline/rlhf">Online_DPO</td>
+        <td rowspan="1">Mcore</td>
+        <td>Online_DPO, tp, pp</td>
+        <td><a href="st/shell_scripts/ray_online_dpo_full_llama32_1b_tp1pp1.sh">ray_online_dpo_full_llama32_1b_tp1pp1.sh</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan="1"><a href="pipeline/rlhf">Ray_PPO</td>
+        <td rowspan="1">Mcore</td>
+        <td>PPO, tp, pp</td>
+        <td><a href="st/shell_scripts/ray_ppo_full_llama32_1b_tp1pp1.sh">ray_ppo_full_llama32_1b_tp1pp1.sh</a></td>
+        <td>Y</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan="1"><a href="pipeline/rlhf">Trl_PPO</td>
+        <td rowspan="1">Mcore</td>
+        <td>PPO, CCLoRA, TP, PP</td>
+        <td><a href="st/shell_scripts/trl_ppo_llama32_1b_ptd_tp2pp2.sh">trl_ppo_llama32_1b_ptd_tp2pp2.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan="3"><a href="pipeline/rlhf">OutcomeRewardModel</td>
+        <td>Mcore</td>
+        <td>prompt_type, variable_seq_lengths</td>
+        <td><a href="st/shell_scripts/train_orm_chatglm3_tp2_pp4_full.sh">train_orm_chatglm3_tp2_pp4_full.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>Mcore</td>
+        <td>TP, PP, CP, EP, distributed_optimizer, 全重计算</td>
+        <td><a href="st/shell_scripts/train_orm_mixtral_tp2_pp2_cp2_ep2.sh">train_orm_mixtral_tp2_pp2_cp2_ep2.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>Mcore</td>
+        <td>PP, VPP, DP, recompute-activation-function</td>
+        <td><a href="st/shell_scripts/train_orm_llama2_7b_pp2_vpp2_dp2.sh">train_orm_llama2_7b_pp2_vpp2_dp2.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td rowspan="1"><a href="pipeline/rlhf">ProcessRewardModel</td>
+        <td>Mcore</td>
+        <td>TP, PP, variable_seq_lengths</td>
+        <td><a href="st/shell_scripts/train_prm_llama2_tp1_pp8_full_ptd.sh">train_prm_llama2_tp1_pp8_full_ptd.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
     </tr>
 </table>
 

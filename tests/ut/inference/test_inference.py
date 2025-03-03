@@ -61,38 +61,6 @@ class TestInference(DistributedTest):
                 "I'm doing well, thanks.\nI'm doing well, thanks. I'm doing well, thanks. I'm doing"
             ], "forward pass has been changed, check it!"
 
-    @pytest.mark.parametrize("params", test_config["test_llama2_legacy_prompt_greedy_search"])
-    def test_llama2_legacy_greedy_search(self, build_args, params):
-        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
-        os.environ["CLOSE_MATMUL_K_SHIFT"] = "1"
-        if dist.get_rank() == 0:
-            handler, log_capture = setup_logger(PATTERN)
-
-        main()
-        if dist.get_rank() == 0:
-            print("=============== llama2 legacy prompt greedy search =============")
-            print(log_capture)
-            context = acquire_context(log_capture)
-            assert [context] == [
-                "I'm doing well, thanks.\nI'm doing well, thanks. I'm doing well, thanks. I'm doing"
-            ], "forward pass has been changed, check it!"
-
-    @pytest.mark.parametrize("params", test_config["test_llama2_lora_prompt_legacy_greedy_search"])
-    def test_llama2_lora_legacy_greedy_search(self, build_args, params):
-        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
-        os.environ["CLOSE_MATMUL_K_SHIFT"] = "1"
-        if dist.get_rank() == 0:
-            handler, log_capture = setup_logger(PATTERN)
-
-        main()
-        if dist.get_rank() == 0:
-            print("=============== llama2 lora legacy prompt greedy search =============")
-            print(log_capture)
-            context = acquire_context(log_capture)
-            assert [context] == [
-                "I'm doing well, thanks.\nI'm doing well, thanks. I'm doing well, thanks. I'm doing"
-            ], "forward pass has been changed, check it!"
-
     @pytest.mark.parametrize("params", test_config["test_deepseek2_mcore_greedy_search"])
     def test_deepseek2_mcore_greedy_search(self, build_args, params):
         os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
