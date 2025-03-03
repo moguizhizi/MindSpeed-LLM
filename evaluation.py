@@ -43,6 +43,7 @@ from mindspeed_llm.tasks.evaluation.eval_impl.ceval_exam import CEvalExam
 from mindspeed_llm.tasks.evaluation.eval_impl.bbh_eval import BBHEval
 from mindspeed_llm.tasks.evaluation.eval_impl.agi_eval import AGIEvalExam
 from mindspeed_llm.tasks.evaluation.eval_impl.human_eval import HumanEval
+from mindspeed_llm.tasks.evaluation.eval_impl.needlebench_eval import NeedleBenchEval
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 logging.getLogger().setLevel(logging.INFO)
@@ -141,18 +142,23 @@ class LLMChat(Chat):
 
     def chat(self, instruction, history):
         instruction_temp = None
-        if self.args.prompt_type is None:
+        if getattr(self.args, "task", False) and self.args.task[0] == 'needlebench':
+            instruction_temp = [self.tokenizer.apply_chat_template([{"role": "user", "content": ins + '\n'}], add_generation_prompt=True, tokenize=False) for ins in instruction]
+        elif self.args.prompt_type is None:
             instruction_temp = [self.template.format(instruction=ins) if (self.tokenizer.chat_template is None or self.args.no_chat_template) else self.tokenizer.apply_chat_template([{"role": "user", "content": ins}]) for ins in instruction]
         else:
             instruction_temp = instruction
 
+        return_output_log_probs = False if (getattr(self.args, "task", False) and self.args.task[0] == 'needlebench') else True
         result = self.model.generate(
             instruction_temp,
             do_sample=False,
             max_new_tokens=self.args.max_new_tokens,
             stream=False,
-            return_output_log_probs=True
+            return_output_log_probs=return_output_log_probs
         )
+        if getattr(self.args, "task", False) and self.args.task[0] == 'needlebench':
+            return result, dist.get_rank()
         return get_result(result, self.tokenizer), dist.get_rank()
 
     def beam_search_chat(self, instruction, history):
@@ -192,6 +198,21 @@ def mmlu(eval_args, agent):
         logger.info(e)
 
     return answer, score_df
+
+
+def needlebench(eval_args, agent):
+    data_path = None
+    for path in eval_args.task_data_path:
+        if 'needlebench' in path:
+            data_path = path
+    try:
+        if data_path:
+            needlebench_eval = NeedleBenchEval(test_dir=data_path, eval_args=eval_args)
+            needlebench_eval.eval(chat=agent)
+    except Exception as e:
+        logger.info(e)
+
+    return
 
 
 def gsm8k(eval_args, agent):
@@ -360,6 +381,12 @@ def main():
         human_eval(args, LLMChat(args, model, tokenizer))
         if rank == 0:
             logger.info(f'Human_eval Running Time: {time.time() - a}')
+    if 'needlebench' in args.task:
+        a = time.time()
+        needlebench(args, LLMChat(args, model, tokenizer))
+        if rank == 0:
+            logger.info(f'NeedleBench_eval Running Time: {time.time() - a}')
+
 
 
 if __name__ == "__main__":

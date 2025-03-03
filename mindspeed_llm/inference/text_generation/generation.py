@@ -111,21 +111,31 @@ def generate_tokens_probs_and_return_on_first_stage(
     # =============
 
     with torch.no_grad():
-        attention_mask, position_ids = _build_attention_mask_and_position_ids(
-            tokens)
+        if getattr(args, "task", False) and args.task[0] == 'needlebench':
+            micro_batch_size, seq_length = tokens.size()
+            attention_mask = None
+            position_ids = torch.arange(seq_length, dtype=torch.long,
+                                        device=tokens.device)
+            position_ids = position_ids.unsqueeze(0).expand_as(tokens)
+        else:
+            attention_mask, position_ids = _build_attention_mask_and_position_ids(
+                tokens)
+                
         if get_args().spec is not None and get_args().spec[0] == "mindspeed_llm.tasks.models.spec.hunyuan_spec":
             pad_id = 127961
             attention_mask = tokens.ne(pad_id)
         prev_context_length = 0
         for context_length in range(min_prompt_length, max_sequence_length):
-
             # start of megatron_adaptation, here we change sample stratrgy
             # Pick the slice that we need to pass through the network.
             if args.use_kv_cache:
                 tokens2use = tokens[:, prev_context_length:context_length]
                 positions2use = position_ids[:, prev_context_length:context_length]
-                attention_mask2use = attention_mask[
-                    ..., prev_context_length:context_length, :context_length]
+                if attention_mask is not None:
+                    attention_mask2use = attention_mask[
+                        ..., prev_context_length:context_length, :context_length]
+                else:
+                    attention_mask2use = None
             else:
                 tokens2use = tokens
                 positions2use = position_ids
@@ -188,7 +198,7 @@ def generate_tokens_probs_and_return_on_first_stage(
             if get_expert_model_parallel_world_size() > 1:
                 torch.distributed.all_reduce(done, op=torch.distributed.ReduceOp.MAX)
 
-            if output_log_probs is None:
+            if output_log_probs is None and not (getattr(args, "task", False) and args.task[0] == 'needlebench'):
                 output_log_probs = torch.empty(output_log_probs_size,
                                         dtype=torch.float32,
                                         device=torch.cuda.current_device())

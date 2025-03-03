@@ -877,6 +877,13 @@ MindSpeed-LLM支持预训练、指令微调、RLHF等多种任务的数据预处
       <td>✅</td>
       <td>【NAIE】</td>
     </tr>
+    <tr>
+      <td><a href="./docs/features/yarn.md"> yarn上下文扩展 </td>
+      <td>✅</td>
+      <td>❌</td>
+      <td>❌</td>
+      <td>【Ascend】</td>
+    </tr>
   </tbody>
 </table>
 

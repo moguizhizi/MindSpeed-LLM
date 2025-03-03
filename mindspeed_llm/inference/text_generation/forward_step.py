@@ -101,9 +101,15 @@ def _with_pipelining_forward_step_wrapper(_with_pipelining_forward_step):
         logits = None
         if mpu.is_pipeline_last_stage():
             args = get_args()
-            logits = torch.empty(
-                (batch_size, sequence_length, args.padded_vocab_size),
-                dtype=torch.float32, device=torch.cuda.current_device())
+            if getattr(args, "task", False) and args.task[0] == 'needlebench':
+                logits = torch.empty(
+                    (batch_size, 100, args.padded_vocab_size),
+                    dtype=torch.float32, device=torch.cuda.current_device())
+            else:
+                logits = torch.empty(
+                    (batch_size, sequence_length, args.padded_vocab_size),
+                    dtype=torch.float32, device=torch.cuda.current_device())
+
 
         # Preallocate recv buffer.
         recv_buffer = _allocate_recv_buffer(micro_batch_size, sequence_length)

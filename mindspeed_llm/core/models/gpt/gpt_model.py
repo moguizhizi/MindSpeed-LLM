@@ -297,6 +297,8 @@ def gpt_model_forward(self, input_ids: Tensor,
 
     if args.dim_model_base is not None:
         hidden_states = hidden_states / (args.hidden_size / args.dim_model_base)
+    if getattr(args, "task", False) and args.task[0] == 'needlebench':
+        hidden_states = hidden_states[-100:]
     logits, _ = self.output_layer(hidden_states, weight=output_weight)
 
     # new add to scale logits
