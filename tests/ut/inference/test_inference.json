@@ -61,6 +61,7 @@
                 "max-position-embeddings": 163840,
                 "position-embedding-type": "rope",
                 "swiglu": null,
+                "load": "/data/deepseek2-l4-tp1-pp1-ep8",
                 "tokenizer-type": "PretrainedFromHF",
                 "tokenizer-name-or-path": "/data/gemm/",
                 "bf16": null,
