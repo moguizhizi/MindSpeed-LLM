@@ -29,7 +29,7 @@ DISTRIBUTED_ARGS="
 ACCELERATE_ARGS="
     --reset-position-ids \
     --overlap-grad-reduce \
-    --use-mc2 \
+
 "
 
 GPT_ARGS="

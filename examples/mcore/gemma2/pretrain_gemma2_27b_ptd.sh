@@ -30,7 +30,7 @@ GPT_ARGS="
     --sequence-parallel \
     --spec mindspeed_llm.tasks.models.spec.gemma2_spec layer_spec \
     --use-mcore-models \
-    --use-mc2 \
+
     --use-fused-rmsnorm \
     --use-fused-rotary-pos-emb \
     --gelu-tanh \

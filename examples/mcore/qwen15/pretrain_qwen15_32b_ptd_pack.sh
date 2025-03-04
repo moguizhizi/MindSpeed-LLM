@@ -30,7 +30,7 @@ DISTRIBUTED_ARGS="
 # To enable reset-position-ids, please use data_convert_qwen_instruction_pack.sh to convert dataset.
 ACCELERATE_ARGS="
     --reset-position-ids \
-    --use-mc2 \
+
 "
 
 GPT_ARGS="

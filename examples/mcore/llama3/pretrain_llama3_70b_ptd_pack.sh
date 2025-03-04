@@ -25,7 +25,7 @@ DISTRIBUTED_ARGS="
 
 ACCELERATE_ARGS="
     --swap-attention \
-    --use-mc2 \
+
     --reuse-fp32-param \
     --reset-position-ids \
     --use-distributed-optimizer \

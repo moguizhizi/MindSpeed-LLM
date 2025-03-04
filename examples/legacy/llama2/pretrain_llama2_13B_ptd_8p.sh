@@ -67,7 +67,7 @@ GPT_ARGS="
     --no-load-rng \
     --use-fused-swiglu \
     --use-fused-rotary-pos-emb \
-    --use-mc2 \
+
     --bf16
 "
 

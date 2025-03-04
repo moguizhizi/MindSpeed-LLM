@@ -32,7 +32,7 @@ GPT_ARGS="
     --use-mcore-models \
     --micro-batch-size 4 \
     --global-batch-size 4 \
-    --use-mc2 \
+
     --use-rotary-position-embeddings \
     --rope-scaling-type llama3 \
     --rope-scaling-factor 32.0 \

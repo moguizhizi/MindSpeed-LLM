@@ -75,7 +75,7 @@ GPT_ARGS="
     --use-fused-rotary-pos-emb \
     --use-rotary-position-embeddings \
     --use-fused-swiglu \
-    --use-mc2 \
+
     --use-distributed-optimizer \
     --overlap-grad-reduce
 "

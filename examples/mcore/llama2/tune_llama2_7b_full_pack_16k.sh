@@ -87,7 +87,7 @@ GPT_ARGS="
     --is-instruction-dataset \
     --finetune \
     --stage sft \
-    --use-mc2
+
 "
 
 DATA_ARGS="

@@ -25,7 +25,7 @@ DISTRIBUTED_ARGS="
 "
 
 ACC_ARGS="
-    --use-mc2 \
+
     --reset-position-ids \
     --num-layers-per-virtual-pipeline-stage 5 \
     --o2-optimizer \

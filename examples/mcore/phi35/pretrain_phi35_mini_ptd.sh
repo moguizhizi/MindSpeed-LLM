@@ -36,7 +36,7 @@ GPT_ARGS="
     --rope-scaling-type longrope \
     --longrope-freqs-type outer \
     --rope-scaling-original-max-position-embeddings 4096 \
-    --use-mc2 \
+
     --use-fused-rmsnorm \
     --use-fused-rotary-pos-emb \
     --use-fused-swiglu \

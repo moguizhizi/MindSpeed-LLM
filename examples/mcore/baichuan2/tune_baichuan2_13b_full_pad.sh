@@ -30,7 +30,7 @@ DISTRIBUTED_ARGS="
 GPT_ARGS="
     --stage sft \
     --use-mcore-models \
-    --use-mc2 \
+
     --recompute-activation-function \
     --reuse-fp32-param \
     --use-distributed-optimizer \

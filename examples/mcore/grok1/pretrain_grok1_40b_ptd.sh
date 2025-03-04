@@ -92,7 +92,7 @@ TRAINING_ARGS="
     --no-gradient-accumulation-fusion \
     --transformer-impl $TRANS_TYPE \
     --post-norm \
-    --use-mc2 \
+
     --moe-permutation-async-comm \
     --no-shared-storage
 "
