@@ -69,7 +69,7 @@ def model_provider(is_reward_model=False, pre_process=True, post_process=True) -
             post_process=post_process,
             post_layer_norm=not args.no_post_layer_norm,
             fp16_lm_cross_entropy=args.fp16_lm_cross_entropy,
-            parallel_output=False,
+            parallel_output=True if args.sequence_parallel else False,
             share_embeddings_and_output_weights=not args.untie_embeddings_and_output_weights,
             position_embedding_type=args.position_embedding_type,
             rotary_percent=args.rotary_percent,
@@ -83,7 +83,7 @@ def model_provider(is_reward_model=False, pre_process=True, post_process=True) -
             pre_process=pre_process,
             post_process=post_process,
             fp16_lm_cross_entropy=args.fp16_lm_cross_entropy,
-            parallel_output=False,
+            parallel_output=True if args.sequence_parallel else False,
             share_embeddings_and_output_weights=not args.untie_embeddings_and_output_weights,
             position_embedding_type=args.position_embedding_type,
             rotary_percent=args.rotary_percent,
@@ -249,3 +249,32 @@ def save_checkpoint_and_time(iteration, model, optimizer, opt_param_scheduler,
     if args.log_progress:
         compute_throughputs_and_append_to_progress_log(iteration,
                                                        num_floating_point_operations_so_far)
+
+
+class MiniBatchIterator:
+    def __init__(self, data, num_micro_batch, micro_batch_size):
+        self.data = data
+        self.index = 0
+        self.num_micro_batch = num_micro_batch
+        self.micro_batch_size = micro_batch_size
+
+    def __iter__(self):
+        return self
+
+    def __len__(self):
+        return self.num_micro_batch
+
+    def __next__(self):
+        if self.index >= self.num_micro_batch:
+            raise StopIteration
+
+        mini_batch = {}
+        for k, v in self.data.items():
+            if torch.is_tensor(v):
+                mini_batch[k] = v[self.index * self.micro_batch_size: (self.index + 1) * self.micro_batch_size]
+            else:
+                mini_batch[k] = v
+
+        self.index += 1
+
+        return mini_batch

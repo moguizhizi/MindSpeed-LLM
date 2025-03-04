@@ -673,6 +673,10 @@ def _add_rl_args(parser):
         help="Number of samples per step in generation."
     )
     group.add_argument(
+        "--rollout-batch-size", default=None, type=int,
+        help="actor rollout batch size."
+    )
+    group.add_argument(
         "--cliprange-value", default=0.2, type=float,
         help="Clip range value."
     )

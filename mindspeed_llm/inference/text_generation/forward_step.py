@@ -69,6 +69,7 @@ def _no_pipelining_forward_step_wrapper(_no_pipelining_forward_step):
     def wrapper(self, tokens, position_ids, attention_mask, recv_buffer=None):
         """If recv_buffer is none, we will allocate one on the fly."""
         # Run a simple forward pass.
+        args = get_args()
         output_tensor = self._forward_step_helper(tokens, position_ids,
                                             attention_mask,
                                             recv_buffer=recv_buffer)
@@ -78,7 +79,10 @@ def _no_pipelining_forward_step_wrapper(_no_pipelining_forward_step):
 
         logits = None
         if mpu.is_pipeline_last_stage():
-            logits = output_tensor
+            if args.sequence_parallel:
+                logits = gather_from_tensor_model_parallel_region(output_tensor)
+            else:
+                logits = output_tensor
         return logits
     return wrapper
 

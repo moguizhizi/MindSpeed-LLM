@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from megatron.core import mpu
 from megatron.core.enums import ModelType
 from megatron.core.optimizer import get_megatron_optimizer, OptimizerConfig
+from megatron.core.tensor_parallel.mappings import gather_from_tensor_model_parallel_region
 from megatron.training import get_model
 from megatron.training.checkpointing import load_checkpoint
 from megatron.training.utils import (
@@ -57,7 +58,7 @@ class TrlPPOEngine():
             1) setup model, optimizer and lr schedule using the model_provider.
             2) call train_val_test_data_provider to get train/val/test datasets.
         """
-
+        args = get_args()
         train_valid_test_datasets_provider.is_distributed = True
 
         self.actor_model = ActorModel()
@@ -71,34 +72,55 @@ class TrlPPOEngine():
         self.ref_model = self.setup_model(self.actor_model_provider, self.model_type, load_arg='ref_model')
         self.reward_model = self.setup_model(self.critic_model_provider, self.model_type, load_arg='reward_model')
 
+        # Change micro_batch_size of data_iterator to rollout_batch_size
+        origin_micro_batch_size = args.micro_batch_size
+        if args.rollout_batch_size is None:
+            args.rollout_batch_size = args.micro_batch_size
+        else:
+            args.micro_batch_size = args.rollout_batch_size
+
         self.train_data_iterator, self.valid_data_iterator, self.test_data_iterator \
             = build_train_valid_test_data_iterators(train_valid_test_datasets_provider)
+
+        args.micro_batch_size = origin_micro_batch_size
+
         self.tokenizer = get_tokenizer().tokenizer
 
-    def forward_only_function(self, input_data, model):
-        tokens = input_data["padded_query_responses"].clone()
-        position_ids = input_data["position_ids"]
-        attention_mask_1d = input_data["attention_mask"].to(bool)
+    def forward_only_function(self, data_iterator, model):
+        batch = next(data_iterator)
+
+        tokens = batch["padded_query_responses"].clone()
+        position_ids = batch["position_ids"]
+        attention_mask_1d = batch["attention_mask"].to(bool)
         attention_mask = get_tune_attention_mask(attention_mask_1d)
         logits = model(tokens, position_ids, attention_mask)
 
-        def loss_func(logits: torch.Tensor):
+        def loss_func(logits: torch.Tensor, **kwargs):
+            args = get_args()
+
+            if mpu.is_pipeline_last_stage():
+                if args.output_type in ['actor_model', 'ref_model']:
+                    if args.sequence_parallel:
+                        logits = gather_from_tensor_model_parallel_region(logits)
+
             return logits, {'logits': logits}
 
         return logits, partial(loss_func)
 
-    def get_actor_and_critic_train_data(self, data):
+    def get_actor_and_critic_train_data(self, data_iterator):
 
         if (not mpu.is_pipeline_first_stage()) and (not mpu.is_pipeline_last_stage()):
             return None, None, None, None, None
+        data = next(data_iterator)
 
         tokens = data['padded_query_responses']
         position_ids = data["position_ids"]
+
         attention_mask_1d = data["attention_mask"].to(bool)
         attention_mask = get_tune_attention_mask(attention_mask_1d)
-        return tokens, None, None, attention_mask, position_ids
+        return tokens, None, None, attention_mask, position_ids, data
 
-    def actor_loss_func(self, data, parallel_logits):
+    def actor_loss_func(self, data, logits, **kwargs):
         args = get_args()
         context_length = data['context_length']
         query_responses = data['padded_query_responses']
@@ -106,7 +128,7 @@ class TrlPPOEngine():
         prev_log_probs = data["actor_logprobs"]
         padding_mask = data["padding_mask"]
 
-        curr_log_probs = parallel_logits[:, context_length - 1:-1].to(torch.float32)
+        curr_log_probs = logits[:, context_length - 1:-1].to(torch.float32)
         curr_log_probs = F.log_softmax(curr_log_probs, dim=-1)
         tokens_indices = torch.unsqueeze(query_responses[:, context_length:], 2)
         curr_log_probs = torch.gather(curr_log_probs, 2, index=tokens_indices).squeeze(2)
@@ -140,16 +162,21 @@ class TrlPPOEngine():
 
     def get_actor_forward_output_and_loss_func(self):
 
-        def fwd_output_and_loss_func(data, model):
-            tokens, labels, loss_mask, attention_mask, position_ids = self.get_actor_and_critic_train_data(data)
+        def fwd_output_and_loss_func(data, model, **kwargs):
+            args = get_args()
+            tokens, labels, loss_mask, attention_mask, position_ids, data = self.get_actor_and_critic_train_data(data)
             parallel_logits = model(input_ids=tokens, position_ids=position_ids, attention_mask=attention_mask)
+
+            if args.sequence_parallel:
+                if mpu.is_pipeline_last_stage():
+                    parallel_logits = gather_from_tensor_model_parallel_region(parallel_logits)
 
             return parallel_logits, partial(self.actor_loss_func, data)
 
         return fwd_output_and_loss_func
 
 
-    def critic_loss_func(self, data, curr_values):
+    def critic_loss_func(self, data, curr_values, **kwargs):
         args = get_args()
         context_length = data['context_length']
         returns = data["returns"]
@@ -173,8 +200,8 @@ class TrlPPOEngine():
 
     def get_critic_forward_output_and_loss_func(self):
 
-        def fwd_output_and_loss_func(data, model):
-            tokens, labels, loss_mask, attention_mask, position_ids = self.get_actor_and_critic_train_data(data)
+        def fwd_output_and_loss_func(data, model, **kwargs):
+            tokens, labels, loss_mask, attention_mask, position_ids, data = self.get_actor_and_critic_train_data(data)
             curr_values = model(input_ids=tokens, position_ids=position_ids, attention_mask=attention_mask)
             return curr_values, partial(self.critic_loss_func, data)
 

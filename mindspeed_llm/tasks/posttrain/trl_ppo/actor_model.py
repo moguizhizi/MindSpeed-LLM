@@ -20,6 +20,7 @@ class ActorModel(MegatronModuleForCausalLM):
     def __init__(self):
         super(ActorModel, self).__init__()
         self.model = None
+        self.truncate = True
 
     def _post_processing(self, output, context_lengths, log_probs):
         input = [val[:context_lengths[i]] for i, val in enumerate(output)]
@@ -28,7 +29,7 @@ class ActorModel(MegatronModuleForCausalLM):
             output = [val[context_lengths[i]:] for i, val in enumerate(output)]
 
         # When batch size > 1, you need truncate the tokens after eos_token_id
-        self._truncate_in_multi_batch(output)
+        output = self._truncate_in_multi_batch(output)
 
         if not self.return_output_log_probs:
             res = output

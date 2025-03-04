@@ -31,6 +31,7 @@ from mindspeed_llm.tasks.posttrain.trl_ppo.TrlPPOEngine import TrlPPOEngine
 from mindspeed_llm.training.training import get_profiler, is_profile_enabled
 from mindspeed_llm.training.initialize import set_jit_fusion_options
 from mindspeed_llm.training.utils import get_tune_attention_mask, get_finetune_data_on_this_tp_rank, generate_actual_seq_len
+from mindspeed_llm.tasks.posttrain.trl_ppo.utils import MiniBatchIterator
 from mindspeed_llm.tasks.posttrain.trl_ppo.utils import pad_to_tensor_dict, save_checkpoint_and_time, save_checkpoint
 
 _TRAIN_START_TIME = time.time()
@@ -84,7 +85,7 @@ class TrlPPOTrainer():
         forward_backward_func = get_forward_backward_func()
         losses_reduced = forward_backward_func(
             forward_step_func=forward_step_func,
-            data_iterator=exp_data,
+            data_iterator=MiniBatchIterator(exp_data, get_num_microbatches(), args.micro_batch_size),
             model=model,
             num_microbatches=get_num_microbatches(),
             seq_length=seq_len,
@@ -144,7 +145,6 @@ class TrlPPOTrainer():
         batch_size = mpu.get_data_parallel_world_size() * args.micro_batch_size * get_num_microbatches()
         args.consumed_train_samples += batch_size
         self.num_floating_point_operations_so_far += num_floating_point_operations(args, batch_size)
-        self.timers('interval-time').elapsed(barrier=True)
 
     def step_training_log(self, model, optimizer, loss_dict, skipped_iter, grad_norm, num_zeros_in_grad):
 
@@ -182,6 +182,7 @@ class TrlPPOTrainer():
         """
 
         args = get_args()
+        self.timers('interval-time').elapsed(barrier=True)
 
         with torch.no_grad():
             # STEP 1: Generate data
@@ -480,30 +481,62 @@ class TrlPPOTrainer():
         args = get_args()
         args.tokenizer_padding_side = "left"
 
-        tokens, attention_mask, position_ids = self.get_batch(self.trl_ppo_engine.train_data_iterator)
-        inputs = self.trl_ppo_engine.tokenizer.batch_decode(tokens, skip_special_tokens=True)
+        if args.global_batch_size % (args.rollout_batch_size * args.data_parallel_size):
+            raise ValueError("The global_batch_size must be divisible by rollout_batch_size.")
 
-        queries, responses, context_length = (
-            self.trl_ppo_engine.actor_model.generate(input_ids=inputs,
-                                                do_sample=args.do_sample,
-                                                top_k=args.top_k,
-                                                top_p=args.top_p,
-                                                max_new_tokens=args.max_new_tokens,
-                                                max_length=args.max_length,
-                                                stream=False,
-                                                detokenize=False,
-                                                return_output_log_probs=False
-                                                ))
+        total_queries = []
+        total_responses = []
+        num_micro_batch = args.global_batch_size // args.rollout_batch_size // args.data_parallel_size
 
-        queries = [query.tolist() for query in queries]
-        responses = [response.tolist() for response in responses]
-        responses_ori_length, responses_pad_length = pad_to_tensor_dict(responses, pad_multi_of=1)
-        prompts_ori_length, prompts_pad_length = pad_to_tensor_dict(queries, "left", pad_multi_of=1)
-        padded_query_responses = torch.tensor([prompt + response for prompt, response in zip(queries, responses)], device=torch.cuda.current_device())
-        sequence_lengths = torch.tensor([(prompts_pad_length.item() + response_length) for response_length in responses_ori_length], device=torch.cuda.current_device())
-        attention_mask = generate_attention_mask(padded_query_responses.tolist(), prompts_ori_length, prompts_pad_length,
-                                                 responses_ori_length, responses_pad_length)
-        position_ids = generate_position_ids_from_attention_mask(padded_query_responses.tolist(), prompts_ori_length, prompts_pad_length)
+        for _ in range(num_micro_batch):
+            tokens, attention_mask, position_ids = self.get_batch(self.trl_ppo_engine.train_data_iterator)
+
+            inputs = self.trl_ppo_engine.tokenizer.batch_decode(tokens, skip_special_tokens=True)
+
+            queries, responses, context_length = (
+                self.trl_ppo_engine.actor_model.generate(
+                    input_ids=inputs,
+                    do_sample=args.do_sample,
+                    top_k=args.top_k,
+                    top_p=args.top_p,
+                    max_new_tokens=args.max_new_tokens,
+                    max_length=args.max_length,
+                    stream=False,
+                    detokenize=False,
+                    truncate=True,
+                    return_output_log_probs=False
+                )
+            )
+
+            total_queries.extend([query.tolist() for query in queries])
+            total_responses.extend(
+                [response.tolist() if torch.is_tensor(response) else response for response in responses])
+
+        responses_ori_length, responses_pad_length = pad_to_tensor_dict(
+            total_responses, pad_multi_of=args.pad_to_multiple_of)
+        prompts_ori_length, prompts_pad_length = pad_to_tensor_dict(
+            total_queries, "left", pad_multi_of=args.pad_to_multiple_of)
+
+        padded_query_responses = torch.tensor(
+            [prompt + response for prompt, response in zip(total_queries, total_responses)],
+            device=torch.cuda.current_device()
+        )
+        sequence_lengths = torch.tensor(
+            [(prompts_pad_length.item() + response_length) for response_length in responses_ori_length],
+            device=torch.cuda.current_device()
+        )
+        attention_mask = generate_attention_mask(
+            padded_query_responses.tolist(),
+            prompts_ori_length,
+            prompts_pad_length,
+            responses_ori_length,
+            responses_pad_length
+        )
+        position_ids = generate_position_ids_from_attention_mask(
+            padded_query_responses.tolist(),
+            prompts_ori_length,
+            prompts_pad_length
+        )
 
         rollout_batch = {
             "context_length": prompts_pad_length.item(),
@@ -524,24 +557,32 @@ class TrlPPOTrainer():
         """
 
         args = get_args()
+        setattr(args, "output_type", output_type)
+        origin_micro_batch_size = args.micro_batch_size
+        args.micro_batch_size = args.rollout_batch_size
+        num_micro_batch = args.global_batch_size // args.rollout_batch_size // args.data_parallel_size
+
         seq_len = input_data["padded_query_responses"].shape[1]
 
         forward_backward_func = get_forward_backward_func()
+
         output_tensor = forward_backward_func(
             forward_step_func=self.trl_ppo_engine.forward_only_function,
-            data_iterator=input_data,
+            data_iterator=MiniBatchIterator(input_data, num_micro_batch, args.rollout_batch_size),
             model=model,
-            num_microbatches=get_num_microbatches(),
+            num_microbatches=num_micro_batch,
             seq_length=seq_len,
             micro_batch_size=args.micro_batch_size,
-            forward_only=True)
+            forward_only=True,
+            collect_non_loss_data=True
+        )
 
         context_length = input_data["context_length"]
         tokens = input_data["padded_query_responses"].clone()
         sequence_lengths = input_data["sequence_lengths"].clone()
 
         if mpu.is_pipeline_last_stage():
-            output_logits = torch.cat([o['logits'] for o in output_tensor], dim=0)
+            output_logits = torch.cat([output[1]['logits'] for output in output_tensor], dim=0)
             if output_type == 'actor_model' or output_type == 'ref_model':
                 response_logits = output_logits[:, context_length - 1:-1].to(torch.float32)
                 logprob = F.log_softmax(response_logits, dim=-1)
@@ -556,4 +597,7 @@ class TrlPPOTrainer():
 
         if args.empty_unused_memory_level >= 1:
             torch.cuda.empty_cache()
+
+        args.micro_batch_size = origin_micro_batch_size
+
         return output_tensor
