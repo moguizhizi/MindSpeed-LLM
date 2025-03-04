@@ -3,12 +3,11 @@
 ### 使用说明
 
 可以将已经反量化为bf16数据格式的[huggingface权重](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base/tree/main)转换为mcore权重，用于微调、推理、评估等任务。反量化方法请参考DeepSeek官方提供的[代码](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base/blob/main/inference/fp8_cast_bf16.py)。
-
-注：mcore权重转回huggingface权重开发中，暂未支持。
+并将训练好的megatron mcore格式的权重转换回huggingface格式。
 
 ### 启动脚本
 
-使用DeepSeek-V3模型目录下的<a href="../../mcore/deepseek3/ckpt_convert_deepseek3_hf2mcore.sh">权重转换脚本</a>。
+使用DeepSeek-V3模型目录下的<a href="../../mcore/deepseek3/ckpt_convert_deepseek3_hf2mcore.sh">huggingface转megatron脚本</a>和<a href="../../mcore/deepseek3/ckpt_convert_deepseek3_mcore2hf.sh">megatron转huggingface脚本</a>。
 
 #### 填写相关参数
 
@@ -61,6 +60,10 @@ moe层前的dense层数，最大可设置为3。默认值为3。
 
 自定义空操作层。与--num-layer-list互斥，二者选其一使用。默认值为None。
 
+【--moe-tp-extend-ep】
+
+TP拓展EP，专家层TP组不切分专家参数，切分专家数量。
+
 【--qlora-nf4】
 
 指定是否开启QLoRA权重量化转换，默认为False
@@ -68,8 +71,14 @@ moe层前的dense层数，最大可设置为3。默认值为3。
 
 #### 运行脚本
 
+##### huggingface转megatron
 ```bash
 bash examples/mcore/deepseek3/ckpt_convert_deepseek3_hf2mcore.sh
 ```
 
+##### megatron转huggingface
+
+```bash
+bash examples/mcore/deepseek3/ckpt_convert_deepseek3_mcore2hf.sh
+```
 
