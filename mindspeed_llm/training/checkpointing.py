@@ -30,7 +30,7 @@ from megatron.training.checkpointing import (_load_base_checkpoint,get_rng_state
                                              ensure_directory_exists, generate_state_dict, get_checkpoint_tracker_filename)
 from megatron.training.one_logger_utils import on_save_checkpoint_start, on_save_checkpoint_success
 
-from mindspeed_llm.tasks.posttrain.lora.utils import is_enable_lora, merge_dicts, modify_keys_with_dict
+from mindspeed_llm.tasks.posttrain.lora.utils import is_enable_lora, merge_dicts, modify_keys_with_dict, filter_lora_keys
 from mindspeed_llm.tasks.posttrain.utils import load_checkpoint_loosely
 
 try:
@@ -231,7 +231,9 @@ def save_checkpoint_wrapper(fn):
                 # [ModelOpt]: Inject modelopt_state into state_dict
                 if has_nvidia_modelopt:
                     save_modelopt_state(model, state_dict)
-
+                # If only save lora ckpt
+                if args.lora_ckpt_filter:
+                    state_dict = filter_lora_keys(state_dict)
                 # Save.
                 ensure_directory_exists(checkpoint_name)
                 torch.save(state_dict, checkpoint_name)

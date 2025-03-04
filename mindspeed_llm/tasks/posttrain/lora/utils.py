@@ -70,3 +70,18 @@ def modify_keys_with_dict(dictionary, words_to_replace, exclude_words):
             else:
                 modified_dict[key] = value
     return modified_dict
+
+
+def filter_lora_keys(state_dict):
+    args = get_args()
+    if args.virtual_pipeline_model_parallel_size is None:
+        model_dict = state_dict.get('model', {})
+        filtered_model_dict = {key: value for key, value in model_dict.items() if 'lora' in key.lower()}
+        state_dict['model'] = filtered_model_dict
+    else:
+        for i in range(args.virtual_pipeline_model_parallel_size):
+            model_key = f'model{i}'
+            model_dict = state_dict[model_key]
+            filtered_model_dict = {key: value for key, value in model_dict.items() if 'lora' in key.lower()}
+            state_dict[model_key] = filtered_model_dict
+    return state_dict
