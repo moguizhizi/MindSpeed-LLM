@@ -81,6 +81,7 @@ class MgCkptConvert(object):
         else:
             self.num_layer_list = list(map(int, num_layer_list.split(',')))
 
+        self.model_index = {}
         self.pprank_layeridxs = {}
         self.vpprank_layer_idxs = {}
         self.layeridx_vpprank = {}
@@ -246,7 +247,53 @@ class MgCkptConvert(object):
 
     def set_model_attn(self, hf_dict, mg_models, hf_layer_idx, local_layer_idx, mtp_flag=False):
         """attn"""
-        return
+
+        def _generate_attn_layers_key(mtp_flag, local_idx):
+            prefix = f"mtp_layers.{local_idx}.transformer_layer" if mtp_flag else \
+                f"decoder.layers.{local_idx}"
+
+            qkv_key = f"{prefix}.self_attention.linear_qkv.weight"
+            dense_key = f"{prefix}.self_attention.linear_proj.weight"
+            q_layernorm_key = f"{prefix}.self_attention.q_layernorm.weight"
+            kv_layernorm_key = f"{prefix}.self_attention.k_layernorm.weight"
+            q_b_key = f"{prefix}.self_attention.linear_qb.weight"
+            kv_b_key = f"{prefix}.self_attention.linear_kvb.weight"
+
+            return qkv_key, dense_key, q_layernorm_key, kv_layernorm_key, q_b_key, kv_b_key
+
+        linear_qkv_key, linear_proj_key, q_norm_key, k_norm_key, linear_qb_key, linear_kvb_key = _generate_attn_layers_key(
+            mtp_flag, local_layer_idx)
+
+        linear_proj_list = []
+        linear_qb_list = []
+        linear_kvb_list = []
+
+        for tp_rank in self.tp_rank_list:
+            cur_linear_proj = mg_models[(tp_rank, self.ep_rank_list[0])].pop(linear_proj_key)
+            cur_linear_qb = mg_models[(tp_rank, self.ep_rank_list[0])].pop(linear_qb_key)
+            cur_linear_kvb = mg_models[(tp_rank, self.ep_rank_list[0])].pop(linear_kvb_key)
+            linear_proj_list.append(cur_linear_proj.clone())
+            linear_qb_list.append(cur_linear_qb.clone())
+            linear_kvb_list.append(cur_linear_kvb.clone())
+
+        o_proj = torch.cat(linear_proj_list, dim=1)
+        q_b_proj = torch.cat(linear_qb_list, dim=0)
+        kv_b_proj = torch.cat(linear_kvb_list, dim=0)
+
+        linear_qkv_weights = mg_models[(self.ep_rank_list[0], self.ep_rank_list[0])].pop(linear_qkv_key)
+        q_a_proj = linear_qkv_weights[:1536, :].clone()
+        kv_a_proj_with_mqa = linear_qkv_weights[1536:, :].clone()
+
+        q_a_layernorm = mg_models[(self.ep_rank_list[0], self.ep_rank_list[0])].pop(q_norm_key)
+        kv_a_layernorm = mg_models[(self.ep_rank_list[0], self.ep_rank_list[0])].pop(k_norm_key)
+
+        hf_dict[f"model.layers.{hf_layer_idx}.self_attn.q_a_proj.weight"] = q_a_proj
+        hf_dict[f"model.layers.{hf_layer_idx}.self_attn.kv_a_proj_with_mqa.weight"] = kv_a_proj_with_mqa
+        hf_dict[f"model.layers.{hf_layer_idx}.self_attn.o_proj.weight"] = o_proj
+        hf_dict[f"model.layers.{hf_layer_idx}.self_attn.q_a_layernorm.weight"] = q_a_layernorm
+        hf_dict[f"model.layers.{hf_layer_idx}.self_attn.kv_a_layernorm.weight"] = kv_a_layernorm
+        hf_dict[f"model.layers.{hf_layer_idx}.self_attn.q_b_proj.weight"] = q_b_proj
+        hf_dict[f"model.layers.{hf_layer_idx}.self_attn.kv_b_proj.weight"] = kv_b_proj
 
     def linear_fc1_gather_from_tp(self, mg_models, fc1_key, ep_rank=0):
         """cat linear fc1"""
@@ -492,8 +539,8 @@ class MgCkptConvert(object):
         if pp_rank == self.pp_size - 1 and vpp_rank == self.vpp_size - 1 and self.num_nextn_predict_layers > 0:
             hf_layer_number = layer_list[-1] + 1
             logger.info(f"Converting the weights of mtp layer {hf_layer_number}")
-            self.set_mtp_layer(hf_dict, mg_models, hf_layer_number)
-            self.save_safetensors(hf_dict, file_idx)
+            self.set_mtp_layer(hf_weight_dict, mg_models, hf_layer_number)
+            self.save_safetensors(hf_weight_dict, file_idx)
 
     def run(self):
         for pp_rank in self.pp_rank_list:
