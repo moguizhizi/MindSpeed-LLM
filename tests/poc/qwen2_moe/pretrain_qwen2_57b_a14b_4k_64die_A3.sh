@@ -1,31 +1,31 @@
 #!/bin/bash
-
 export HCCL_CONNECT_TIMEOUT=1800
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-export NPU_ASD_ENABLE=0
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
-NPUS_PER_NODE=8
-MASTER_ADDR=localhost
-MASTER_PORT=6013
-NNODES=1
+NPUS_PER_NODE=16
+MASTER_ADDR=localhost #主节点IP
+MASTER_PORT=6000
+NNODES=4
 NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
-basepath=$(cd `dirname $0`; cd ../../../; pwd)
-
 # please fill these path configurations
-CKPT_LOAD_DIR="/data/qwen2-moe-t1p2e2"
-DATA_PATH="/data/qwen2_moe_dataset/enwiki_text_document"
-TOKENIZER_PATH="/data/qwen2-moe-hf"
+CKPT_SAVE_DIR="your model save ckpt path"
+DATA_PATH="your data path"
+TOKENIZER_PATH="your tokenizer path"
+CKPT_LOAD_DIR="your model ckpt path"
 
 TP=1
-PP=2
-EP=2
-CP=2
-SEQ_LENGTH=32768
-TRAIN_ITERS=15
-CP_TYPE='ulysses_cp_algo'
-ROUTER_BALANCING_TYPE='pai_megatron_aux_loss'
+PP=4
+EP=16
+CP=1
+MBS=1
+GBS=768
+CP_TYPE='megatron_cp_algo'
+SEQ_LENGTH=4096
+TRAIN_ITERS=2000
+ROUTER_BALANCING_TYPE='aux_loss'
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -36,19 +36,18 @@ DISTRIBUTED_ARGS="
 "
 
 MOE_ARGS="
-    --num-experts 4 \
-    --moe-router-topk 2 \
-    --n-shared-experts 2 \
+    --num-experts 64 \
+    --moe-router-topk 8 \
+    --n-shared-experts 8 \
     --shared-expert-gate \
+    --moe-intermediate-size 2560 \
     --moe-router-load-balancing-type ${ROUTER_BALANCING_TYPE} \
-    --moe-intermediate-size 320 \
     --moe-grouped-gemm \
+    --moe-token-dispatcher-type alltoall \
+    --moe-aux-loss-coeff 0.001 \
     --moe-permutation-async-comm \
     --moe-alltoall-overlap-comm \
     --use-fused-moe-token-permute-and-unpermute \
-    --moe-token-dispatcher-type alltoall \
-    --moe-aux-loss-coeff 0.001 \
-    --reuse-fp32-param \
 "
 
 OPTIMIZE_ARGS="
@@ -64,9 +63,8 @@ OPTIMIZE_ARGS="
 "
 
 TRAIN_ARGS="
-    --finetune \
-    --micro-batch-size 1 \
-    --global-batch-size 64 \
+    --micro-batch-size ${MBS} \
+    --global-batch-size ${GBS} \
     --lr 1.25e-6 \
     --lr-decay-style cosine \
     --min-lr 1.25e-7 \
@@ -92,22 +90,30 @@ MODEL_PARALLEL_ARGS="
     --pipeline-model-parallel-size ${PP} \
     --expert-model-parallel-size ${EP} \
     --context-parallel-size ${CP} \
-    --context-parallel-algo ${CP_TYPE} \
+    --context-parallel-algo ${CP_TYPE}
 "
 
 GPT_ARGS="
+    --fix-router \
+    --load $CKPT_LOAD_DIR \
+    --no-gradient-accumulation-fusion \
+    --gemm-gradient-accumulation-fusion \
+    --reuse-fp32-param \
+    --recompute-granularity full \
+    --recompute-method block \
+    --recompute-num-layers 2 \
     --use-mcore-models \
     --tokenizer-name-or-path ${TOKENIZER_PATH} \
     --max-position-embeddings ${SEQ_LENGTH} \
-    --num-layers 2 \
-    --hidden-size 448 \
-    --ffn-hidden-size 2368 \
-    --num-attention-heads 16 \
+    --noop-layers 4,5,30,31 \
+    --num-layers 32 \
+    --hidden-size 3584 \
+    --ffn-hidden-size 18944 \
+    --num-attention-heads 28 \
     --tokenizer-type PretrainedFromHF \
     --make-vocab-size-divisible-by 1 \
     --padded-vocab-size 151936 \
     --rotary-base 1000000 \
-    --attention-softmax-in-fp32 \
     --untie-embeddings-and-output-weights \
     --disable-bias-linear \
     --position-embedding-type rope \
@@ -134,14 +140,13 @@ OUTPUT_ARGS="
     --no-load-rng
 "
 
-torchrun $DISTRIBUTED_ARGS $basepath/pretrain_gpt.py \
-    ${GPT_ARGS} \
-    ${DATA_ARGS} \
-    ${MOE_ARGS} \
-    ${OUTPUT_ARGS} \
-    ${OPTIMIZE_ARGS} \
-    ${TRAIN_ARGS} \
-    ${MODEL_PARALLEL_ARGS} \
-    --load ${CKPT_LOAD_DIR} \
-    --log-throughput \
-    --distributed-backend nccl
+torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
+    $GPT_ARGS \
+    $DATA_ARGS \
+    $MOE_ARGS \
+    $OUTPUT_ARGS \
+    $OPTIMIZE_ARGS \
+    $TRAIN_ARGS \
+    $MODEL_PARALLEL_ARGS \
+    --distributed-backend nccl \
+    | tee logs/train_mcore_qwen2_57b_a14b_4k.log

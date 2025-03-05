@@ -1096,6 +1096,8 @@ def _validate_moe_args(args):
         raise AssertionError('`--moe-zero-memory` only supports `--moe-alltoall-overlap-comm` for now.')
     if args.moe_zero_memory != "disable" and args.recompute_method is not None:
         raise AssertionError('`--moe-zero-memory` does not support full recomputation for now.')
+    if args.shared_expert_gate and args.gradient_accumulation_fusion:
+        raise AssertionError('args.shared_expert_gate does not support gradient_accumulation_fusion.')
 
 
 def _validate_mla(args):
