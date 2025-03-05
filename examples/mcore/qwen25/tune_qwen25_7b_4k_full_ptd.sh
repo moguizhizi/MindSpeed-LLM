@@ -117,7 +117,6 @@ torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $CKPT_ARGS \
     $OUTPUT_ARGS \
     $TUNE_ARGS \
-    $MEMORY_ARGS \
     --load ${CKPT_LOAD_DIR} \
     --save ${CKPT_SAVE_DIR} \
     --distributed-backend nccl \
