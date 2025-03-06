@@ -15,16 +15,17 @@ DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
-TP=1
+
+TP=2
 PP=8
 VPP=2
-EP=64
+EP=32
 CP=1
 CP_TYPE='ulysses_cp_algo'
 NUM_LAYERS=64
 SEQ_LEN=4096
 MBS=1
-GBS=7680
+GBS=3840
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -41,7 +42,9 @@ MLA_ARGS="
     --q-lora-rank 1536 \
     --kv-lora-rank 512 \
     --v-head-dim 128 \
-    --qk-layernorm
+    --qk-layernorm \
+    --mla-mm-split \
+    --mla-fa-without-pad \
 "
 
 MOE_ARGS="
@@ -57,18 +60,21 @@ MOE_ARGS="
     --moe-router-topk 8 \
     --moe-intermediate-size 2048 \
     --moe-router-load-balancing-type noaux_tc \
+    --n-group 8 \
     --topk-group 4 \
     --routed-scaling-factor 2.5 \
+    --seq-aux \
     --norm-topk-prob \
     --moe-router-score-function sigmoid \
-    --moe-router-enable-expert-bias
+    --moe-router-enable-expert-bias \
+    --moe-tp-extend-ep
 "
+
 
 MTP_ARGS="
     --num-nextn-predict-layers 1 \
     --share-mtp-embedding-and-output-weight \
     --recompute-mtp-norm \
-    --recompute-mtp-layer
 "
 
 ROPE_ARGS="
@@ -83,6 +89,7 @@ ROPE_ARGS="
 
 GPT_ARGS="
     --spec mindspeed_llm.tasks.models.spec.deepseek_spec layer_spec \
+    --reset-position-ids \
     --gemm-gradient-accumulation-fusion \
     --noop-layers 47,62,63 \
     --recompute-granularity full \
@@ -92,7 +99,6 @@ GPT_ARGS="
     --use-distributed-optimizer \
     --reuse-fp32-param \
     --use-flash-attn \
-    --shape-order BNSD \
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
@@ -139,11 +145,11 @@ GPT_ARGS="
     --vocab-size 129280 \
     --padded-vocab-size 129280 \
     --rotary-base 10000 \
-    --no-gradient-accumulation-fusion \
     --norm-epsilon 1e-6 \
     --no-load-optim \
     --no-load-rng \
-    --bf16
+    --bf16 \
+    --distributed-timeout-minutes 120
 "
 
 DATA_ARGS="
