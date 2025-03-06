@@ -14,9 +14,9 @@ mkdir -p $GENERATE_JSON_DIR
 rm -rf $GENERATE_LOG_DIR/*
 rm -rf $GENERATE_JSON_DIR/*
 
-# Capture USR1 signal and exit the main program
-export MAIN_PID=$$
-trap 'echo "Error occurred in a subprocess. Exiting..."; exit 1' USR1
+# error flag
+export ERROR_FLAG="/tmp/ci_test.error"
+rm -f "$ERROR_FLAG"
 
 
 # step 2: running scripts of 8 NPUs and execute `test_ci_pipeline.py`
@@ -25,6 +25,11 @@ MAX_PARALLEL=1
 find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
     ! -exec grep -qE "(GPUS_PER_NODE|NPUS_PER_NODE)=(4|2|1)" {} \; \
     -print | xargs -n 1 -P $MAX_PARALLEL -I {} bash -c '
+
+    if [[ -f "$ERROR_FLAG" ]]; then
+        exit 0
+    fi
+
     test_case={}
     file_name=$(basename "${test_case}")
     echo "Running $file_name..."
@@ -45,8 +50,8 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
         bash $test_case | tee "$GENERATE_LOG_DIR/$file_name_prefix.log"
         SCRIPT_EXITCODE=${PIPESTATUS[0]}
         if [ $SCRIPT_EXITCODE -ne 0 ]; then
-            echo "Script has failed. Exit!"
-            kill -USR1 "$MAIN_PID"
+            echo "Training $file_name_prefix has failed. Exit!"
+            touch "$ERROR_FLAG"
             exit 1
         fi
         # begin to execute the logic of compare
@@ -57,7 +62,7 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
         PYTEST_EXITCODE=$?
         if [ $PYTEST_EXITCODE -ne 0 ]; then
             echo "$file_name_prefix compare to baseline has failed, check it!"
-            kill -USR1 "$MAIN_PID"
+            touch "$ERROR_FLAG"
             exit 1
         else
             echo "Pretrain $file_name_prefix execution success."
@@ -80,6 +85,11 @@ MAX_PARALLEL=2
 find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
     -exec grep -qE "(GPUS_PER_NODE|NPUS_PER_NODE)=4" {} \; \
     -print | xargs -n 1 -P $MAX_PARALLEL -I {} bash -c '
+
+    if [[ -f "$ERROR_FLAG" ]]; then
+        exit 0
+    fi
+
     test_case={}
     file_name=$(basename "${test_case}")
     echo "Running $file_name..."
@@ -110,7 +120,7 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
     # get NPU group
     if ! available_group=$(acquire_npu_group); then
         echo "Failed to acquire NPU group"
-        kill -USR1 "$MAIN_PID"
+        touch "$ERROR_FLAG"
         exit 1
     fi
 
@@ -118,7 +128,7 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
     case "$available_group" in
         "A") selected_npus=(0 1 2 3) ;;
         "B") selected_npus=(4 5 6 7) ;;
-        *) kill -USR1 "$MAIN_PID"; exit 1 ;;
+        *) touch "$ERROR_FLAG"; exit 1 ;;
     esac
 
     export ASCEND_RT_VISIBLE_DEVICES=$(IFS=,; echo "${selected_npus[*]}")
@@ -135,8 +145,8 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
         bash $test_case | tee "$GENERATE_LOG_DIR/$file_name_prefix.log"
         SCRIPT_EXITCODE=${PIPESTATUS[0]}
         if [ $SCRIPT_EXITCODE -ne 0 ]; then
-            echo "$file_name_prefix has failed. Exit!"
-            kill -USR1 "$MAIN_PID"
+            echo "Training $file_name_prefix has failed. Exit!"
+            touch "$ERROR_FLAG"
             exit 1
         fi
 
@@ -148,7 +158,7 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
         PYTEST_EXITCODE=$?
         if [ $PYTEST_EXITCODE -ne 0 ]; then
             echo "$file_name_prefix compare to baseline has failed, check it!"
-            kill -USR1 "$MAIN_PID"
+            touch "$ERROR_FLAG"
             exit 1
         else
             echo "Pretrain $file_name_prefix execution success."
@@ -175,6 +185,11 @@ MAX_PARALLEL=4
 find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
     -exec grep -qE "(GPUS_PER_NODE|NPUS_PER_NODE)=(2|1)" {} \; \
     -print | xargs -n 1 -P $MAX_PARALLEL -I {} bash -c '
+
+    if [[ -f "$ERROR_FLAG" ]]; then
+        exit 0
+    fi
+
     test_case={}
     file_name=$(basename "${test_case}")
     echo "Running $file_name..."
@@ -219,7 +234,7 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
     # get NPU group
     if ! available_group=$(acquire_npu_group); then
         echo "Failed to acquire NPU group"
-        kill -USR1 "$MAIN_PID"
+        touch "$ERROR_FLAG"
         exit 1
     fi
 
@@ -229,7 +244,7 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
         "B") selected_npus=(2 3) ;;
         "C") selected_npus=(4 5) ;;
         "D") selected_npus=(6 7) ;;
-        *) kill -USR1 "$MAIN_PID"; exit 1 ;;
+        *) touch "$ERROR_FLAG"; exit 1 ;;
     esac
 
     export ASCEND_RT_VISIBLE_DEVICES=$(IFS=,; echo "${selected_npus[*]}")
@@ -246,8 +261,8 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
         bash $test_case | tee "$GENERATE_LOG_DIR/$file_name_prefix.log"
         SCRIPT_EXITCODE=${PIPESTATUS[0]}
         if [ $SCRIPT_EXITCODE -ne 0 ]; then
-            echo "$file_name_prefix has failed. Exit!"
-            kill -USR1 "$MAIN_PID"
+            echo "Training $file_name_prefix has failed. Exit!"
+            touch "$ERROR_FLAG"
             exit 1
         fi
 
@@ -259,7 +274,7 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
         PYTEST_EXITCODE=$?
         if [ $PYTEST_EXITCODE -ne 0 ]; then
             echo "$file_name_prefix compare to baseline has failed, check it!"
-            kill -USR1 "$MAIN_PID"
+            touch "$ERROR_FLAG"
             exit 1
         else
             echo "Pretrain $file_name_prefix execution success."
@@ -268,3 +283,12 @@ find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
     cat /tmp/$file_name_prefix.log
     rm -f /tmp/$file_name_prefix.log
 '
+
+if [[ -f "$ERROR_FLAG" ]]; then
+    echo "Some tests failed! Kill parallel processes..."
+    pkill -f python
+    exit 1
+else
+    echo "All tests passed!"
+    exit 0
+fi
