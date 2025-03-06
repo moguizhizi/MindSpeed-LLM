@@ -155,7 +155,8 @@ class LLMChat(Chat):
             do_sample=False,
             max_new_tokens=self.args.max_new_tokens,
             stream=False,
-            return_output_log_probs=return_output_log_probs
+            return_output_log_probs=return_output_log_probs,
+            broadcast=self.args.broadcast
         )
         if getattr(self.args, "task", False) and self.args.task[0] == 'needlebench':
             return result, dist.get_rank()

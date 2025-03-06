@@ -50,6 +50,7 @@ class MmluEval(DatasetEval):
         self.task_pbar = None
         self.eval_template = None
         self.prompt_type = None
+        self.broadcast_rank = [[0]]
         if eval_args.prompt_type is not None:
             self.prompt_type = eval_args.prompt_type.strip()
             self.eval_template = get_eval_template(eval_args.eval_language)
@@ -98,7 +99,11 @@ class MmluEval(DatasetEval):
                     self.file_pbar.update()
                 continue
 
-            data_df, all_data_parallel_group_ranks, align_start_dp_rank = get_final_dataset(data_df, dist.get_world_size(), args.tensor_model_parallel_size, args.pipeline_model_parallel_size)
+            if args.broadcast:
+                group = self.broadcast_rank
+                align_start_dp_rank = 0
+            else:
+                data_df, group, align_start_dp_rank = get_final_dataset(data_df, dist.get_world_size(), args.tensor_model_parallel_size, args.pipeline_model_parallel_size)
 
             if self.rank == 0:
                 self.task_pbar = tqdm.tqdm(total=len(data_df), desc=file, leave=False)
@@ -147,7 +152,7 @@ class MmluEval(DatasetEval):
                         for index, chat_result in enumerate(chat_results):
                             try:
                                 answer = chat_result[0].lstrip() if not args.alternative_prompt else postprocess(chat_result, 'ABCD', corrects[index], args.origin_postprocess)
-                                if rank in all_data_parallel_group_ranks[0]:
+                                if dist.get_rank() in group[0]:
                                     match_flag = False
                                     for template_idx, template in enumerate(self.output_template):
                                         try:
@@ -166,7 +171,7 @@ class MmluEval(DatasetEval):
                                     if not match_flag:
                                         logger.info("xx. AI answer: %s", answer)
                             except Exception as e:
-                                if dist.get_rank() in all_data_parallel_group_ranks[0]:
+                                if dist.get_rank() in group[0]:
                                     logger.info(e)
                     instructions = []
                     corrects = []
@@ -176,13 +181,16 @@ class MmluEval(DatasetEval):
 
                 idx += 1
 
-            if dist.get_rank() in all_data_parallel_group_ranks[0]:
+            if dist.get_rank() in group[0]:
                 question_num = len(data_df)
                 if align_start_dp_rank >= 0 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
                     question_num -= 1
-                local_tensor = torch.tensor([acc_n, question_num], device=torch.cuda.current_device())
-                dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
-                acc_n, total_questions = local_tensor.tolist()
+                if not args.broadcast:
+                    local_tensor = torch.tensor([acc_n, question_num], device=torch.cuda.current_device())
+                    dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
+                    acc_n, total_questions = local_tensor.tolist()
+                else:
+                    total_questions = question_num
                 if dist.get_rank() == 0:
                     logger.info(f'{subject_name} has {acc_n} corrects in {total_questions} questions, with accuracy {acc_n / total_questions}')
                     total_n += total_questions
