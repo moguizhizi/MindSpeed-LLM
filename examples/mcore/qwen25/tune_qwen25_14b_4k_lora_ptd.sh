@@ -76,6 +76,7 @@ GPT_ARGS="
     --hidden-dropout 0.0 \
     --position-embedding-type rope \
     --normalization RMSNorm \
+    --use-fused-rmsnorm \
     --swiglu \
     --use-flash-attn \
     --weight-decay 0.0 \
