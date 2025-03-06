@@ -18,6 +18,7 @@ logger.getLogger().setLevel(logger.INFO)
 HIDDEN_SIZE = 7168
 NUM_EXPERTS = 256
 MTP_LAYER_INDEX = 61
+Q_LORA_RANK = 1536
 file_idx = 1
 hf_weight_dict = defaultdict()
 
@@ -281,8 +282,8 @@ class MgCkptConvert(object):
         kv_b_proj = torch.cat(linear_kvb_list, dim=0)
 
         linear_qkv_weights = mg_models[(self.ep_rank_list[0], self.ep_rank_list[0])].pop(linear_qkv_key)
-        q_a_proj = linear_qkv_weights[:1536, :].clone()
-        kv_a_proj_with_mqa = linear_qkv_weights[1536:, :].clone()
+        q_a_proj = linear_qkv_weights[:Q_LORA_RANK, :].clone()
+        kv_a_proj_with_mqa = linear_qkv_weights[Q_LORA_RANK:, :].clone()
 
         q_a_layernorm = mg_models[(self.ep_rank_list[0], self.ep_rank_list[0])].pop(q_norm_key)
         kv_a_layernorm = mg_models[(self.ep_rank_list[0], self.ep_rank_list[0])].pop(k_norm_key)
@@ -497,7 +498,7 @@ class MgCkptConvert(object):
             self.set_model_attn(hf_weight_dict, mg_models, layer, local_idx)
             self.set_model_mlp(hf_weight_dict, mg_models, layer, local_idx)
 
-            if pp_rank == self.pp_size - 1 and layer_idx == len(layer_list) - 1:
+            if pp_rank == self.pp_size - 1 and layer == self.num_layers - 1:
                 self.set_model_postprocess(hf_weight_dict, mg_models)
 
             if layer >= self.first_k_dense_replace:
@@ -528,7 +529,7 @@ class MgCkptConvert(object):
             self.set_model_attn(hf_weight_dict, mg_models, layer, local_idx)
             self.set_model_mlp(hf_weight_dict, mg_models, layer, local_idx)
 
-            if pp_rank == self.pp_size - 1 and vpp_rank == self.vpp_size - 1 and layer_idx == len(layer_list) - 1:
+            if pp_rank == self.pp_size - 1 and vpp_rank == self.vpp_size - 1 and layer == self.num_layers - 1:
                 self.set_model_postprocess(hf_weight_dict, mg_models)
 
             if layer >= self.first_k_dense_replace:
