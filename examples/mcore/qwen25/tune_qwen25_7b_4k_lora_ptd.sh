@@ -36,6 +36,7 @@ TUNE_ARGS="
     --tokenizer-not-use-fast \
     --prompt-type qwen \
     --variable-seq-lengths \
+    --padded-samples \
     --lora-r 8 \
     --lora-alpha 16 \
     --lora-fusion \

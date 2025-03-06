@@ -35,6 +35,7 @@ TUNE_ARGS="
     --is-instruction-dataset \
     --tokenizer-not-use-fast \
     --prompt-type qwen \
+    --padded-samples \
     --variable-seq-lengths \
     --lora-r 8 \
     --lora-alpha 16 \

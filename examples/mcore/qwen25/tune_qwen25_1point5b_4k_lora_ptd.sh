@@ -1,11 +1,12 @@
 #!/bin/bash
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-NPUS_PER_NODE=8
+# Change for multinode config
 MASTER_ADDR=localhost
 MASTER_PORT=6000
 NNODES=1
 NODE_RANK=0
+NPUS_PER_NODE=8
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 # please fill these path configurations
@@ -15,11 +16,10 @@ DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
 
 TP=1
-PP=2
-SEQ_LEN=4096
+PP=1
 MBS=1
 GBS=8
-TRAIN_ITERS=5000
+SEQ_LEN=4096
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -37,57 +37,63 @@ TUNE_ARGS="
     --prompt-type qwen \
     --padded-samples \
     --variable-seq-lengths \
+    --lora-r 8 \
+    --lora-alpha 16 \
+    --lora-fusion \
+    --lora-target-modules linear_qkv linear_proj linear_fc1 linear_fc2
 "
 
 GPT_ARGS="
-    --use-distributed-optimizer \
-    --overlap-grad-reduce \
-    --overlap-param-gather \
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
-    --pipeline-model-parallel-size ${PP} \
-    --num-layers 28  \
-    --hidden-size 3584  \
-    --ffn-hidden-size 18944 \
-    --num-attention-heads 28  \
-    --max-position-embeddings ${SEQ_LEN} \
-    --seq-length ${SEQ_LEN} \
-    --disable-bias-linear \
-    --add-qkv-bias \
+    --pipeline-model-parallel-size ${PP}
+    --num-layers 28 \
+    --hidden-size 1536 \
+    --ffn-hidden-size 8960 \
+    --num-attention-heads 12 \
     --group-query-attention \
-    --num-query-groups 4 \
-    --use-flash-attn \
-    --swiglu \
-    --use-fused-swiglu \
-    --normalization RMSNorm \
-    --norm-epsilon 1e-6 \
-    --use-fused-rmsnorm \
-    --position-embedding-type rope \
-    --rotary-base 1000000 \
-    --use-fused-rotary-pos-emb \
-    --untie-embeddings-and-output-weights \
+    --num-query-groups 2 \
+    --tokenizer-type PretrainedFromHF \
+    --tokenizer-name-or-path ${TOKENIZER_PATH} \
+    --seq-length ${SEQ_LEN} \
+    --max-position-embeddings ${SEQ_LEN} \
     --micro-batch-size ${MBS} \
     --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
-    --padded-vocab-size 152064 \
-    --tokenizer-type PretrainedFromHF \
-    --tokenizer-name-or-path ${TOKENIZER_PATH} \
-    --attention-dropout 0.0 \
-    --hidden-dropout 0.0 \
-    --train-iters ${TRAIN_ITERS} \
-    --lr 1.25e-6 \
+    --padded-vocab-size 151936 \
+    --rotary-base 1000000 \
+    --train-iters 2000 \
+    --lr 7.75e-7 \
+    --min-lr 7.75e-8 \
+    --weight-decay 1e-1 \
     --lr-decay-style cosine \
-    --min-lr 1.25e-7 \
     --lr-warmup-fraction 0.01 \
-    --init-method-std 0.01 \
-    --weight-decay 0.0 \
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
     --adam-beta2 0.95 \
-    --initial-loss-scale 4096 \
-    --no-gradient-accumulation-fusion \
+    --add-qkv-bias \
+    --disable-bias-linear \
+    --attention-dropout 0.0 \
+    --init-method-std 0.01 \
+    --hidden-dropout 0.0 \
+    --position-embedding-type rope \
+    --normalization RMSNorm \
+    --norm-epsilon 1e-06 \
+    --swiglu \
+    --use-distributed-optimizer \
+    --use-flash-attn \
+    --use-fused-rotary-pos-emb \
+    --use-rotary-position-embeddings \
+    --use-fused-swiglu \
+    --use-fused-rmsnorm \
+    --overlap-grad-reduce \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
+    --initial-loss-scale 4096 \
+    --no-gradient-accumulation-fusion \
+    --no-load-optim \
+    --no-load-rng \
+    --seed 42 \
     --bf16
 "
 
@@ -96,29 +102,19 @@ DATA_ARGS="
     --split 100,0,0
 "
 
-CKPT_ARGS="
-    --no-load-optim \
-    --no-load-rng \
-    --no-save-optim \
-    --no-save-rng \
-    --seed 1234 \
-"
-
 OUTPUT_ARGS="
     --log-interval 1 \
-    --save-interval 5000 \
-    --eval-interval 5000 \
+    --save-interval 2000 \
+    --eval-interval 2000 \
     --eval-iters 0 \
-    --log-throughput
 "
 
 torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
-    $CKPT_ARGS \
     $OUTPUT_ARGS \
     $TUNE_ARGS \
+    --distributed-backend nccl \
     --load ${CKPT_LOAD_DIR} \
     --save ${CKPT_SAVE_DIR} \
-    --distributed-backend nccl \
-    | tee logs/tune_mcore_qwen25_7b_full.log
+    | tee logs/tune_mcore_qwen25_1point5b_4k_lora.log
