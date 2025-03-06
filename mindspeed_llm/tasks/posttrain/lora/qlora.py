@@ -33,7 +33,9 @@ def linear_with_frozen_weight_forward(
     ctx.save_for_backward(weight)
     ctx.allreduce_dgrad = allreduce_dgrad
     if hasattr(weight, "quant_state"):
+        torch.npu.synchronize()
         weight_tmp = bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(input_.dtype)
+        torch.npu.synchronize()
     else:
         weight_tmp = weight
     output = torch.matmul(input_, weight_tmp.t())
@@ -45,7 +47,9 @@ def linear_with_frozen_weight_forward(
 def linear_with_frozen_weight_backward(ctx, grad_output):
     (weight,) = ctx.saved_tensors
     if hasattr(weight, "quant_state"):
+        torch.npu.synchronize()
         weight_tmp = bnb.functional.dequantize_4bit(weight.data, weight.quant_state).to(grad_output.dtype)
+        torch.npu.synchronize()
     else:
         weight_tmp = weight
     grad_input = grad_output.matmul(weight_tmp)
@@ -79,10 +83,11 @@ def parallel_linear_load_from_state_dict_wrapper(fn):
             qs_dict = {key: v for k, v in state_dict.items() if (key := k.replace(prefix, "")) != '_extra_state'}
             self.weight = bnb.nn.Params4bit.from_prequantized(
                 data=qs_dict.get('weight'),
-                quantized_stats={key.replace('weight.', ''): qs_dict[key] for key in qs_dict if key != 'weight'},
+                quantized_stats={key.replace('weight.', ''): qs_dict[key] for key in qs_dict if key != 'weight' and key != 'bias'},
                 requires_grad=False,
                 device='npu')
         fn(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        self.weight.data = self.weight.data.to("npu")
     return wrapper
 
 
@@ -174,7 +179,7 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
 
                 is_lora_adapter = any(substring in name for substring in ["lora_A", "lora_B"])
                 is_target_linear = (
-                    isinstance(module, (tpl.ColumnParallelLinear, tpl.RowParallelLinear, torch.nn.Linear))
+                    isinstance(module, (tpl.ColumnParallelLinear, tpl.RowParallelLinear))
                     and "layers" in name
                 )
                 if not (is_target_linear and not is_lora_adapter):
@@ -183,6 +188,8 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
                     module.expert_bias = module.expert_bias.to(torch.cuda.current_device())
                 if hasattr(module, "local_tokens_per_expert") and module.local_tokens_per_expert is not None:
                     module.local_tokens_per_expert = module.local_tokens_per_expert.to(torch.cuda.current_device())
+                if hasattr(module, "bias") and module.bias is not None:
+                    module.bias.data = module.bias.data.to(torch.cuda.current_device())
         else:
             model_module.cuda(torch.cuda.current_device())
     # end of megatron_adaptation

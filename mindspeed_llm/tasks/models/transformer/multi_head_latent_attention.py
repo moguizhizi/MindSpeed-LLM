@@ -16,6 +16,11 @@ from megatron.core.transformer.enums import AttnMaskType
 from megatron.core import mpu, parallel_state
 from megatron.training import get_args
 
+try:
+    import bitsandbytes as bnb
+except ImportError:
+    bnb = None
+
 
 @dataclass
 class MLASelfAttentionSubmodules(SelfAttentionSubmodules):
@@ -226,7 +231,7 @@ class MultiHeadLatentAttention(SelfAttention):
         q_len, bsz, _ = hidden_states.shape
         q_len = q_len * tp_size if self.config.sequence_parallel else q_len
 
-        qkv_combo, _ = self.linear_qkv(hidden_states)
+        qkv_combo = self.linear_qkv(hidden_states)
 
         # [sq, b, hp] --> [sq, b, ng, hn]
         q_a, compressed_kv, k_pe = torch.split(
@@ -372,17 +377,22 @@ class MultiHeadLatentAttention(SelfAttention):
         return output, bias
 
 
-class LinearNoTP(torch.nn.Module):
+class LinearNoTP(torch.nn.Linear):
     def __init__(
         self,
         input_size,
         output_size,
+        config,
         **kwargs,
     ):
-        super().__init__()
-        self.input_size = input_size
-        self.output_size = output_size
-        self.weight = torch.nn.Parameter(torch.empty(output_size, input_size))
+        super().__init__(
+            input_size, 
+            output_size, 
+            bias=kwargs.get('bias', True),
+            dtype=config.params_dtype,
+        )
+        setattr(self.weight, 'sequence_parallel', config.sequence_parallel)
+        self.config = config
 
         # Set fixed random seed for weight initialization
         current_seed = torch.random.initial_seed()
@@ -392,4 +402,23 @@ class LinearNoTP(torch.nn.Module):
 
     def forward(self, input_):
         output = torch.matmul(input_, self.weight.t())
-        return output, None
+        return output
+
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        args = get_args()
+        if args.qlora_save_dequantize and getattr(self.weight, "quant_state", None) is not None:
+            self.weight = torch.nn.Parameter(bnb.functional.dequantize_4bit(self.weight.data, self.weight.quant_state))
+        super()._save_to_state_dict(destination, prefix, keep_vars)
+        if getattr(self.weight, "quant_state", None) is not None:
+            for k, v in self.weight.quant_state.as_dict(packed=True).items():
+                destination[prefix + "weight." + k] = v if keep_vars else v.detach()
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
+        if any(['bitsandbytes' in i for i in state_dict.keys()]):  # is quantized linear
+            qs_dict = {key: v for k, v in state_dict.items() if (key := k.replace(prefix, "")) != '_extra_state'}
+            self.weight = bnb.nn.Params4bit.from_prequantized(
+                data=qs_dict.get('weight'),
+                quantized_stats={key.replace('weight.', ''): qs_dict[key] for key in qs_dict if key != 'weight'},
+                requires_grad=False,
+                device='npu')
+        super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
