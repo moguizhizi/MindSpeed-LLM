@@ -26,6 +26,7 @@ from torch import distributed as dist
 logging.basicConfig(format="")
 logging.getLogger().setLevel(logging.INFO)
 
+
 def print_flush(prev_str, curr_str):
     difference = ''.join([char2 for char1, char2 in zip(prev_str, curr_str) if char1 != char2])
 

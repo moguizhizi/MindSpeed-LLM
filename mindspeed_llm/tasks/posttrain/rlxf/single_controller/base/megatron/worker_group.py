@@ -14,8 +14,8 @@
 
 from typing import Dict
 
-from .worker import DistRankInfo, DistGlobalInfo
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base import ResourcePool, WorkerGroup
+from .worker import DistRankInfo, DistGlobalInfo
 
 
 class MegatronWorkerGroup(WorkerGroup):

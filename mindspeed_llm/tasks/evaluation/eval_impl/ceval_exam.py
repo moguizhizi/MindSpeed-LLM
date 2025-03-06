@@ -21,11 +21,11 @@ import pandas as pd
 import tqdm
 
 from torch import distributed as dist
-from .template import CEVAL_TEMPLATE_DIR, get_eval_template
 
 from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
 from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
+from .template import CEVAL_TEMPLATE_DIR, get_eval_template
 
 
 logger = logging.getLogger(__name__)

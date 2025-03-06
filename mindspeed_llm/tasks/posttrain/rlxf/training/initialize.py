@@ -1,8 +1,8 @@
+from functools import wraps
 from omegaconf import OmegaConf
 
 import ray
 import torch
-from functools import wraps
 
 import megatron
 from megatron.core import mpu

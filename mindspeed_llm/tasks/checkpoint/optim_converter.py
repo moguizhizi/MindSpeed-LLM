@@ -4,12 +4,10 @@ import os
 import logging as logger
 import json
 import gc
-from tqdm import tqdm
-
 from itertools import product
-from collections import defaultdict
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 
+from tqdm import tqdm
 import torch
 
 logger.basicConfig(format="")

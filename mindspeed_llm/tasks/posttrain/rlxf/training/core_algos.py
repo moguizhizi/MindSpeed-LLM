@@ -374,6 +374,7 @@ def compute_score(reward_wg, batch, metrics, config):
 
     return batch.union(rewards)
 
+
 def compute_verifier_score(batch, metrics, config, valid_mask):
     tokenizer = AutoTokenizer.from_pretrained(config.training.tokenizer_name_or_path, trust_remote_code=True)
 

@@ -24,11 +24,11 @@ import pandas as pd
 import tqdm
 
 from torch import distributed as dist
-from .template import CODE_TEST_LOG_DIR
 from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
 from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
 from mindspeed_llm.training.utils import WRITE_FILE_DEFAULT_FLAGS, WRITE_FILE_DEFAULT_MODES
+from .template import CODE_TEST_LOG_DIR
 
 logger = logging.getLogger(__name__)
 

@@ -11,6 +11,7 @@ _MEGATRON2_LOCAL_RANKS = None
 _MEGATRON2_LOCAL_GROUP = None
 _MEGATRON2_INITIALIZED = False
 
+
 def initialize_model_parallel_2megatron(
     tensor_model_parallel_size: int = 1,
     pipeline_model_parallel_size: int = 1,
@@ -315,6 +316,7 @@ def initialize_model_parallel_2megatron(
     else:
         _MEGATRON2_INITIALIZED = True
 
+
 def is_mg2_first_rank():
     """
     Check if current node is the first node in the Megatron2 local group.
@@ -325,6 +327,7 @@ def is_mg2_first_rank():
     ), 'megatron2 group is not initialized'
     return torch.distributed.get_rank() == _MEGATRON2_LOCAL_RANKS[0]
 
+
 def in_mg2_inference_group():
     """
     """
@@ -333,11 +336,13 @@ def in_mg2_inference_group():
     ), 'megatron2 group is not initialized'
     return _MEGATRON2_LOCAL_RANKS[0] != 0
 
+
 def get_mg2_local_group():
     assert (
         _MEGATRON2_LOCAL_GROUP is not None
     ), 'megatron2 group is not initialized'
     return _MEGATRON2_LOCAL_GROUP
+
 
 def get_mg2_local_ranks():
     assert (
@@ -357,12 +362,14 @@ def get_mg2_first_rank():
     ), 'megatron2 group is not initialized'
     return _MEGATRON2_LOCAL_RANKS[0]
 
+
 def get_mg2_local_rank():
     """
     When the same world size is divided into multiple process groups in the actor-train
     and actor-rollout worker roles, this method needs to be converted to local.
     """
     return torch.distributed.get_rank() - get_mg2_first_rank()
+
 
 def rank_generator_init_wrapper(init_func):
     @wraps(init_func)
@@ -373,6 +380,7 @@ def rank_generator_init_wrapper(init_func):
             self.offset = 0
         init_func(self, *args, **kwargs)
     return wrapper
+
 
 def rank_generator_get_ranks_wrapper(get_ranks):
     @wraps(get_ranks)

@@ -21,10 +21,10 @@ import pandas as pd
 import tqdm
 
 from torch import distributed as dist
-from .template import AGIEVAL_TEMPLATE_DIR
 from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
 from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
+from .template import AGIEVAL_TEMPLATE_DIR
 
 logger = logging.getLogger(__name__)
 

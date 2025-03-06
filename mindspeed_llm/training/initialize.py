@@ -14,10 +14,11 @@
 # limitations under the License.
 
 import time
+from functools import wraps
+
 import torch
 import torch_npu
 import megatron
-from functools import wraps
 from megatron.core import mpu
 from megatron.training import get_args, print_rank_0
 from megatron.training.arguments import validate_args

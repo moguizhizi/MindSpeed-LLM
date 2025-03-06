@@ -16,6 +16,7 @@
 import torch
 from megatron.training import get_args
 
+
 def pai_megatron_aux_loss(self, logits: torch.Tensor):
     routing_weights = torch.softmax(logits, dim=1, dtype=torch.float32).type_as(logits)
     scores, indices = torch.topk(routing_weights, k=self.topk, dim=-1)

@@ -1,11 +1,13 @@
 # Copyright (c) 2025, HUAWEI CORPORATION.  All rights reserved.
 
-import torch
 from dataclasses import dataclass
 from typing import Union
+
+import torch
 from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
 from transformers.utils.import_utils import is_torch_fx_available
 from transformers.pytorch_utils import is_torch_greater_or_equal_than_1_13
+
 from megatron.core import mpu
 from megatron.training import get_args
 from megatron.core import parallel_state, tensor_parallel
@@ -23,6 +25,7 @@ from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.spec_utils import ModuleSpec, build_module
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.attention import SelfAttention, SelfAttentionSubmodules
+
 from mindspeed.core.transformer.transformer_block import _get_layer_offset
 from .hunyuan_rope import HunYuanDynamicNTKAlphaRotaryEmbedding
 

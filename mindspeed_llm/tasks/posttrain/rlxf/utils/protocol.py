@@ -17,11 +17,11 @@ Implement base data transfer protocol between any two functions, modules.
 We can subclass Protocol to define more detailed batch info with specific keys
 """
 
-import numpy as np
 import copy
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Union
 
+import numpy as np
 import ray
 import torch
 import tensordict

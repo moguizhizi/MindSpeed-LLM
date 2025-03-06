@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os
 import time
 from typing import Dict, List, Any
 
@@ -20,8 +20,10 @@ from ray.util import list_named_actors
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy, NodeAffinitySchedulingStrategy
 from ray.experimental.state.api import get_actor
+from unittest.mock import patch
 
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base import WorkerGroup, ResourcePool, ClassWithInitArgs, Worker
+from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.decorator import MAGIC_ATTR
 
 __all__ = ['Worker']
 
@@ -33,15 +35,19 @@ def set_actor_infer_world_size(world_size):
     global ACTOR_INFER_WORLD_SIZE
     ACTOR_INFER_WORLD_SIZE = world_size
 
+
 def set_actor_train_world_size(world_size):
     global ACTOR_TRAIN_WORLD_SIZE
     ACTOR_TRAIN_WORLD_SIZE = world_size
 
+
 def get_actor_infer_world_size():
     return ACTOR_INFER_WORLD_SIZE
 
+
 def get_actor_train_world_size():
     return ACTOR_TRAIN_WORLD_SIZE
+
 
 def get_random_string(length: int) -> str:
     import random
@@ -108,7 +114,6 @@ class RayResourcePool(ResourcePool):
 class RayClassWithInitArgs(ClassWithInitArgs):
 
     def __init__(self, cls, *args, **kwargs) -> None:
-        # self._options = kwargs.pop('options', dict())
         super().__init__(cls, *args, **kwargs)
         self._options = {}
         self._additional_resource = {}
@@ -197,7 +202,6 @@ class RayWorkerGroup(WorkerGroup):
         pgs = resource_pool.get_placement_groups(strategy=strategy, name=self.name_prefix)
         world_size = resource_pool.world_size
         self._world_size = world_size
-        # cia.add_kwarg("_world_size", world_size)
         num_gpus = 1 / resource_pool.max_collocate_count
 
         rank = -1
@@ -383,10 +387,6 @@ class RayWorkerGroup(WorkerGroup):
 Utilities that enables creating workers inside the same ray.Actor, 
 with code written in separate ray.Actors.
 """
-
-from unittest.mock import patch
-from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.decorator import MAGIC_ATTR
-import os
 
 
 def _bind_workers_method_to_parent(cls, key, user_defined_cls):

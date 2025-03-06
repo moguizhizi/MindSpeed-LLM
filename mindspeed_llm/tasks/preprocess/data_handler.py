@@ -19,17 +19,25 @@ import time
 import glob
 import json
 import logging
+from typing import Dict, List
+
 import torch
 import numpy as np
-from typing import Dict, List
 from datasets import load_dataset
 
 from megatron.core.datasets import indexed_dataset
 
 from mindspeed_llm.tasks.preprocess.templates import Prompter, AlpacaTemplate, get_model_template
-from mindspeed_llm.tasks.posttrain.utils import convert_token_to_id 
-from .utils import get_dataset_list, get_handler_dataset_attr, load_single_dataset, merge_dataset, align_dataset
-from .utils import greedy_knapsack
+from mindspeed_llm.tasks.posttrain.utils import convert_token_to_id
+
+from .utils import (
+    get_dataset_list,
+    get_handler_dataset_attr,
+    load_single_dataset,
+    merge_dataset,
+    align_dataset,
+    greedy_knapsack
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -138,7 +146,6 @@ class BaseDatasetHandler(object):
                 if len(packed_data_dict[key]) != self.args.seq_length:
                     raise ValueError("The length of packed example should be identical to the seq_length.")
 
-                # logger.info(packed_data_dict[key])
                 sentence = torch.IntTensor(packed_data_dict[key])
                 builders[key].add_item(sentence)
                 builders[key].end_document()

@@ -1,6 +1,10 @@
+import os
+import random
+import time
+import logging
 from typing import Dict, Optional, Tuple
 
-import numpy
+import numpy as np
 import torch
 
 from megatron.core.datasets.blended_megatron_dataset_config import BlendedMegatronDatasetConfig
@@ -10,25 +14,16 @@ from megatron.core.datasets.megatron_tokenizer import MegatronTokenizer
 from megatron.core.datasets.utils import Split
 from megatron.core.datasets.utils_s3 import S3Config, is_s3_path
 from megatron.core.utils import log_single_rank
-from mindspeed_llm.tasks.preprocess.decoder_packed_mtf_dataset import DecoderPackedMTFDataset
-
-import os
-import random
-import time
-import logging
-
-import numpy as np
-import torch
-
 from megatron.training import print_rank_0, get_args
 from megatron.core import parallel_state
 from megatron.legacy.data.dataset_utils import get_train_valid_test_split_
 from megatron.core.datasets.utils import get_blend_from_list
+
+from mindspeed_llm.tasks.preprocess.decoder_packed_mtf_dataset import DecoderPackedMTFDataset, _build_train_valid_test_datasets
 from mindspeed_llm.training.tokenizer import build_tokenizer
 from mindspeed_llm.tasks.utils.error_utils import check_equal
 from mindspeed_llm.tasks.preprocess.mtf_dataset import MTFDataset, get_packed_indexed_dataset
 from mindspeed_llm.tasks.preprocess.templates import get_model_template
-from mindspeed_llm.tasks.preprocess.decoder_packed_mtf_dataset import _build_train_valid_test_datasets
 
 
 def build_blended_mtf_dataset(

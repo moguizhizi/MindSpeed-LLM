@@ -11,8 +11,8 @@ from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
 from vllm.distributed.parallel_state import (destroy_distributed_environment, destroy_model_parallel)
 
-from mindspeed_llm.tasks.posttrain.verifier.rule_verifier import preprocess_box_response_for_qwen_prompt
 from utils import blending_datasets, PromptGtAnswerDataset, apply_GenRM_template, rejection_sampling_processor
+from mindspeed_llm.tasks.posttrain.verifier.rule_verifier import preprocess_box_response_for_qwen_prompt
 
 
 def clean_up():

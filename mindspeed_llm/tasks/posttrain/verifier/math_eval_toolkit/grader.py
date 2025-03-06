@@ -1,10 +1,10 @@
 import re
-import regex
 import multiprocessing
 from math import isclose
 from typing import Union
 from collections import defaultdict
 
+import regex
 from sympy import simplify, N
 from sympy.parsing.sympy_parser import parse_expr
 from sympy.parsing.latex import parse_latex

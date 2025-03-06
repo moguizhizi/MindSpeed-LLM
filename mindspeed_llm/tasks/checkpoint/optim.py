@@ -4,10 +4,10 @@ import os
 import json
 import math
 import logging as logger
+from itertools import product
 
 import torch
 import numpy as np
-from itertools import product
 from tqdm import tqdm
 
 logger.basicConfig(format="")

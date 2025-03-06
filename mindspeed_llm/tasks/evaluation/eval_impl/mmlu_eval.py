@@ -25,11 +25,11 @@ from torch import distributed as dist
 
 from megatron.core import mpu
 from megatron.training import get_args
-from .template import MMLU_TEMPLATE_DIR, get_eval_template
 from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
 from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
 from mindspeed_llm.tasks.evaluation.eval_utils.mmlu_utils import _format_example, postprocess, get_final_dataset
+from .template import MMLU_TEMPLATE_DIR, get_eval_template
 
 
 logger = logging.getLogger(__name__)

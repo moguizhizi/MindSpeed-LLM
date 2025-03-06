@@ -91,6 +91,7 @@ def model_provider(is_reward_model=False, pre_process=True, post_process=True) -
         )
     return model
 
+
 def pad_to_tensor_dict(data, padding_side="right", pad_multi_of=16):
     max_length = torch.LongTensor([max(len(val) for val in data)]).cuda()
     max_length = max_length if max_length % pad_multi_of == 0 else (max_length // pad_multi_of + 1) * pad_multi_of

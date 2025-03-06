@@ -16,9 +16,9 @@ from typing import Dict, Optional
 
 import ray
 
-from .base import RayWorkerGroup, RayResourcePool, RayClassWithInitArgs
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker import DistRankInfo, DistGlobalInfo
 from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker_group import MegatronWorkerGroup
+from .base import RayWorkerGroup, RayResourcePool, RayClassWithInitArgs
 
 
 # NOTE(sgm): for opensource megatron-core

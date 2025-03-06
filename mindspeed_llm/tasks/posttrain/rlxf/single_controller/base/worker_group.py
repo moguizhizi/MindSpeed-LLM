@@ -68,12 +68,6 @@ class ClassWithInitArgs:
         self.args = args
         self.kwargs = kwargs
 
-    # def add_arg(self, arg):
-    #     self.args += (arg,)
-
-    # def add_kwarg(self, key, value):
-    #     self.kwargs[key] = value
-
     def __call__(self) -> Any:
         return self.cls(*self.args, **self.kwargs)
 

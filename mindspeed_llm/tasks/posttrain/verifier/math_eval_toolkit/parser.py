@@ -1,8 +1,8 @@
 import random
-import regex
 import re
 from typing import TypeVar, Iterable, List, Union, Any, Dict
 
+import regex
 import sympy
 from latex2sympy2 import latex2sympy
 from word2number import w2n

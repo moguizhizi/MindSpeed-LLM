@@ -14,11 +14,11 @@
 # limitations under the License.
 
 from functools import wraps
+from functools import partial
 
 import torch
 import torch.nn.functional as F
 from einops import rearrange
-from functools import partial
 
 from megatron.core.tensor_parallel import gather_from_sequence_parallel_region
 from megatron.core.tensor_parallel.mappings import _split_along_first_dim
