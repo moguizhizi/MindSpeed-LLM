@@ -529,7 +529,7 @@ MindSpeed-LLM包含分布式预训练、分布式微调、分布式偏好对齐�
     <td><a href="./docs/features/cc_lora.md">CCLoRA</a></td>
     <td>❌</td>
     <td>❌</td>
-    <td>✅</td>
+    <td>❌</td>
     <td>【NAIE】</td>
   </tr>
   <tr>
