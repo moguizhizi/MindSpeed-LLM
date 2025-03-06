@@ -5,7 +5,7 @@ export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 export HCCL_CONNECT_TIMEOUT=1200
 export HCCL_EXEC_TIMEOUT=1200
 
-NPUS_PER_NODE=1
+NPUS_PER_NODE=2
 MASTER_ADDR=localhost
 MASTER_PORT=6080
 NNODES=1
@@ -17,7 +17,7 @@ DATA_PATH="your data path"
 TOKENIZER_MODEL="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
-TP=1
+TP=2
 PP=1
 
 DISTRIBUTED_ARGS="
@@ -80,6 +80,7 @@ TRAINING_ARGS="
     --num-query-groups 8 \
     --tokenizer-not-use-fast \
     --attention-dropout 0.0 \
+    --seed 42 \
 "
 
 FINETUNE_ARGS="

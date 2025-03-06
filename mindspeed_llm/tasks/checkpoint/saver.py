@@ -426,13 +426,13 @@ def set_model_output_layer(model_mg, msg, md, **kwargs):
 
 
 def _replace_bnb_4bit_in_layer(layer):
-    for name, module in layer.named_modules():
+    for _, module in layer.named_modules():
         if isinstance(module, (tpl.ColumnParallelLinear, tpl.RowParallelLinear)):
             module.weight = bnb.nn.Params4bit(
                 module.weight.data,
                 requires_grad=module.weight.data.requires_grad,
                 quant_type="nf4"
-            ).to("npu")
+            ).to("npu").cpu()  # The quantization process occurs when calling .to("npu")
 
 
 def replace_layers_parameter_to_bnb_4bit(model) -> None:

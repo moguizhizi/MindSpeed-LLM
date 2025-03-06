@@ -100,11 +100,13 @@ QLoRA在LoRA的基础上，对主干部分的权重进行量化，大幅降低�
 | Llama-2-70b  | 129GB        | 35GB              | 94GB     |
 | Mixtral-8x7b | 87GB         | 24GB              | 63GB     |
 
-均可使用64GB单卡进行QLoRA微调，实测Llama-2-70b单batch微调过程中NPU内存占用约50GB左右。
+均可使用64GB单卡进行QLoRA微调，实测Llama-2-70b单batch微调过程中NPU内存占用约50GB左右，建议使用双卡以免数据集中较长的序列导致OOM。
 
 注意：QLoRA是量化模型权重的LoRA算法，必然会对模型效果和精度产生影响，用户充分评估特性后方可使用。
 
 ## 使用限制
-MOE 场景下，Lora 微调暂不支持开启 --moe-grouped-gemm 使用 gmm 算子。
 
-> QLoRA支持分布式LoRA、lora-fusion、PP、TP等LoRA支持的特性，并且精度正常，更多特性的亲和性还在补充验证中。
+* MOE 场景下，Lora 微调暂不支持开启 --moe-grouped-gemm 使用 gmm 算子。
+* QLoRA 暂不支持 lora-fusion 特性，开启时无性能收益。
+
+> QLoRA支持分布式LoRA、PP、TP、VPP、CP、SP、重计算等LoRA支持的特性，并且精度正常，更多特性的亲和性还在补充验证中。
