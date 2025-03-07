@@ -146,6 +146,8 @@ def add_data_args(parser):
                        help="Dataset field mapping.")
     group.add_argument("--pack", action='store_true',
                        help="Package multiple samples into one sample in a fine tuning dataset")
+    group.add_argument("--neat-pack", action='store_true',
+                       help="Use a zigzag attention mask.")
     group.add_argument("--script-data-dir", type=str, default=None,
                        help="Python script dataset direction")
 
@@ -257,6 +259,9 @@ def validate_args(args):
 
     if not os.path.isdir(os.path.dirname(args.output_prefix)):
         raise ValueError(f"{os.path.dirname(args.output_prefix)} is not a directory or does not exist")
+
+    if not args.pack and args.neat_pack:
+        raise ValueError("Require set `--pack` when `--neat-pack` is set.")
 
 
 def cut_range_to_subs(n, gap):

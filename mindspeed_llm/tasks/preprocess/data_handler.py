@@ -104,13 +104,19 @@ class BaseDatasetHandler(object):
             batch = doc["input_ids"]
             for idx, sample in enumerate(batch):
                 length = len(sample)
-                if length > self.args.seq_length:
+                if (length > self.args.seq_length) and (not self.args.neat_pack):
                     logger.warning(f"Dropped lengthy example with length {length} > {self.args.seq_length}.")
                 else:
+                    if length > self.args.seq_length:
+                        logger.warning(f"Sequence length {length} > {self.args.seq_length}.")
+                        sample = sample[:self.args.seq_length - 1]
+                        length = len(sample)
                     lengths.append(length)
                     length2indexes[length].append(valid_num)
                     for key in self.args.json_keys:
-                        key_data_dict[key].append(sample if key == 'input_ids' else doc[key][idx])
+                        key_data_dict[key].append(
+                            sample if key == 'input_ids' else doc[key][idx][:self.args.seq_length - 1]
+                        )
                     valid_num += 1
 
         logger.info(f"valid_num = {valid_num}, total_num = {len(self.tokenized_dataset)}, "
@@ -121,10 +127,12 @@ class BaseDatasetHandler(object):
         for k, knapsack in enumerate(knapsacks):
             packed_data_dict = {key: [] for key in self.args.json_keys}
 
-            for _, length in enumerate(knapsack):
+            for i, length in enumerate(knapsack):
                 index = length2indexes[length].pop()
                 for key in self.args.json_keys:
-                    packed_data_dict[key] += key_data_dict[key][index]
+                    key_data = key_data_dict[key][index]
+                    packed_data_dict[key] += [i + 1] * len(key_data) \
+                        if (self.args.neat_pack and "attention_mask" in key) else key_data
 
             if k % self.args.log_interval == 0:
                 current = time.time()
@@ -139,7 +147,7 @@ class BaseDatasetHandler(object):
             else:
                 raise ValueError("The pad_token_id attribute is missing for this tokenizer.")
             packed_data_dict['input_ids'] += [pad_token_id] * pad_length
-            packed_data_dict['attention_mask'] += [1] * pad_length
+            packed_data_dict['attention_mask'] += [0] * pad_length if self.args.neat_pack else [1] * pad_length
             packed_data_dict['labels'] += [self.ignored_label] * pad_length
 
             for key in self.args.json_keys:

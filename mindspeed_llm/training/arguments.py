@@ -451,6 +451,11 @@ def _add_data_args(parser):
                        help="Convert input-layernorm to fp32")
     group.add_argument("--no-shuffle", action='store_true',
                        help="Disable data shuffling, mainly for loss comparison.")
+    group.add_argument('--neat-pack', action='store_true',
+                       help='Use a zigzag attention mask.')
+    group.add_argument('--padded-samples', action='store_true',
+                       help='fill in the missing samples within an epoch, '
+                            'starting at index 0, aligned with the LlamaFatory.')
     return parser
 
 
@@ -979,6 +984,9 @@ def _validate_create_attention_mask_in_dataloader(args):
     print_rank0_by_args(args, f"[INFO] Setting args.create_attention_mask_in_dataloader to {args.create_attention_mask_in_dataloader} "
                  f"since reset_data={reset_data} or alibi_without_flash_attn={alibi_without_flash_attn} or "
                  f"args.tokenizer_padding_side={args.tokenizer_padding_side}")
+
+    if not args.reset_position_ids and args.neat_pack:
+        raise ValueError("Require set `--reset-position-ids` when `--neat-pack` is set.")
 
 
 def _validate_position_embedding(args):
