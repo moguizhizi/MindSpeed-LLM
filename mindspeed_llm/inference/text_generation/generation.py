@@ -194,9 +194,13 @@ def generate_tokens_probs_and_return_on_first_stage(
                     context_length + 1
                 is_generation_done = is_generation_done | done_token
                 done = torch.all(is_generation_done)
-
-            if get_expert_model_parallel_world_size() > 1:
-                torch.distributed.all_reduce(done, op=torch.distributed.ReduceOp.MAX)
+                if get_expert_model_parallel_world_size() > 1:
+                    pipeline_world_size = mpu.get_pipeline_model_parallel_world_size()
+                    world_size = torch.distributed.get_world_size()
+                    last_stage_first_rank = int((pipeline_world_size - 1) * world_size / pipeline_world_size)
+                    last_stage_ranks = list(range(last_stage_first_rank, last_stage_first_rank + int(world_size / pipeline_world_size)))
+                    last_stage_group = torch.distributed.new_group(ranks=last_stage_ranks)
+                    torch.distributed.broadcast(done, last_stage_first_rank, last_stage_group)                  
 
             if output_log_probs is None and not (getattr(args, "task", False) and args.task[0] == 'needlebench'):
                 output_log_probs = torch.empty(output_log_probs_size,
@@ -361,9 +365,14 @@ def beam_search_and_return_on_first_stage(
                 tokens = tokens[best_batches, :]
                 tokens[:, context_length] = tokens.new([item[0] for item in next_beams])
                 scores = scores.new([item[1] for item in next_beams]).unsqueeze(1)
+                if get_expert_model_parallel_world_size() > 1:
+                    pipeline_world_size = mpu.get_pipeline_model_parallel_world_size()
+                    world_size = torch.distributed.get_world_size()
+                    last_stage_first_rank = int((pipeline_world_size - 1) * world_size / pipeline_world_size)
+                    last_stage_ranks = list(range(last_stage_first_rank, last_stage_first_rank + int(world_size / pipeline_world_size)))
+                    last_stage_group = torch.distributed.new_group(ranks=last_stage_ranks)
+                    torch.distributed.broadcast(done, last_stage_first_rank, last_stage_group)                     
 
-            if get_expert_model_parallel_world_size() > 1:
-                torch.distributed.all_reduce(done, op=torch.distributed.ReduceOp.MAX)
             done = broadcast_from_last_pipeline_stage(1, torch.uint8, done)
             if done:
                 break
