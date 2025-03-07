@@ -68,6 +68,31 @@ TP拓展EP，专家层TP组不切分专家参数，切分专家数量。
 
 指定是否开启QLoRA权重量化转换，默认为False
 
+#### 合并lora权重和base权重
+
+##### 相关参数
+
+【--load-dir】
+
+指定base权重加载路径
+
+【--lora-load】
+
+指定lora权重加载路径
+
+【--lora-r】
+
+lora矩阵的秩
+
+【--lora-alpha】
+
+缩放因子，缩放低秩矩阵的贡献
+
+
+##### 注意事项
+
+【--load-dir】填写lora权重路径，该权重包括base权重和lora权重
+【--lora-r】、【--lora-alpha】与lora微调时配置相同
 
 #### 运行脚本
 

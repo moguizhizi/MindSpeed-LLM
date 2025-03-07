@@ -8,9 +8,10 @@ import logging as logger
 import os
 from collections import defaultdict
 from itertools import product
-
-import safetensors.torch
+import tqdm
 import torch
+import torch_npu
+import safetensors.torch
 
 logger.basicConfig(format="")
 logger.getLogger().setLevel(logger.INFO)
@@ -44,7 +45,10 @@ class MgCkptConvert(object):
             noop_layers: str = None,
             moe_grouped_gemm: bool = False,
             moe_tp_extend_ep: bool = False,
-            num_nextn_predict_layers: int = 0
+            num_nextn_predict_layers: int = 0,
+            lora_model_path: str = None,
+            lora_r: int = 16,
+            lora_alpha: int = 32,
     ):
         self.tp_size = tp_size
         self.pp_size = pp_size
@@ -53,7 +57,7 @@ class MgCkptConvert(object):
 
         self.mg_model_path = mg_model_path
         self.hf_save_path = hf_save_path
-        self.iter_path = self.get_iter_path(self.mg_model_path, 1)
+        self.iter_path = self.get_iter_path(self.mg_model_path)
 
         if not os.path.exists(self.hf_save_path):
             os.makedirs(self.hf_save_path)
@@ -69,6 +73,10 @@ class MgCkptConvert(object):
         self.num_experts = NUM_EXPERTS
         self.mtp_layer_number = MTP_LAYER_INDEX
         self.share_mtp_embedding_and_output_weight = True
+
+        self.lora_model_path = lora_model_path
+        self.lora_r = lora_r
+        self.lora_alpha = lora_alpha       
 
         self.tp_rank_list = list(range(self.tp_size))
         self.ep_rank_list = list(range(self.ep_size))
@@ -105,12 +113,22 @@ class MgCkptConvert(object):
                 raise ValueError("Sum of num_layer_list must equal num_layers")
 
     @staticmethod
-    def get_iter_path(ckpt_path, iteration):
-        """获取原始mg权重保存路径"""
-        directory = 'iter_{:07d}'.format(iteration)
-        directory = os.path.join(ckpt_path, directory)
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+    def get_iter_path(ckpt_path, iteration=None):
+        """If the iteration is empty, read from ckpt_path/latest_checkpointed_iteration.txt"""
+        if iteration is None:
+            latest_iter_file = os.path.join(ckpt_path, "latest_checkpointed_iteration.txt")
+            if os.path.exists(latest_iter_file):
+                with open(latest_iter_file, "r") as f:
+                    try:
+                        iteration = int(f.read().strip())
+                    except ValueError:
+                        raise ValueError(f"{latest_iter_file} not find")
+            else:
+                raise FileNotFoundError(f"can not find {latest_iter_file}")
+
+        directory = os.path.join(ckpt_path, f'iter_{iteration:07d}')
+
+        os.makedirs(directory, exist_ok=True)
 
         return directory
 
@@ -196,9 +214,9 @@ class MgCkptConvert(object):
                         pp_rank, vpp_rank, vpprank_layer_idxs_all[pp_rank][vpp_rank][local_idx])
         logger.info(f"###### hf layer->pprank&vpprank&local idx: {self.layeridx_vpprank}")
 
-    def get_pt_path_by_tpppep_rank(self, tp_rank, pp_rank=None, ep_rank=None):
+    def get_pt_path_by_tpppep_rank(self, iter_path, tp_rank, pp_rank=None, ep_rank=None):
         """根据tp pp ep rank, 拼接pt文件路径"""
-        mp_rank_path = self.iter_path
+        mp_rank_path = iter_path
         mp_rank_path = os.path.join(mp_rank_path, f'mp_rank_{tp_rank:02d}')
         if self.pp_size > 1:
             mp_rank_path = mp_rank_path + f'_{pp_rank:03d}'
@@ -466,6 +484,35 @@ class MgCkptConvert(object):
         self.set_model_attn(hf_dict, mg_models, hf_layer_idx, local_idx, mtp_flag=True)
         self.set_model_mlp(hf_dict, mg_models, hf_layer_idx, local_idx, mtp_flag=True)
 
+    def _merge_lora(self, model_dict):
+        lora_layer_base_names = list(set([k.split(".lora")[0] for k in model_dict.keys() if ".lora" in k]))
+        unused_keys = [k for k in model_dict if ".lora" in k and k.endswith("_extra_state")]
+        
+        for i in tqdm.tqdm(range(len(lora_layer_base_names))):
+            name = lora_layer_base_names[i]
+            base = f"{name}.base_layer.weight"
+            base_new = base.replace(".base_layer", "")
+            lora_a = f"{name}.lora_A.default.weight"
+            lora_b = f"{name}.lora_B.default.weight"
+
+            # weight = base + matmul(B, A)
+            model_dict[base_new] = model_dict[base].npu() + (self.lora_alpha / self.lora_r) * torch.matmul(
+                model_dict[lora_b].float().npu(), model_dict[lora_a].float().npu()
+            ).to(model_dict[base].dtype)
+            model_dict[base_new] = model_dict[base_new].cpu().T
+
+            # delete A, B, base, _extra_state
+            unused_keys.extend([lora_a, lora_b, base])
+        
+        for name in list(model_dict.keys()):
+            if ".base_layer" in name:
+                name_new = name.replace(".base_layer", "")
+                model_dict[name_new] = model_dict[name]
+                unused_keys.append(name)
+        unused_keys = list(set(unused_keys))
+        for k in unused_keys:
+            del model_dict[k]
+
     def save_safetensors(self, hf_dict, cur_file_idx):
         """保存safetensors文件"""
         num_dense_file = 0
@@ -549,17 +596,21 @@ class MgCkptConvert(object):
 
             if self.vpp_stage is None:
                 for tp_rank, ep_rank in product(self.tp_rank_list, self.ep_rank_list):
-                    pt_path = self.get_pt_path_by_tpppep_rank(tp_rank, pp_rank, ep_rank)
-                    tmp = load_data(pt_path)
-                    mg_weights[(tp_rank, ep_rank)] = tmp['model']
+                    model_path = self.get_pt_path_by_tpppep_rank(self.iter_path, tp_rank, pp_rank, ep_rank)
+                    tmp_model = load_data(model_path)['model']
+                    if self.lora_r is not None and self.lora_model_path is None:
+                        self._merge_lora(tmp_model)
+                    mg_weights[(tp_rank, ep_rank)] = tmp_model
 
                 self.read_cur_pp_weights(pp_rank, mg_weights)
             else:
                 for vpp_rank in range(self.vpp_size):
                     for tp_rank, ep_rank in product(self.tp_rank_list, self.ep_rank_list):
-                        pt_path = self.get_pt_path_by_tpppep_rank(tp_rank, pp_rank, ep_rank)
-                        tmp = load_data(pt_path)
-                        mg_weights[(tp_rank, ep_rank)] = tmp[f'model{vpp_rank}']
+                        pt_path = self.get_pt_path_by_tpppep_rank(self.iter_path, tp_rank, pp_rank, ep_rank)
+                        tmp_model = load_data(pt_path)[f'model{vpp_rank}']
+                        if self.lora_r is not None and self.lora_model_path is None:
+                            self._merge_lora(tmp_model)                        
+                        mg_weights[(tp_rank, ep_rank)] = tmp_model
 
                     self.read_cur_vpp_weights(pp_rank, vpp_rank, mg_weights)
 
@@ -595,6 +646,12 @@ def get_args():
                         help='Number of transformer layers.')
     parser.add_argument('--first-k-dense-replace', type=int, default=3,
                         help='Customizing the number of dense layers.')
+    parser.add_argument('--lora-load', type=str, default=None,
+                       help='Directory containing a lora model checkpoint.')
+    parser.add_argument('--lora-r', type=int, default=None,
+                       help='Lora r.')
+    parser.add_argument('--lora-alpha', type=int, default=None,
+                       help='Lora alpha.')
 
     args = parser.parse_args()
     return args
@@ -617,7 +674,10 @@ def main():
         noop_layers=args.noop_layers,
         moe_grouped_gemm=args.moe_grouped_gemm,
         moe_tp_extend_ep=args.moe_tp_extend_ep,
-        num_nextn_predict_layers=args.num_nextn_predict_layers
+        num_nextn_predict_layers=args.num_nextn_predict_layers,
+        lora_model_path=args.lora_load,
+        lora_r=args.lora_r,
+        lora_alpha=args.lora_alpha       
     )
     converter.run()
 
