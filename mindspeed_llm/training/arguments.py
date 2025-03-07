@@ -1316,6 +1316,8 @@ def _add_dummy_args(args):
     args.context_parallel_cache_interval = 0
     args.use_ulysses_allgather_kv = False
     args.use_pipe_experts = False
+    args.megatron_cp_in_bnsd = False
+    args.use_fusion_attn_v2 = False
 
 
 def _validate_noop_layer(args):

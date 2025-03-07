@@ -13,11 +13,19 @@
         <th>Mem.</th>
     </tr>
     <tr>
-        <td rowspan="17">ST</td>
-        <td rowspan="13">Pretrain</td>
+        <td rowspan="18">ST</td>
+        <td rowspan="14">Pretrain</td>
         <td>Mcore</td>
         <td>TP，PP，VPP，distributed_optimizer，o2_gradient，o2_optimizer，重计算，enable_recompute_layers_per_pp_rank，FA_TND，use_fused_rotary_pos_emb_new</td>
         <td><a href="st/shell_scripts/llama2_tp2_pp4_vpp2_ptd.sh">llama2_tp2_pp4_vpp2_ptd.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>Mcore</td>
+        <td>TP2D, TP, PP, VPP, distributed_optimizer, fused_swiglu</td>
+        <td><a href="st/shell_scripts/llama2_tp4pp2vpp2_tp2d_tpx2tpy2.sh">llama2_tp4pp2vpp2_tp2d_tpx2tpy2.sh</a></td>
         <td>Y</td>
         <td>Y</td>
         <td>Y</td>

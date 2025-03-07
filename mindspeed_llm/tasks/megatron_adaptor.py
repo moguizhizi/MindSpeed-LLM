@@ -92,6 +92,10 @@ class MegatronAdaptation:
             group.add_argument('--swap-attention', action='store_true', default=False)
             group.add_argument('--memory-fragmentation', type=bool, default=False)
             group.add_argument('--layerzero', action='store_true', default=False)
+            group.add_argument("--megatron-cp-in-bnsd", action='store_true',
+                               help="Megatron CP in bnsd.")
+            group.add_argument('--use-fusion-attn-v2', action='store_true', default=False,
+                               help='use fusion_attention ops version 2')
             
             for feature in FEATURES_LIST:
                 feature.default_patches = False
@@ -268,6 +272,11 @@ class CoreAdaptation(MegatronAdaptationABC):
                                     attention_init)
         MegatronAdaptation.register('megatron.core.transformer.attention.SelfAttention.__init__',
                                           self_attention_init_wrapper)
+        if MegatronAdaptation.get_args().tp_2d:
+            from mindspeed.core.transformer.attention import self_attention_init_tp2d_wrapper
+            MegatronAdaptation.register('megatron.core.transformer.attention.SelfAttention.__init__',
+                                        self_attention_init_tp2d_wrapper)
+
         MegatronAdaptation.register('megatron.core.transformer.dot_product_attention.DotProductAttention.__init__',
                                     dot_product_attention_init)
         MegatronAdaptation.register('megatron.core.transformer.dot_product_attention.DotProductAttention.forward',
@@ -315,6 +324,7 @@ class CoreAdaptation(MegatronAdaptationABC):
 
     def patch_core_transformers(self):
         import megatron.core
+        from mindspeed.core.transformer.transformer_config import transformer_config_post_init_wrapper
         from mindspeed.core.transformer.moe.token_dispatcher import allgather_token_permutation, \
             allgather_token_unpermutation
         from mindspeed.core.transformer.moe.grouped_gemm_util import Ops, grouped_gemm_is_available, \
@@ -335,6 +345,9 @@ class CoreAdaptation(MegatronAdaptationABC):
             from mindspeed.core.transformer.transformer_config import transformer_config_post_init
             MegatronAdaptation.register('megatron.core.transformer.transformer_config.TransformerConfig.__post_init__',
                                               transformer_config_post_init)
+
+        MegatronAdaptation.register('megatron.core.transformer.transformer_config.TransformerConfig.__post_init__',
+                                    transformer_config_post_init_wrapper)
         MegatronAdaptation.register('torch.cuda.get_device_capability', get_device_capability)
         megatron.core.transformer.transformer_block.LayerNormImpl = PTNorm
         MegatronAdaptation.register('megatron.core.transformer.transformer_block.TENorm', PTNorm)
@@ -522,6 +535,12 @@ class CoreAdaptation(MegatronAdaptationABC):
                                         parallel_linear_load_from_state_dict_wrapper)
             MegatronAdaptation.register('megatron.core.tensor_parallel.layers.RowParallelLinear._load_from_state_dict',
                                         parallel_linear_load_from_state_dict_wrapper)
+
+        if MegatronAdaptation.get_args().tp_2d:
+            from mindspeed_llm.core.tensor_parallel.tp_2d.parallel_linear_2d import parallell_linear_2D_init_wrapper
+            MegatronAdaptation.register(
+                "mindspeed.core.tensor_parallel.tp_2d.parallel_linear_2d.ParallelLinear2D.__init__",
+                parallell_linear_2D_init_wrapper)
 
     def patch_parallel_state(self):
         import megatron
