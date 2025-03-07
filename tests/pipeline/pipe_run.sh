@@ -43,6 +43,7 @@ find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
             filename=$(basename "$file")
             extension="${filename##*.}"
             name="${filename%.$extension}"
+            echo "running $file"
             bash $file | tee "$GENERATE_LOG_DIR/$name.log"
             SCRIPT_EXITCODE=${PIPESTATUS[0]}
             if [ $SCRIPT_EXITCODE -ne 0 ]; then
@@ -67,6 +68,7 @@ find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
 
         # python test testing
         find "$dir" -type f -name "*.py" | while read -r file; do
+            echo "running $file"
             if pytest "$file"; then
                 echo "$file execution success." >> "$BASE_DIR/exec_results.log"
             else

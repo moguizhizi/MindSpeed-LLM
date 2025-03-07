@@ -92,10 +92,6 @@ class MegatronAdaptation:
             group.add_argument('--swap-attention', action='store_true', default=False)
             group.add_argument('--memory-fragmentation', type=bool, default=False)
             group.add_argument('--layerzero', action='store_true', default=False)
-            group.add_argument("--megatron-cp-in-bnsd", action='store_true',
-                               help="Megatron CP in bnsd.")
-            group.add_argument('--use-fusion-attn-v2', action='store_true', default=False,
-                               help='use fusion_attention ops version 2')
             
             for feature in FEATURES_LIST:
                 feature.default_patches = False
