@@ -571,8 +571,8 @@ class CkptConvert(object):
             noop_list = list(map(int, self.noop_layers.split(",")))
             num_layers_each_pp = self.num_layers // self.pp_size
             for num_noop_layer in noop_list:
-                pp_idx = num_noop_layer // num_layers_each_pp
-                vpp_idx = num_noop_layer % num_layers_each_pp // self.vpp_stage
+                pp_idx = num_noop_layer % (self.pp_size * self.vpp_stage) // self.vpp_stage
+                vpp_idx = num_noop_layer // self.vpp_stage // self.pp_size
                 local_noop_idx = num_noop_layer % num_layers_each_pp % self.vpp_stage
                 vpp_local_layer_idx[pp_idx][vpp_idx].remove(local_noop_idx)
 

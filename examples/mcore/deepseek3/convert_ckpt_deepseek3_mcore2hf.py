@@ -185,7 +185,7 @@ class MgCkptConvert(object):
             for layer in list(map(int, self.noop_layers.split(","))):
                 pp_idx = layer % (self.pp_size * self.vpp_stage) // self.vpp_stage
                 vpp_idx = layer // self.vpp_stage // self.pp_size
-                local_vpp_idx = layer - (vpp_idx * self.pp_size + pp_idx) * 2
+                local_vpp_idx = layer - (vpp_idx * self.pp_size + pp_idx) * self.vpp_stage
                 vpprank_layer_idxs_all[pp_idx][vpp_idx].remove(local_vpp_idx)
         # 剔除noop-layers的vpp local idx  {pp_rank: {vpp_rank: [0, 2]}}
 
