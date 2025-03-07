@@ -57,7 +57,9 @@ class MgCkptConvert(object):
 
         self.mg_model_path = mg_model_path
         self.hf_save_path = hf_save_path
+        self.lora_model_path = lora_model_path
         self.iter_path = self.get_iter_path(self.mg_model_path)
+        self.lora_iter_path = self.get_iter_path(self.lora_model_path)
 
         if not os.path.exists(self.hf_save_path):
             os.makedirs(self.hf_save_path)
@@ -74,7 +76,6 @@ class MgCkptConvert(object):
         self.mtp_layer_number = MTP_LAYER_INDEX
         self.share_mtp_embedding_and_output_weight = True
 
-        self.lora_model_path = lora_model_path
         self.lora_r = lora_r
         self.lora_alpha = lora_alpha       
 
@@ -484,14 +485,22 @@ class MgCkptConvert(object):
         self.set_model_attn(hf_dict, mg_models, hf_layer_idx, local_idx, mtp_flag=True)
         self.set_model_mlp(hf_dict, mg_models, hf_layer_idx, local_idx, mtp_flag=True)
 
-    def _merge_lora(self, model_dict):
+    def _merge_lora(self, model_dict, merge_type):
+        """
+        merge_type==1 : merge base_ckpt and lora_ckpt in same checkpoint
+        merge_type==2 : merge independent base_ckpt and independent lora_ckpt
+        """
         lora_layer_base_names = list(set([k.split(".lora")[0] for k in model_dict.keys() if ".lora" in k]))
         unused_keys = [k for k in model_dict if ".lora" in k and k.endswith("_extra_state")]
         
         for i in tqdm.tqdm(range(len(lora_layer_base_names))):
             name = lora_layer_base_names[i]
-            base = f"{name}.base_layer.weight"
-            base_new = base.replace(".base_layer", "")
+            if merge_type == 1:
+                base = f"{name}.base_layer.weight"
+                base_new = base.replace(".base_layer", "")
+            elif merge_type == 2:
+                base = f"{name}.weight"
+                base_new = f"{name}.weight"
             lora_a = f"{name}.lora_A.default.weight"
             lora_b = f"{name}.lora_B.default.weight"
 
@@ -499,11 +508,13 @@ class MgCkptConvert(object):
             model_dict[base_new] = model_dict[base].npu() + (self.lora_alpha / self.lora_r) * torch.matmul(
                 model_dict[lora_b].float().npu(), model_dict[lora_a].float().npu()
             ).to(model_dict[base].dtype)
-            model_dict[base_new] = model_dict[base_new].cpu().T
+            model_dict[base_new] = model_dict[base_new].cpu()
 
             # delete A, B, base, _extra_state
-            unused_keys.extend([lora_a, lora_b, base])
-        
+            if merge_type == 1:
+                unused_keys.extend([lora_a, lora_b, base])
+            elif merge_type == 2:
+                unused_keys.extend([lora_a, lora_b])
         for name in list(model_dict.keys()):
             if ".base_layer" in name:
                 name_new = name.replace(".base_layer", "")
@@ -599,7 +610,12 @@ class MgCkptConvert(object):
                     model_path = self.get_pt_path_by_tpppep_rank(self.iter_path, tp_rank, pp_rank, ep_rank)
                     tmp_model = load_data(model_path)['model']
                     if self.lora_r is not None and self.lora_model_path is None:
-                        self._merge_lora(tmp_model)
+                        self._merge_lora(tmp_model, merge_type=1)
+                    elif self.lora_model_path is not None:
+                        lora_path = self.get_pt_path_by_tpppep_rank(self.lora_iter_path, tp_rank, pp_rank, ep_rank)
+                        lora_model = load_data(lora_path)['model']
+                        tmp_model = {**lora_model, **tmp_model}
+                        self._merge_lora(tmp_model, merge_type=2)
                     mg_weights[(tp_rank, ep_rank)] = tmp_model
 
                 self.read_cur_pp_weights(pp_rank, mg_weights)
@@ -609,7 +625,12 @@ class MgCkptConvert(object):
                         pt_path = self.get_pt_path_by_tpppep_rank(self.iter_path, tp_rank, pp_rank, ep_rank)
                         tmp_model = load_data(pt_path)[f'model{vpp_rank}']
                         if self.lora_r is not None and self.lora_model_path is None:
-                            self._merge_lora(tmp_model)                        
+                            self._merge_lora(tmp_model, merge_type=1)
+                        elif self.lora_model_path is not None:
+                            lora_path = self.get_pt_path_by_tpppep_rank(self.lora_iter_path, tp_rank, pp_rank, ep_rank)
+                            lora_model = load_data(lora_path)[f'model{vpp_rank}']
+                            tmp_model = {**lora_model, **tmp_model}
+                            self._merge_lora(tmp_model, merge_type=2)
                         mg_weights[(tp_rank, ep_rank)] = tmp_model
 
                     self.read_cur_vpp_weights(pp_rank, vpp_rank, mg_weights)

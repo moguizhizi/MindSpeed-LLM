@@ -91,7 +91,53 @@ lora矩阵的秩
 
 ##### 注意事项
 
+如果需要合并同一份权重中的lora和base权重
+
+示例：
+
+```
+python examples/mcore/deepseek3/convert_ckpt_deepseek3_mcore2hf.py \
+    --source-tensor-parallel-size 1 \
+    --source-pipeline-parallel-size 4 \
+    --source-expert-parallel-size 8 \
+    --load-dir ./model_weights/deepseek3-lora \   
+    --save-dir ./model_from_hf/deepseek3-hf \
+    --num-layers 61 \
+    --first-k-dense-replace 3 \
+    --num-layer-list 16,15,15,15 \
+    --num-nextn-predict-layers 1 \
+    --lora-r 8 \
+    --lora-alpha 16 \
+```
+
 【--load-dir】填写lora权重路径，该权重包括base权重和lora权重
+
+【--lora-r】、【--lora-alpha】与lora微调时配置相同
+
+如果需要合并base权重和独立的lora权重
+
+示例：
+```
+python examples/mcore/deepseek3/convert_ckpt_deepseek3_mcore2hf.py \
+    --source-tensor-parallel-size 1 \
+    --source-pipeline-parallel-size 4 \
+    --source-expert-parallel-size 8 \
+    --load-dir ./model_weights/deepseek3-mcore \
+    --lora-load ./ckpt/filter_lora \
+    --save-dir ./model_from_hf/deepseek3-hf \
+    --num-layers 61 \
+    --first-k-dense-replace 3 \
+    --num-layer-list 16,15,15,15 \
+    --num-nextn-predict-layers 1 \
+    --lora-r 8 \
+    --lora-alpha 16 \
+    # --num-layer-list, --noop-layers, --num-layers-per-virtual-pipeline-stage等参数根据任务需要进行配置
+```
+
+【--load-dir】指定base权重路径
+
+【--lora-load】指定lora权重路径，注意该权重仅为lora权重，可以在lora微调中加入'--lora-ckpt-filter'，只保存lora权重
+
 【--lora-r】、【--lora-alpha】与lora微调时配置相同
 
 #### 运行脚本
