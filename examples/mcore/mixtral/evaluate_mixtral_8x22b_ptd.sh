@@ -9,7 +9,7 @@ MASTER_ADDR=localhost
 MASTER_PORT=6000
 NNODES=1
 NODE_RANK=0
-GPUS_PER_NODE=8
+NPUS_PER_NODE=8
 TP=8
 PP=1
 
@@ -19,7 +19,7 @@ DATA_PATH="Your data path (such as ./mmlu/test/)"
 TASK="mmlu"
 
 DISTRIBUTED_ARGS="
-    --nproc_per_node $GPUS_PER_NODE \
+    --nproc_per_node $NPUS_PER_NODE \
     --nnodes $NNODES \
     --node_rank $NODE_RANK \
     --master_addr $MASTER_ADDR \

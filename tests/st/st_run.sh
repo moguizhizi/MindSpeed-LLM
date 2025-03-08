@@ -23,7 +23,7 @@ rm -f "$ERROR_FLAG"
 MAX_PARALLEL=1
 
 find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
-    ! -exec grep -qE "(GPUS_PER_NODE|NPUS_PER_NODE)=(4|2|1)" {} \; \
+    ! -exec grep -qE "(NPUS_PER_NODE|NPUS_PER_NODE)=(4|2|1)" {} \; \
     -print | xargs -n 1 -P $MAX_PARALLEL -I {} bash -c '
 
     if [[ -f "$ERROR_FLAG" ]]; then
@@ -83,7 +83,7 @@ export LOCKFILE_B="/tmp/npu_group_b.lock"
 MAX_PARALLEL=2
 
 find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
-    -exec grep -qE "(GPUS_PER_NODE|NPUS_PER_NODE)=4" {} \; \
+    -exec grep -qE "(NPUS_PER_NODE|NPUS_PER_NODE)=4" {} \; \
     -print | xargs -n 1 -P $MAX_PARALLEL -I {} bash -c '
 
     if [[ -f "$ERROR_FLAG" ]]; then
@@ -183,7 +183,7 @@ export LOCKFILE_D="/tmp/npu_group_d.lock"
 MAX_PARALLEL=4
 
 find "$SHELL_SCRIPTS_DIR" -name "*.sh" \
-    -exec grep -qE "(GPUS_PER_NODE|NPUS_PER_NODE)=(2|1)" {} \; \
+    -exec grep -qE "(NPUS_PER_NODE|NPUS_PER_NODE)=(2|1)" {} \; \
     -print | xargs -n 1 -P $MAX_PARALLEL -I {} bash -c '
 
     if [[ -f "$ERROR_FLAG" ]]; then

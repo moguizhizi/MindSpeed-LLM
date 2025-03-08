@@ -4,12 +4,12 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export HCCL_CONNECT_TIMEOUT=7200
 export HCCL_EXEC_TIMEOUT=5600
 
-GPUS_PER_NODE=16
+NPUS_PER_NODE=16
 MASTER_ADDR=localhost #主节点IP
 MASTER_PORT=6010
 NNODES=8
 NODE_RANK=0
-WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
+WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
@@ -17,11 +17,11 @@ TOKENIZER_MODEL="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
 TP=16
-PP=8
-NUM_LAYER=126
+PP=4
+NUM_LAYERS=62
 
 DISTRIBUTED_ARGS="
-    --nproc_per_node $GPUS_PER_NODE \
+    --nproc_per_node $NPUS_PER_NODE \
     --nnodes $NNODES \
     --node_rank $NODE_RANK \
     --master_addr $MASTER_ADDR \
@@ -31,11 +31,8 @@ DISTRIBUTED_ARGS="
 GPT_ARGS="
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
-    --num-layer-list 15,16,16,16,16,16,16,15 \
+    --num-layer-list 15,16,16,15 \
     --reuse-fp32-param \
-    --recompute-method block \
-    --recompute-granularity full \
-    --recompute-num-layers 12 \
     --overlap-grad-reduce \
     --overlap-param-gather \
     --use-distributed-optimizer \
@@ -49,7 +46,7 @@ GPT_ARGS="
     --use-fused-swiglu \
     --tokenizer-type PretrainedFromHF \
     --tokenizer-name-or-path ${TOKENIZER_MODEL} \
-    --num-layers ${NUM_LAYER} \
+    --num-layers ${NUM_LAYERS} \
     --hidden-size 16384 \
     --ffn-hidden-size 53248 \
     --num-attention-heads 128 \
@@ -116,4 +113,4 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     --distributed-backend nccl \
     --load ${CKPT_LOAD_DIR}
     --save ${CKPT_SAVE_DIR} \
-    | tee logs/train_llama31_mcore_405b_8k.log
+    | tee logs/train_llama31_mcore_200b_8k.log

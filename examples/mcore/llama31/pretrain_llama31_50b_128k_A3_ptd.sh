@@ -1,15 +1,16 @@
 #!/bin/bash
 export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
+export MULTI_STREAM_MEMORY_REUSE=1
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export HCCL_CONNECT_TIMEOUT=7200
 export HCCL_EXEC_TIMEOUT=5600
 
-GPUS_PER_NODE=16
+NPUS_PER_NODE=16
 MASTER_ADDR=localhost #主节点IP
 MASTER_PORT=6010
 NNODES=8
 NODE_RANK=0
-WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
+WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
@@ -17,11 +18,11 @@ TOKENIZER_MODEL="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
 TP=16
-PP=4
-NUM_LAYERS=62
+PP=1
+CP=4
 
 DISTRIBUTED_ARGS="
-    --nproc_per_node $GPUS_PER_NODE \
+    --nproc_per_node $NPUS_PER_NODE \
     --nnodes $NNODES \
     --node_rank $NODE_RANK \
     --master_addr $MASTER_ADDR \
@@ -31,13 +32,16 @@ DISTRIBUTED_ARGS="
 GPT_ARGS="
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
-    --num-layer-list 15,16,16,15 \
+    --context-parallel-size ${CP} \
+    --use-cp-send-recv-overlap \
     --reuse-fp32-param \
+    --swap-attention \
     --overlap-grad-reduce \
     --overlap-param-gather \
     --use-distributed-optimizer \
+    --context-parallel-algo megatron_cp_algo \
     --micro-batch-size 1 \
-    --global-batch-size 512 \
+    --global-batch-size 16 \
     --sequence-parallel \
     --use-flash-attn \
     --use-rotary-position-embeddings \
@@ -46,13 +50,13 @@ GPT_ARGS="
     --use-fused-swiglu \
     --tokenizer-type PretrainedFromHF \
     --tokenizer-name-or-path ${TOKENIZER_MODEL} \
-    --num-layers ${NUM_LAYERS} \
+    --num-layers 14 \
     --hidden-size 16384 \
     --ffn-hidden-size 53248 \
     --num-attention-heads 128 \
     --group-query-attention \
     --num-query-groups 16 \
-    --seq-length 8192 \
+    --seq-length 131072 \
     --rope-scaling-type llama3 \
     --rope-scaling-factor 8.0 \
     --low-freq-factor 1.0 \
@@ -72,6 +76,7 @@ GPT_ARGS="
     --swiglu \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
+    --kv-head-repeat-before-uly-alltoall \
     --lr 1.25e-6 \
     --train-iters 2000 \
     --lr-decay-style cosine \
@@ -90,7 +95,6 @@ GPT_ARGS="
     --no-shared-storage \
     --bf16 \
     --use-mcore-models \
-
 "
 
 DATA_ARGS="
@@ -111,6 +115,5 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $DATA_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
-    --load ${CKPT_LOAD_DIR}
     --save ${CKPT_SAVE_DIR} \
-    | tee logs/train_llama31_mcore_200b_8k.log
+    | tee logs/train_llama31_mcore_50b_128k.log

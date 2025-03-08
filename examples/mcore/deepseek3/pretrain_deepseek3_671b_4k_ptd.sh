@@ -5,12 +5,12 @@ export HCCL_CONNECT_TIMEOUT=3600
 export HCCL_ALGO="alltoall=level0:NA;level1:pipeline"
 export HCCL_BUFFSIZE=400
 
-GPUS_PER_NODE=8
+NPUS_PER_NODE=8
 MASTER_ADDR=localhost #主节点IP
 MASTER_PORT=6000
 NNODES=64
 NODE_RANK=0
-WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
+WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
@@ -29,7 +29,7 @@ MBS=1
 GBS=1024
 
 DISTRIBUTED_ARGS="
-    --nproc_per_node $GPUS_PER_NODE \
+    --nproc_per_node $NPUS_PER_NODE \
     --nnodes $NNODES \
     --node_rank $NODE_RANK \
     --master_addr $MASTER_ADDR \

@@ -6,13 +6,13 @@ export COMBINED_ENABLE=1
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export AZUREML_EXPERIMENT_ID=0
 
-GPUS_PER_NODE=8
+NPUS_PER_NODE=8
 # Change for multinode config
 MASTER_ADDR=localhost
 MASTER_PORT=6001
 NUM_NODES=1
 NODE_RANK=0
-WORLD_SIZE=$(($GPUS_PER_NODE*$NUM_NODES))
+WORLD_SIZE=$(($NPUS_PER_NODE*$NUM_NODES))
 
 DATA_PATH="your dataset path"
 VOCAB_FILE="vocab file for gpt"
@@ -22,7 +22,7 @@ TP=8
 PP=1
 
 DISTRIBUTED_ARGS="
-    --nproc_per_node $GPUS_PER_NODE \
+    --nproc_per_node $NPUS_PER_NODE \
     --nnodes $NUM_NODES \
     --master_addr $MASTER_ADDR \
     --master_port $MASTER_PORT \
