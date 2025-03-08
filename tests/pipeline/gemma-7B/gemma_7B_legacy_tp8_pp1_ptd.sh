@@ -29,7 +29,6 @@ GPT_ARGS="
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \
-    --use-mc2 \
     --use-fused-rmsnorm \
     --use-fused-rotary-pos-emb \
     --num-layers 28 \

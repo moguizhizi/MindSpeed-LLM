@@ -39,7 +39,6 @@ GPT_ARGS="
     --use-mcore-models \
     --micro-batch-size 1 \
     --global-batch-size 16 \
-    --use-mc2 \
     --use-flash-attn \
     --use-rotary-position-embeddings \
     --use-fused-rmsnorm \

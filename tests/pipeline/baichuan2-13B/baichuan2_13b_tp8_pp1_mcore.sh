@@ -34,7 +34,6 @@ GPT_ARGS="
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \
-    --use-mc2 \
     --num-layers 2 \
     --hidden-size 5120 \
     --ffn-hidden-size 13696 \
@@ -62,7 +61,6 @@ GPT_ARGS="
     --use-fused-rmsnorm \
     --use-flash-attn \
     --use-fused-swiglu \
-    --use-mc2 \
     --swiglu \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \

@@ -386,12 +386,6 @@ MindSpeed-LLM包含分布式预训练、分布式微调、分布式偏好对齐�
     <td>✅</td>
   </tr>
   <tr>
-    <td><a href="./docs/features/mc2.md">MC2</a></td>
-    <td>✅</td>
-    <td>✅</td>
-    <td>❌</td>
-  </tr>
-  <tr>
     <td><a href="./docs/features/communication-over-computation.md">CoC</a></td>
     <td>✅</td>
     <td>✅</td>

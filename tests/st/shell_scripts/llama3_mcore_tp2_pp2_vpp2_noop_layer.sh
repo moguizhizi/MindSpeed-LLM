@@ -33,7 +33,6 @@ GPT_ARGS="
     --micro-batch-size 1 \
     --global-batch-size 2 \
     --sequence-parallel \
-    --use-mc2 \
     --use-flash-attn \
     --use-rotary-position-embeddings \
     --use-fused-rotary-pos-emb \

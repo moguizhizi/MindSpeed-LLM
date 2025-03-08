@@ -69,7 +69,6 @@ GPT_ARGS="
     --use-fused-swiglu \
     --use-fused-rmsnorm \
     --no-check-for-nan-in-loss-and-grad \
-    --use-mc2 \
     --make-vocab-size-divisible-by 1 \
    
     --tensor-model-parallel-size ${TP} \

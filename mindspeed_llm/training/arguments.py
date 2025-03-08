@@ -479,8 +479,6 @@ def _add_fusion_op_args(parser):
                        help="Use new fused rotary-pos-emb.")
     group.add_argument("--use-fused-ring-attention-update", action='store_true',
                        help="Use fused ring attention update.")
-    group.add_argument("--use-mc2", action='store_true',
-                       help="Use mc2 for compute-comm overlap in tp.")
     group.add_argument("--use-fused-mlp", action='store_true',
                        help="Use fused mlp.")
     return parser
@@ -1139,8 +1137,6 @@ def _validate_transformer_block_build_layers(args):
         if args.first_k_dense_replace and args.num_layers <= args.first_k_dense_replace:
             raise AssertionError('Num-layer ({}) must be greater than first-k-dense-replace ({}) when first-k-dense-replace is set.'.format(args.num_layers,
             args.first_k_dense_replace))
-    if args.num_experts is not None and args.use_mc2 and args.moe_grouped_gemm:
-        raise AssertionError('Moe Grouped Gemm is not supported with mc2 in MOE model.')
 
     if args.num_layer_list:
         if len(args.num_layer_list.split(',')) != args.pipeline_model_parallel_size:
@@ -1149,9 +1145,6 @@ def _validate_transformer_block_build_layers(args):
             raise ValueError("Dynamic pipeline model should work with pipeline parallel.")
         if args.num_layers_per_virtual_pipeline_stage:
             raise ValueError("Dynamic pipeline model and virtual pipeline cannot be enabled at the same time.")
-
-    if args.use_mc2 and args.use_ascend_coc:
-        raise AssertionError('--mc2 and coc can not be used together')
 
 
 def _validate_group_limited_greedy(args):
@@ -1466,7 +1459,6 @@ def validate_args_decorator(megatron_validate_args):
         megatron_validate_args(args, defaults)
         _restore_variables(args, variable_dict)
 
-        args.use_mc2 = False
         args.use_legacy_models = not args.use_mcore_models
 
 

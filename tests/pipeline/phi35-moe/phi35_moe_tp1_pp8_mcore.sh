@@ -91,7 +91,6 @@ GPT_ARGS="
 OPTIM_ARGS="
     --use-distributed-optimizer \
     --use-flash-attn \
-    --use-mc2 \
     --use-fused-swiglu \
     --use-fused-rotary-pos-emb \
     --attention-softmax-in-fp32 \
