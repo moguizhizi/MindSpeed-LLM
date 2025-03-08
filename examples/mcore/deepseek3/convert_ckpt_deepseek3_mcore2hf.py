@@ -59,7 +59,8 @@ class MgCkptConvert(object):
         self.hf_save_path = hf_save_path
         self.lora_model_path = lora_model_path
         self.iter_path = self.get_iter_path(self.mg_model_path)
-        self.lora_iter_path = self.get_iter_path(self.lora_model_path)
+        if self.lora_model_path is not None:
+            self.lora_iter_path = self.get_iter_path(self.lora_model_path)
 
         if not os.path.exists(self.hf_save_path):
             os.makedirs(self.hf_save_path)
