@@ -171,6 +171,8 @@ class CoreAdaptation(MegatronAdaptationABC):
         self.coc_adaptation()
 
     def patch_core_distributed(self):
+        import megatron.core
+        megatron.core.jit.jit_fuser = dummy_jit
         from mindspeed.core.tensor_parallel.tp_2d.norm_factory import _allreduce_layernorm_grads_wrapper
         MegatronAdaptation.register('megatron.core.distributed.finalize_model_grads._allreduce_layernorm_grads',
                                     _allreduce_layernorm_grads_wrapper)
@@ -184,7 +186,6 @@ class CoreAdaptation(MegatronAdaptationABC):
                                     finalize_model_grads)
 
     def patch_fusions(self):
-        import megatron.core
         from mindspeed.core.fusions.fused_layer_norm import (FusedLayerNormAffineFunction, FastLayerNormFN)
         from mindspeed.core.fusions.fused_softmax import (is_kernel_available, ScaledUpperTriangMaskedSoftmax,
                                                           ScaledMaskedSoftmax, ScaledSoftmax, forward_fused_softmax)
@@ -210,8 +211,6 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.core.fusions.fused_bias_swiglu.SwiGLUFunction', SwiGLUFunction)
         MegatronAdaptation.register('megatron.core.fusions.fused_bias_swiglu.BiasSwiGLUFunction',
                                     BiasSwiGLUFunction)
-
-        megatron.core.jit.jit_fuser = dummy_jit
 
     def patch_core_models(self):
         from megatron.core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec

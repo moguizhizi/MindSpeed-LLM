@@ -32,7 +32,6 @@ GPT_ARGS="
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \
-
     --num-layers 40 \
     --hidden-size 5120 \
     --ffn-hidden-size 13696 \

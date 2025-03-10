@@ -70,7 +70,6 @@ GPT_ARGS="
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
     --use-fused-swiglu \
-
     --no-gradient-accumulation-fusion \
     --no-shared-storage \
     --micro-batch-size 1 \

@@ -92,8 +92,7 @@ GPT_ARGS="
     --no-save-rng \
     --no-shared-storage \
     --bf16 \
-    --use-mcore-models \
-
+    --use-mcore-models
 "
 
 DATA_ARGS="

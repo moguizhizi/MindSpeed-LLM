@@ -44,7 +44,6 @@ MOE_ARGS="
 
 GPT_ARGS="
     --num-workers 16 \
-
     --use-mcore-models \
     --disable-bias-linear \
     --seq-length 32768 \
@@ -64,7 +63,6 @@ GPT_ARGS="
     --num-query-groups 8 \
     --vocab-size 32000 \
     --rotary-base 1000000 \
-
     --no-masked-softmax-fusion \
     --use-fused-rotary-pos-emb \
     --use-flash-attn \
@@ -73,9 +71,7 @@ GPT_ARGS="
     --no-check-for-nan-in-loss-and-grad \
     --overlap-grad-reduce \
     --overlap-param-gather \
-
     --make-vocab-size-divisible-by 1 \
-   
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \

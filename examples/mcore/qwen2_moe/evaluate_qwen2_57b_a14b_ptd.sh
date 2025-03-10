@@ -73,8 +73,6 @@ torchrun $DISTRIBUTED_ARGS evaluation.py \
        --padded-vocab-size 151936 \
        --rotary-base 1000000 \
        --no-gradient-accumulation-fusion \
-       --attention-softmax-in-fp32 \
-       --input-layernorm-in-fp32 \
        --no-masked-softmax-fusion \
        --seed 42 \
        --group-query-attention \

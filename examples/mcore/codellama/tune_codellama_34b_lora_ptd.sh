@@ -64,7 +64,6 @@ GPT_ARGS="
     --use-fused-rotary-pos-emb \
     --use-rotary-position-embeddings \
     --use-fused-swiglu \
-
     --swiglu \
     --use-flash-attn \
     --group-query-attention \

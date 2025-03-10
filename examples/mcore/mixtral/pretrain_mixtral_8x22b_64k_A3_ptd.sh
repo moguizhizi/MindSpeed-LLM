@@ -71,7 +71,6 @@ GPT_ARGS="
     --no-check-for-nan-in-loss-and-grad \
     --overlap-grad-reduce \
     --overlap-param-gather \
-
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \

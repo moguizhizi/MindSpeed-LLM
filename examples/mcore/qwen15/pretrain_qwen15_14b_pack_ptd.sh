@@ -77,7 +77,6 @@ GPT_ARGS="
     --attention-softmax-in-fp32 \
     --no-shared-storage \
     --bf16 \
-
     --overlap-grad-reduce \
     --no-gradient-accumulation-fusion \
     --overlap-param-gather \

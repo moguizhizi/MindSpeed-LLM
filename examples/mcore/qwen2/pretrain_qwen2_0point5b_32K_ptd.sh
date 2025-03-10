@@ -70,7 +70,6 @@ GPT_ARGS="
     --use-fused-rotary-pos-emb \
     --use-rotary-position-embeddings \
     --use-fused-swiglu \
-
     --overlap-grad-reduce \
     --use-flash-attn \
     --no-masked-softmax-fusion \

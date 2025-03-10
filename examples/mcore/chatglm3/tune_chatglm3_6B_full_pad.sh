@@ -32,7 +32,6 @@ DISTRIBUTED_ARGS="
 GPT_ARGS="
     --use-mcore-models \
     --stage sft \
-
     --reuse-fp32-param \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \

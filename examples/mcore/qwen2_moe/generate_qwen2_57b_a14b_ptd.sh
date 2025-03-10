@@ -78,8 +78,6 @@ torchrun $DISTRIBUTED_ARGS inference.py \
        --max-new-tokens 256 \
        --no-gradient-accumulation-fusion \
        --exit-on-missing-checkpoint \
-       --attention-softmax-in-fp32 \
-       --input-layernorm-in-fp32 \
        --no-masked-softmax-fusion \
        --group-query-attention \
        --num-query-groups 4 \

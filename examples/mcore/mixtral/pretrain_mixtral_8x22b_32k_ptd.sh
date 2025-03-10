@@ -69,7 +69,6 @@ GPT_ARGS="
     --use-fused-swiglu \
     --use-fused-rmsnorm \
     --no-check-for-nan-in-loss-and-grad \
-
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --sequence-parallel \
