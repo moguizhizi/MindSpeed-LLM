@@ -471,7 +471,7 @@ MindSpeed-LLM包含分布式预训练、分布式微调、分布式偏好对齐�
     <td>【Ascend】</td>
   </tr>
   <tr>
-    <td><a href="./docs/features/multi-sample_pack_fine-tuning.md">多样本pack微调</td>
+    <td><a href="./docs/features/multi_sample_pack_fine_tuning.md">多样本pack微调</td>
     <td>✅</td>
     <td>✅</td>
     <td>✅</td>

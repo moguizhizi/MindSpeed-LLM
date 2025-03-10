@@ -1,7 +1,7 @@
 ### 长序列微调
 
 ## 数据集处理方法
-数据集处理方法同[**多样本pack微调**](multi-sample_pack_fine-tuning.md)。
+数据集处理方法同[**多样本pack微调**](multi_sample_pack_fine_tuning.md)。
 
 
 ## 启动长序列微调脚本
