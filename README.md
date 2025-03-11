@@ -367,7 +367,7 @@ MindSpeed-LLM包含分布式预训练、分布式微调、分布式偏好对齐�
     <td>✅</td>
   </tr>
   <tr>
-    <td rowspan="5">通信掩盖</td>
+    <td rowspan="5">通信优化</td>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/async-ddp-param-gather.md">梯度reduce通算掩盖</a></td>
     <td>✅</td>
     <td>✅</td>
@@ -387,6 +387,12 @@ MindSpeed-LLM包含分布式预训练、分布式微调、分布式偏好对齐�
   </tr>
   <tr>
     <td><a href="./docs/features/communication-over-computation.md">CoC</a></td>
+    <td>✅</td>
+    <td>✅</td>
+    <td>❌</td>
+  </tr>
+  <tr>
+    <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/hccl-replace-gloo.md">Ascend Gloo 存档落盘优化</a></td>
     <td>✅</td>
     <td>✅</td>
     <td>❌</td>

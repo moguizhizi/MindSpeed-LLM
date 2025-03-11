@@ -230,6 +230,10 @@ def _add_coc_args(parser):
                        help='coc parallel num')
     group.add_argument('--coc-fused-kernel', action='store_true',
                        help='use coc fused kernel')
+    group.add_argument('--disable-gloo-group', action='store_true',
+                       help='Replace the communication method of the DP group in the distributed optimizer from gloo to hccl.')
+    group.add_argument('--hccl-slice-size', type=int, default=10 * 1024 * 1024,
+                       help='data slice size on each dp rank in distributed optimizer')  
     return parser
 
 

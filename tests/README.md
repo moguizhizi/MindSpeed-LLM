@@ -595,7 +595,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="4"><a href="pipeline/llama2">Llama2</a></td>
+        <td rowspan="5"><a href="pipeline/llama2">Llama2</a></td>
         <td rowspan="1">Legacy</td>
         <td>LoRA</td>
         <td><a href="pipeline/llama2/tune_llama2_tp1_pp1_lora_ptd.sh">tune_llama2_tp1_pp1_lora_ptd.sh</a></td>
@@ -604,7 +604,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="3">Mcore</td>
+        <td rowspan="4">Mcore</td>
         <td>FullSFT</td>
         <td><a href="pipeline/llama2/tune_llama2_tp2_pp4_vpp2_mcore_full.sh">tune_llama2_tp2_pp4_vpp2_mcore_full.sh</a></td>
         <td>Y</td>
@@ -624,6 +624,13 @@
         <td>Y</td>
         <td></td>
         <td></td>
+    </tr>
+    <tr>
+        <td>pretrain</td>
+        <td><a href="pipeline/llama2/llama2_tp1_pp8_patch_gloo_ptd.sh">llama2_tp1_pp8_patch_gloo_ptd.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
     </tr>
     <tr>
         <td rowspan="5"><a href="pipeline/phi35-moe">Phi-3.5-MoE-instruct</a></td>
