@@ -141,11 +141,11 @@ CKPT_LOAD_DIR="./model_weights/qwen25-7b-mcore/"
 
 * `--padded-samples` 【可选参数】
 	
-	将样本总数凑成`batch-size`的整数倍（若与LlamaFatory对齐精度时可添加）。
+	将样本总数凑成`batch-size`的整数倍。
 
 * `--no-shuffle`【可选参数】
 	
-	数据顺序加载（若与LlamaFatory对齐精度时可添加）。
+	数据顺序加载。
 
 启动脚本：
 
