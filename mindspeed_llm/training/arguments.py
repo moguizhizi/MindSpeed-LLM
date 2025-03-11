@@ -1322,6 +1322,7 @@ def _add_dummy_args(args):
     args.use_pipe_experts = False
     args.megatron_cp_in_bnsd = False
     args.use_fusion_attn_v2 = False
+    args.npu_deterministic = False
 
 
 def _validate_noop_layer(args):
