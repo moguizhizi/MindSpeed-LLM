@@ -321,7 +321,6 @@ class CoreAdaptation(MegatronAdaptationABC):
         from mindspeed.core.transformer.moe.grouped_gemm_util import Ops, grouped_gemm_is_available, \
             get_device_capability, assert_grouped_gemm_is_available
         from mindspeed.core.transformer.transformer import core_mlp_forward_wrapper
-        from mindspeed.core.transformer.moe.moe_utils import permute, unpermute
         from mindspeed.core.transformer.moe.experts import group_mlp_forward
         from ..core.transformer.moe.moe_layer import moe_layer_init_wrapper, moe_layer_forward
         from ..core.transformer.transformer_block import _transformer_block_build_layers
@@ -398,6 +397,7 @@ class CoreAdaptation(MegatronAdaptationABC):
                                             aux_loss_load_balancing)
             elif args.moe_token_dispatcher_type == 'alltoall':
                 from mindspeed.core.transformer.moe.token_dispatcher import preprocess, alltoall_token_permutation
+                from mindspeed.core.transformer.moe.moe_utils import permute, unpermute
                 from mindspeed.core.transformer.moe.experts import sequential_mlp_forward
 
                 MegatronAdaptation.register('megatron.core.transformer.moe.experts.SequentialMLP.forward', sequential_mlp_forward)

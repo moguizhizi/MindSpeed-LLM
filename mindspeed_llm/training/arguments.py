@@ -1083,8 +1083,7 @@ def _validate_moe_args(args):
             raise AssertionError('shared expert gate output dimension can only be configured with 1 or hidden_size')
         if hasattr(args, 'use_fused_moe_token_permute_and_unpermute') and args.use_fused_moe_token_permute_and_unpermute:
             raise AssertionError('moe_expert_capacity_factor mode does not support use_fused_moe_token_permute_and_unpermute')
-    if args.moe_alltoall_overlap_comm:
-        if not args.moe_permutation_async_comm or not args.moe_grouped_gemm:
+    if args.moe_alltoall_overlap_comm and (not args.moe_permutation_async_comm or not args.moe_grouped_gemm):
             raise AssertionError(
                 '`--moe-alltoall-overlap-comm` or `--moe-allgather-overlap-comm` only support with `--moe-permutation-async-comm` and `--moe-grouped-gemm`.')
     if args.moe_alltoall_overlap_comm and not args.moe_token_dispatcher_type == 'alltoall':

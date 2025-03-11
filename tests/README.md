@@ -56,6 +56,14 @@
     </tr>
     <tr>
         <td>Mcore</td>
+        <td>n_group,seq_aux, gradient_accumulation_fusion, recompute_mtp_layer, recompute_mtp_norm</td>
+        <td><a href="st/shell_scripts/deepseek_v3_mcore_tp1_pp2_ep4.sh">deepseek_v3_mcore_tp1_pp2_ep4.sh</a></td>
+        <td>Y</td>
+        <td>Y</td>
+        <td>Y</td>
+    </tr>
+    <tr>
+        <td>Mcore</td>
         <td>pp2vpp，recompute_in_advance，matmul_add</td>
         <td><a href="st/shell_scripts/llama3_tp2_pp2_vpp1.sh">llama3_tp2_pp2_vpp1.sh</a></td>
         <td>Y</td>
