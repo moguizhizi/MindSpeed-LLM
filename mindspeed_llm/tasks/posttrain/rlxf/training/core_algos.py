@@ -32,11 +32,6 @@ logger = Loggers()
 
 
 class AdaptiveKLController:
-    """
-    Adaptive KL controller described in the paper:
-    https://arxiv.org/pdf/1909.08593.pdf
-    """
-
     def __init__(self, init_kl_coef, target_kl, horizon):
         self.value = init_kl_coef
         self.target = target_kl
@@ -61,8 +56,7 @@ class FixedKLController:
 
 def compute_gae_advantage_return(token_level_rewards: torch.Tensor, values: torch.Tensor, eos_mask: torch.Tensor,
                                  gamma: torch.Tensor, lam: torch.Tensor):
-    """Adapted from https://github.com/huggingface/trl/blob/main/trl/trainer/ppo_trainer.py
-
+    """
     Args:
         token_level_rewards: `(torch.Tensor)`
             shape: (bs, response_length)
@@ -73,7 +67,7 @@ def compute_gae_advantage_return(token_level_rewards: torch.Tensor, values: torc
         gamma: `(float)`
             discounted factor used in RL
         lam: `(float)`
-            lambda value when computing Generalized Advantage Estimation (https://arxiv.org/abs/1506.02438)
+            lambda value when computing Generalized Advantage Estimation
 
     Returns:
         advantages: `(torch.Tensor)`
@@ -116,7 +110,7 @@ def compute_group_norm_advantage_return(
         gamma: `(float)`
             discounted factor used in RL
         lam: `(float)`
-            lambda value when computing Generalized Advantage Estimation (https://arxiv.org/abs/1506.02438)
+            lambda value when computing Generalized Advantage Estimation
 
 
     Returns:
@@ -154,7 +148,7 @@ def compute_policy_loss(old_log_prob, log_prob, advantages, eos_mask, cliprange)
         eos_mask: `(torch.Tensor)`
             shape: (bs, response_length)
         cliprange: (float)
-            The clip range used in PPO. See https://arxiv.org/abs/1707.06347
+            The clip range used in PPO.
 
     Returns:
         pg_loss: `a scalar torch.Tensor`
@@ -189,7 +183,7 @@ def compute_grpo_policy_loss(old_log_prob, log_prob, ref_log_prob, advantages, e
         eos_mask: `(torch.Tensor)`
             shape: (bs, response_length)
         cliprange: (float)
-            The clip range used in PPO. See https://arxiv.org/abs/1707.06347
+            The clip range used in PPO.
 
     Returns:
         pg_loss: `a scalar torch.Tensor`

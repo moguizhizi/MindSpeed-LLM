@@ -56,10 +56,10 @@ def group_limited_topk(
     Two common use cases:
     - Device-limited routing: Set 'moe_router_num_groups' equal to expert parallel size (EP)
       to limit each token to experts on a subset of devices
-      (See DeepSeek-V2: https://arxiv.org/pdf/2405.04434)
+
     - Node-limited routing: Set 'moe_router_num_groups' equal to number of nodes in EP group
       to limit each token to experts on a subset of nodes
-      (See DeepSeek-V3: https://arxiv.org/pdf/2412.19437)
+
 
     Args:
         scores (torch.Tensor): Softmax scores from the router.
@@ -224,7 +224,7 @@ def track_moe_metrics_wrapper(fn):
 
 
 def get_updated_expert_bias(tokens_per_expert, expert_bias, expert_bias_update_rate):
-    """Update expert bias for biased expert routing. See https://arxiv.org/abs/2408.15664v1#
+    """Update expert bias for biased expert routing.
     Args:
         tokens_per_expert (torch.Tensor): The number of tokens assigned to each expert.
         expert_bias (torch.Tensor): The bias for each expert.
