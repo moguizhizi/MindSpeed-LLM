@@ -680,10 +680,13 @@ class R1AlpacaStyleInstructionHandler(BaseDatasetHandler):
         else:
             messages = example["prompt"] + example["response"]
 
-        for source_ids, target_ids in self.llama_factory_template.encode_multiturn(
-                tokenizer, messages, example["system"][0], example["tools"][0]
-        ):
-            input_ids += source_ids
+        multiturn_input_ids = self.llama_factory_template.encode_multiturn(
+                tokenizer, messages, example["system"][0], example["tools"][0])
+
+        turns = len(multiturn_input_ids)
+
+        for turn_idx, (source_ids, target_ids) in enumerate(multiturn_input_ids):
+            input_ids += source_ids if turn_idx == turns - 1 else source_ids + target_ids
 
         model_inputs["input_ids"] = input_ids
         model_inputs["attention_mask"] = [1] * len(input_ids)

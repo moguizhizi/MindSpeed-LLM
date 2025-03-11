@@ -34,7 +34,7 @@ TUNE_ARGS="
     --is-instruction-dataset \
     --tokenizer-not-use-fast \
     --variable-seq-lengths \
-    --prompt-type qwen_r1_box \
+    --prompt-type qwen_r1 \
 "
 
 GPT_ARGS="

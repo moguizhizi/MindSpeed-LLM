@@ -11,4 +11,4 @@ python ./preprocess_data.py \
 --workers 4 \
 --log-interval 1000 \
 --map-keys '{"prompt":"problem", "query":"", "response":"reannotated_assistant_content"}'  \
---prompt-type qwen
+--prompt-type qwen_r1

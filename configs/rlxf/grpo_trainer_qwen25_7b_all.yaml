@@ -3,7 +3,7 @@ defaults:
       - qwen25-7b
 
 training:
-  global_batch_size: 4
+  global_batch_size: 80
   seq_length: 4096
   tokenizer_type: PretrainedFromHF
   tokenizer_name_or_path: ./models/Qwen2.5-7B-Instruct
@@ -28,8 +28,8 @@ actor_rollout_ref:
     model: qwen25-7b
     do_sample: true
     micro_batch_size: 2
-    ppo_mini_batch_size: 4
-    num_samples_per_step: 2
+    ppo_mini_batch_size: 80
+    num_samples_per_step: 1
     temperature: 1.0
     max_prompt_length: 2048
     max-tokens-to-oom: 999999
@@ -38,7 +38,7 @@ actor_rollout_ref:
     entropy_coeff: 0.001
     shuffle_minibatch: false
     use_kv_cache: true
-    tensor_model_parallel_size: 1
+    tensor_model_parallel_size: 2
     pipeline_model_parallel_size: 4
     lr: 1e-6
     lr_decay_style: constant
@@ -48,29 +48,29 @@ actor_rollout_ref:
     clip_grad: 10000.0
     initial_loss_scale: 4096
     finetune: true
-    load: ./models/Qwen2.5-7B-Instruct-tp1-pp4
+    load: ./models/Qwen2.5-7B-Instruct-tp2-pp4
     save: ./models/Qwen2.5-7B-Instruct-R1-Zero
-    num_gpus_for_train: 4
-    num_gpus_for_infer: 2
-    data_path: 1,./dataset/pe_nlp,1,./dataset/firefly
+    num_gpus_for_train: 8
+    num_gpus_for_infer: 40
+    data_path: 1,./dataset/pe_nlp,1,./dataset/dpo_en_zh
     dataset_category: 1,0
     split: 100,0,0
-    n_samples_per_prompt: 2
+    n_samples_per_prompt: 4
 
   ref:
     model: qwen25-7b
-    tensor_model_parallel_size: 1
-    pipeline_model_parallel_size: 1
-    micro_batch_size: 2
-    load: ./models/Qwen2.5-7B-Instruct-tp1-pp1/
+    tensor_model_parallel_size: 2
+    pipeline_model_parallel_size: 4
+    micro_batch_size: 8
+    load: ./models/Qwen2.5-7B-Instruct-tp2-pp4/
 
 reward:
   model: qwen25-7b
   verifier: true
-  tensor_model_parallel_size: 1
-  pipeline_model_parallel_size: 1
-  micro_batch_size: 2
-  load: ./models/Qwen2.5-7B-reward_500iter_tp1pp1/
+  tensor_model_parallel_size: 4
+  pipeline_model_parallel_size: 2
+  micro_batch_size: 8
+  load: ./models/Qwen2.5-7B-reward_tp4pp2/
 
 algorithm:
   gamma: 1.0
@@ -86,6 +86,7 @@ algorithm:
   advantage_whiten: False
 
 resource_pool:
-  actor_rollout: [6]
-  ref: [1]
-  reward: [1]
+  actor_rollout: [8,8,8,8,8,8]
+  ref: [8]
+  reward: [8]
+
