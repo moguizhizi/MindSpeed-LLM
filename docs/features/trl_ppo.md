@@ -91,12 +91,11 @@ critic 日志说明:
 
 ## 目前局限
 
-- 1、4模型只支持同类同参数模型
-- 2、只支持tp、pp、dp
-- 3、4模型tp、pp、dp需一致
-- 4、梯度累积、rollout_batch_size、ppo_epoch未支持
-- 5、更多观测指标的日志未支持
-- 6、val/test数据集评估未支持
+- 1、4模型只支持同类同参数模型 
+- 2、不支持cp、vpp 
+- 3、4模型tp、pp、dp、ep需一致 
+- 4、ppo_epoch未支持 
+- 5、val/test数据集评估未支持
 
 该版本为demo版本，待进一步功能完善。  
 
