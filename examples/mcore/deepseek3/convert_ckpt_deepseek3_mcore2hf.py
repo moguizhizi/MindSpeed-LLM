@@ -343,7 +343,7 @@ class MgCkptConvert(object):
         """ dense + moe """
 
         def _generate_moe_layer_key(local_idx, mtp_flag):
-            prefix = f"mtp_layers.{local_idx}" if mtp_flag else f"decoder.layers.{local_layer_idx}"
+            prefix = f"mtp_layers.{local_idx}.transformer_layer" if mtp_flag else f"decoder.layers.{local_layer_idx}"
 
             router_key = f"{prefix}.mlp.router.weight"
             router_bias_key = f"{prefix}.mlp.router.expert_bias"
