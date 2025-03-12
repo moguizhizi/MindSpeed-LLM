@@ -299,8 +299,9 @@ class CkptConvert(object):
                     self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, f"mtp_layers.{mtp_layer_idx}.eh_proj.weight",
                                          eh_proj_lst[tp_rank].clone())
 
-            if not self.share_mtp_embedding_and_output_weight or self.vpp_stage is not None:
-                mg_model[ep_rank][tp_rank][f"mtp_layers.{mtp_layer_idx}.embedding.word_embeddings.weight"] = emb_lst[tp_rank].clone()
+                if not self.share_mtp_embedding_and_output_weight or self.pp_size > 1:
+                    mg_model[ep_rank][tp_rank][f"mtp_layers.{mtp_layer_idx}.embedding.word_embeddings.weight"] = \
+                    emb_lst[tp_rank].clone()
 
     def set_mtp_postprocess(self, hf_layer_idx, mtp_layer_idx, weights_dict, mg_model):
         """MTP layer postprocess"""
@@ -702,7 +703,7 @@ def get_args():
     parser.add_argument('--moe-grouped-gemm', action='store_true',
                         help='Usr moe grouped gemm.')
     parser.add_argument("--noop-layers", type=str, default=None, help='Specity the noop layers.')
-    parser.add_argument('--num-nextn-predict-layers', type=int, default=1, help='Multi-Token prediction layer num')
+    parser.add_argument('--num-nextn-predict-layers', type=int, default=0, help='Multi-Token prediction layer num')
     parser.add_argument('--num-layer-list', type=str,
                         help='a list of number of layers, seperated by comma; e.g., 4,4,4,4')
     parser.add_argument('--num-layers', type=int, default=61,
