@@ -266,7 +266,7 @@ def gpt_model_forward(self, input_ids: Tensor,
     # Multi token predication module
     if args.num_nextn_predict_layers and self.training:
         if not self.share_embeddings_and_output_weights and self.share_mtp_embedding_and_output_weight:
-            output_weight = self.output_layer.weight.detach()
+            output_weight = self.output_layer.weight
             output_weight.zero_out_wgrad = True
         embedding_weight = self.shared_embedding_weight() if self.share_mtp_embedding_and_output_weight else None
         for i in range(args.num_nextn_predict_layers):
