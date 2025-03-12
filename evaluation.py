@@ -43,6 +43,7 @@ from mindspeed_llm.tasks.evaluation.eval_impl.ceval_exam import CEvalExam
 from mindspeed_llm.tasks.evaluation.eval_impl.bbh_eval import BBHEval
 from mindspeed_llm.tasks.evaluation.eval_impl.agi_eval import AGIEvalExam
 from mindspeed_llm.tasks.evaluation.eval_impl.human_eval import HumanEval
+from mindspeed_llm.tasks.evaluation.eval_impl.cmmlu_eval import CmmluEval
 from mindspeed_llm.tasks.evaluation.eval_impl.needlebench_eval import NeedleBenchEval
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
@@ -201,6 +202,24 @@ def mmlu(eval_args, agent):
     return answer, score_df
 
 
+def cmmlu(eval_args, agent):
+    data_path = None
+    answer = None 
+    score_df = None
+    for path in eval_args.task_data_path:
+        if 'cmmlu' in path:
+            data_path = path
+    try:
+        if data_path:
+            cmmlu_eval = CmmluEval(test_dir=data_path, eval_args=eval_args)
+            answer, score_df = cmmlu_eval.eval(chat=agent)
+            if dist.get_rank() == 0:
+                logger.info('\n{}'.format(score_df))
+    except Exception as e:
+        logger.info(e)
+    return answer, score_df
+
+
 def needlebench(eval_args, agent):
     data_path = None
     for path in eval_args.task_data_path:
@@ -347,6 +366,11 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name_or_path, trust_remote_code=True, local_files_only=True)
 
     rank = dist.get_rank()
+    if 'cmmlu' in args.task:
+        a = time.time()
+        cmmlu(args, LLMChat(args, model, tokenizer))
+        if rank == 0:
+            logger.info(f'CMMLU Running Time:, {time.time() - a}')
     if 'mmlu' in args.task:
         a = time.time()
         mmlu(args, LLMChat(args, model, tokenizer))

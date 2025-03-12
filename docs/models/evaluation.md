@@ -125,3 +125,4 @@ bash examples/legacy/llama2/evaluate_llama2_7B_lora_mmlu_ptd.sh
 
 ## 评估介绍
 [mmlu评估介绍](../../docs/features/mmlu-evalution.md)
+[cmmlu评估介绍](../../docs/features/cmmlu-evalution.md)

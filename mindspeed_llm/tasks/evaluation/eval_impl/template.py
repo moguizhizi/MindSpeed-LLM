@@ -23,6 +23,7 @@ cur_file_dir = Path(__file__).absolute().parent
 
 GSM8K_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/gsm8k_3shot_template.json")
 MMLU_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/mmlu_5shot_template.json")
+CMMLU_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/cmmlu_5shot_template.json")
 CEVAL_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/ceval_5shot_template.json")
 AGIEVAL_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/AGI_fewshot.json")
 BBH_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/bbh_template.json")

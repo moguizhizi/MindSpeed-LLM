@@ -166,4 +166,6 @@ def postprocess(text: str, options: str, gold: str, origin_postprocess: bool, cu
             for option in options:
                 if option in outputs:
                     return option
+    
+    # If there is no match result, return nothing
     return ''
