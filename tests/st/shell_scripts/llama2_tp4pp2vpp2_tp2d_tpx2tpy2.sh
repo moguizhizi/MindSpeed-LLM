@@ -13,7 +13,6 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
 
-CKPT_SAVE_DIR="./ckpt"
 DATA_PATH="/data/pretrain_dataset/alpaca_text_document"
 TOKENIZER_MODEL="/data/llama-2-7b-hf/tokenizer.model"
 CKPT_LOAD_DIR="/data/llama2-2dtp-tp4pp2vp2tpx2tpy2"

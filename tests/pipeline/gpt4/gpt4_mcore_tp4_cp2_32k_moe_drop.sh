@@ -106,7 +106,6 @@ CKPT_ARGS="
     --no-save-optim \
     --no-save-rng \
     --seed 1234 \
-    --save ${CKPT_SAVE_DIR}
 "
 
 OUTPUT_ARGS="
