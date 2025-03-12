@@ -96,7 +96,7 @@
     </tr>
     <tr>
         <td>Mcore</td>
-        <td>mla_attention，moe_grouped_gemm，EP，allgather_dispatcher，use_fused_rotary_pos_emb_new</td>
+        <td>mla_attention，moe_grouped_gemm，EP，allgather_dispatcher，use_fused_rotary_pos_emb_new，recompute_norm</td>
         <td><a href="st/shell_scripts/deepseek_v2_mcore_tp1_pp1_ep8.sh">deepseek_v2_mcore_tp1_pp1_ep8.sh</a></td>
         <td>Y</td>
         <td>Y</td>
@@ -120,7 +120,7 @@
     </tr>
     <tr>
         <td>Mcore</td>
-        <td>noop_layers</td>
+        <td>noop_layers， recompute_norm</td>
         <td><a href="st/shell_scripts/llama3_mcore_tp2_pp2_vpp2_noop_layer.sh">llama3_mcore_tp2_pp2_vpp2_noop_layer.sh</a></td>
         <td>Y</td>
         <td>Y</td>

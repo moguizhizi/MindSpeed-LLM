@@ -234,7 +234,7 @@ MindSpeed-LLM包含分布式预训练、分布式微调、分布式偏好对齐�
     <td>✅</td>
     <td>✅</td>
     <td>✅</td>
-    <td rowspan="28">【Ascend】</td>
+    <td rowspan="29">【Ascend】</td>
   </tr>
   <tr>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/pipeline-parallel.md">流水线并行</a></td>
@@ -293,7 +293,7 @@ MindSpeed-LLM包含分布式预训练、分布式微调、分布式偏好对齐�
     <td>✅</td>
   </tr>
   <tr>
-    <td rowspan="5">显存优化</td>
+    <td rowspan="6">显存优化</td>
     <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/reuse-fp32-param.md">参数副本复用</a></td>
     <td>✅</td>
     <td>✅</td>
@@ -315,6 +315,12 @@ MindSpeed-LLM包含分布式预训练、分布式微调、分布式偏好对齐�
     <td><a href="./docs/features/recompute_relative.md">重计算</a></td>
     <td>✅</td>
     <td>✅</td>
+    <td>✅</td>
+  </tr>
+  <tr>
+    <td><a href="https://gitee.com/ascend/MindSpeed/blob/master/docs/features/norm-recompute.md">Norm重计算</a></td>
+    <td>✅</td>
+    <td>❌</td>
     <td>✅</td>
   </tr>
   <tr>

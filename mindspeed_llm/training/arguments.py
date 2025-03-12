@@ -542,6 +542,10 @@ def _add_algorithm_args(parser):
                             'and "--recompute-num-layers". ')
     group.add_argument('--recompute-in-advance', action='store_true',
                        help='recompute early to reduce bubble and improve training.')
+    group.add_argument('--recompute-norm', action='store_true',
+                       help='Recompute norm in Transformer Layers')
+    group.add_argument('--recompute-norm-num-layers', type=int, default=None,
+                       help='Recompute norm num layers, can be used together with activation function recompute. ')
     group.add_argument('--o2-optimizer', action='store_true',
                        help='use bf16 exponential moving average to greatly save up memory.')
     group.add_argument('--o2-gradient', action='store_true',
@@ -1022,7 +1026,15 @@ def _validate_recompute_args(args):
             raise AssertionError('uniform recomputation is not compatible with activation function recomputation.')
         if args.recompute_granularity == "selective":
             raise AssertionError('--recompute-activation-function is not compatible with selective recomputation.')
-
+        
+    if args.recompute_norm:
+        if args.recompute_method == "uniform":
+            raise AssertionError('uniform recomputation is not compatible with norm recomputation.')
+        if args.recompute_granularity == "selective":
+            raise AssertionError('--recompute-norm is not compatible with selective recomputation')
+        if not args.use_mcore_models:
+            raise AssertionError('--recompute-norm is only supported with mcore models')
+        
     if args.swap_attention and args.swap_modules is None:
         if args.use_mcore_models:
             args.swap_modules = "input_layernorm,self_attention,pre_cross_attn_layernorm"

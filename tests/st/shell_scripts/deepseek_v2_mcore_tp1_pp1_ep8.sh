@@ -72,6 +72,8 @@ ROPE_ARGS="
 "
 
 GPT_ARGS="
+    --recompute-norm \
+    --recompute-norm-num-layers 2 \
     --load $CKPT_LOAD_DIR \
     --use-distributed-optimizer \
     --use-flash-attn \

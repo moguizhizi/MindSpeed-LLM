@@ -26,6 +26,8 @@ DISTRIBUTED_ARGS="
 
 GPT_ARGS="
     --noop-layers 1,15 \
+    --recompute-norm \
+    --recompute-norm-num-layers 8 \
     --num-layers-per-virtual-pipeline-stage 2 \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \

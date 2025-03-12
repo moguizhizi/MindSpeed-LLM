@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import types
 from contextlib import nullcontext
 from functools import wraps
 
@@ -29,6 +30,8 @@ from mindspeed.core.transformer.transformer_block import NoopTransformerLayer, _
 from mindspeed.core.tensor_parallel.comm_autograd_function import auto_grad_sync_gather_along_last_dim, \
     auto_grad_sync_gather_along_first_dim
 from mindspeed.core.tensor_parallel.comm_group_api import TPXCollectiveComm, TPYCollectiveComm
+from mindspeed.core.transformer.transformer import norm_recompute_forward
+from mindspeed.model.transformer import should_recompute_norm
 
 
 def get_num_layers_to_build_wrapper(fn):
@@ -110,6 +113,14 @@ def _transformer_block_build_layers(self):
         )
     else:
         self.final_layernorm = None  # Either this or nn.Identity
+    
+    # For recompute norm
+    if args.recompute_norm:
+        for layer in self.layers:
+            if isinstance(layer, NoopTransformerLayer):
+                continue
+            if should_recompute_norm(layer):
+                layer.forward = types.MethodType(norm_recompute_forward, layer)
 
 
 def transformer_block_checkpointed_forward_wrapper(forward_func):
