@@ -46,6 +46,7 @@ MOE_ARGS="
     --moe-permutation-async-comm \
     --moe-grouped-gemm \
     --moe-token-dispatcher-type allgather \
+    --moe-allgather-overlap-comm \
     --first-k-dense-replace 1 \
     --moe-layer-freq 1 \
     --n-shared-experts 2 \

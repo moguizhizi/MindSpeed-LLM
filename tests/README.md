@@ -96,7 +96,7 @@
     </tr>
     <tr>
         <td>Mcore</td>
-        <td>mla_attention，moe_grouped_gemm，EP，allgather_dispatcher，use_fused_rotary_pos_emb_new，recompute_norm</td>
+        <td>mla_attention，moe_grouped_gemm，EP，allgather_dispatcher，moe_allgather_overlap_comm，use_fused_rotary_pos_emb_new，recompute_norm</td>
         <td><a href="st/shell_scripts/deepseek_v2_mcore_tp1_pp1_ep8.sh">deepseek_v2_mcore_tp1_pp1_ep8.sh</a></td>
         <td>Y</td>
         <td>Y</td>

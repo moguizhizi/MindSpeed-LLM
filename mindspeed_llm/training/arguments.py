@@ -233,7 +233,7 @@ def _add_coc_args(parser):
     group.add_argument('--disable-gloo-group', action='store_true',
                        help='Replace the communication method of the DP group in the distributed optimizer from gloo to hccl.')
     group.add_argument('--hccl-slice-size', type=int, default=10 * 1024 * 1024,
-                       help='data slice size on each dp rank in distributed optimizer')  
+                       help='data slice size on each dp rank in distributed optimizer')
     return parser
 
 
@@ -423,6 +423,8 @@ def _add_moe_args(parser):
     group.add_argument('--moe-zero-memory-num-layers', type=int, default=None,
                        help='the number of layers using moe-zero-memory level1'
                             'in each pp stage.')
+    group.add_argument('--moe-allgather-overlap-comm', action='store_true', default=False,
+                       help='moe_allgather_overlap_comm')
     return parser
 
 
@@ -1099,7 +1101,8 @@ def _validate_moe_args(args):
             raise AssertionError('shared expert gate output dimension can only be configured with 1 or hidden_size')
         if hasattr(args, 'use_fused_moe_token_permute_and_unpermute') and args.use_fused_moe_token_permute_and_unpermute:
             raise AssertionError('moe_expert_capacity_factor mode does not support use_fused_moe_token_permute_and_unpermute')
-    if args.moe_alltoall_overlap_comm and (not args.moe_permutation_async_comm or not args.moe_grouped_gemm):
+    if args.moe_alltoall_overlap_comm or args.moe_allgather_overlap_comm:
+        if not args.moe_permutation_async_comm or not args.moe_grouped_gemm:
             raise AssertionError(
                 '`--moe-alltoall-overlap-comm` or `--moe-allgather-overlap-comm` only support with `--moe-permutation-async-comm` and `--moe-grouped-gemm`.')
     if args.moe_alltoall_overlap_comm and not args.moe_token_dispatcher_type == 'alltoall':
@@ -1117,6 +1120,10 @@ def _validate_moe_args(args):
         raise AssertionError('`--moe-zero-memory` only supports `--moe-alltoall-overlap-comm` for now.')
     if args.moe_zero_memory != "disable" and args.recompute_method is not None:
         raise AssertionError('`--moe-zero-memory` does not support full recomputation for now.')
+    if args.moe_allgather_overlap_comm and not args.moe_token_dispatcher_type == 'allgather':
+        raise AssertionError('`--moe-allgather-overlap-comm` only support with `--moe-token-dispatcher-type allgather`.')
+    if args.moe_allgather_overlap_comm and not args.tensor_model_parallel_size > 1 and not args.expert_model_parallel_size > 1:
+        raise AssertionError('`--moe_allgather_overlap_comm` requires enabling tp or ep.')
     if args.shared_expert_gate and args.gradient_accumulation_fusion:
         raise AssertionError('args.shared_expert_gate does not support gradient_accumulation_fusion.')
 
@@ -1319,7 +1326,6 @@ def _add_dummy_args(args):
     args.adaptive_recompute_profiling_step = 10
     args.recompute_in_bubble = False
     args.use_nanopipe = False
-    args.moe_allgather_overlap_comm = False
     args.moe_without_activation = False
     args.disable_gloo_group = None
     args.ampipe_degree = 0

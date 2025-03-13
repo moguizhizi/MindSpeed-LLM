@@ -14,6 +14,7 @@ from megatron.core.transformer.moe.experts import GroupedMLP, SequentialMLP
 from megatron.core.transformer.moe.moe_utils import save_to_aux_losses_tracker
 from megatron.training import get_args
 from mindspeed.core.transformer.moe.moe_layer_overlap_all2all import MoELayerOverlapAll2All
+from mindspeed.core.transformer.moe.moe_layer_overlap_allgather import MoELayerOverlapAllGather
 
 
 def moe_layer_init_wrapper(init_func):
@@ -61,6 +62,8 @@ def moe_layer_forward(self, hidden_states: torch.Tensor):
     global_args = get_args()
     if global_args.moe_token_dispatcher_type == 'alltoall' and global_args.moe_alltoall_overlap_comm:
         return MoELayerOverlapAll2All.apply(hidden_states, self)
+    if global_args.moe_token_dispatcher_type == 'allgather' and global_args.moe_allgather_overlap_comm:
+        return MoELayerOverlapAllGather.apply(hidden_states, self)
 
     # process MoE
     scores, indices = self.router(hidden_states)
