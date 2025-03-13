@@ -20,12 +20,19 @@ HIDDEN_SIZE = 7168
 NUM_EXPERTS = 256
 MTP_LAYER_INDEX = 61
 Q_LORA_RANK = 1536
+TENSOR_SIZE = 0
 file_idx = 1
 hf_weight_dict = defaultdict()
 
 
 def load_data(file_path):
     return torch.load(file_path, map_location='cpu')
+
+
+def tensor_memory_size(tensor):
+    if tensor is None:
+        return 0
+    return tensor.element_size() * tensor.numel()
 
 
 class MgCkptConvert(object):
@@ -527,6 +534,7 @@ class MgCkptConvert(object):
 
     def save_safetensors(self, hf_dict, cur_file_idx):
         """保存safetensors文件"""
+        global TENSOR_SIZE
         num_dense_file = 0
         noop_layers = len(list(map(int, self.noop_layers.split(",")))) if self.noop_layers else 0
         num_moe = self.num_layers - self.first_k_dense_replace - noop_layers
@@ -536,9 +544,11 @@ class MgCkptConvert(object):
         safetensors_file_name = f"model-{cur_file_idx:05d}-of-{num_files:06d}.safetensors"
         for key in hf_dict.keys():
             self.model_index[key] = safetensors_file_name
+            TENSOR_SIZE += tensor_memory_size(hf_dict[key])
 
         logger.info(f"Saving to {safetensors_file_name}")
-        safetensors.torch.save_file(hf_dict, os.path.join(self.hf_save_path, safetensors_file_name))
+        safetensors.torch.save_file(hf_dict, os.path.join(self.hf_save_path, safetensors_file_name),
+                                    metadata={"format": "pt"})
 
     def read_cur_pp_weights(self, pp_rank, mg_models):
         """获得当前pp_rank的所有权重"""
@@ -638,7 +648,7 @@ class MgCkptConvert(object):
 
         model_index_file_path = os.path.join(self.hf_save_path, "model.safetensors.index.json")
         with open(model_index_file_path, 'w', encoding='utf-8') as json_file:
-            json.dump({"weight_map": self.model_index}, json_file, indent=4)
+            json.dump({"metadata": {"total_size": TENSOR_SIZE}, "weight_map": self.model_index}, json_file, indent=4)
 
         logger.info("Done!")
 
