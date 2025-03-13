@@ -198,9 +198,7 @@ def generate_tokens_probs_and_return_on_first_stage(
                     pipeline_world_size = mpu.get_pipeline_model_parallel_world_size()
                     world_size = torch.distributed.get_world_size()
                     last_stage_first_rank = int((pipeline_world_size - 1) * world_size / pipeline_world_size)
-                    last_stage_ranks = list(range(last_stage_first_rank, last_stage_first_rank + int(world_size / pipeline_world_size)))
-                    last_stage_group = torch.distributed.new_group(ranks=last_stage_ranks)
-                    torch.distributed.broadcast(done, last_stage_first_rank, last_stage_group)                  
+                    torch.distributed.broadcast(done, last_stage_first_rank, mpu.get_tensor_and_data_parallel_group())                  
 
             if output_log_probs is None and not (getattr(args, "task", False) and args.task[0] == 'needlebench'):
                 output_log_probs = torch.empty(output_log_probs_size,
@@ -369,9 +367,7 @@ def beam_search_and_return_on_first_stage(
                     pipeline_world_size = mpu.get_pipeline_model_parallel_world_size()
                     world_size = torch.distributed.get_world_size()
                     last_stage_first_rank = int((pipeline_world_size - 1) * world_size / pipeline_world_size)
-                    last_stage_ranks = list(range(last_stage_first_rank, last_stage_first_rank + int(world_size / pipeline_world_size)))
-                    last_stage_group = torch.distributed.new_group(ranks=last_stage_ranks)
-                    torch.distributed.broadcast(done, last_stage_first_rank, last_stage_group)                     
+                    torch.distributed.broadcast(done, last_stage_first_rank, mpu.get_tensor_and_data_parallel_group())                      
 
             done = broadcast_from_last_pipeline_stage(1, torch.uint8, done)
             if done:
