@@ -401,7 +401,10 @@ class LinearNoTP(torch.nn.Linear):
         torch.random.manual_seed(current_seed)
 
     def forward(self, input_):
-        output = torch.matmul(input_, self.weight.t())
+        if hasattr(self.weight, "quant_state"):
+            output = bnb.matmul_4bit(input_, self.weight.t(), self.weight.quant_state, bias=self.bias)
+        else:
+            output = torch.matmul(input_, self.weight.t())
         return output
 
     def _save_to_state_dict(self, destination, prefix, keep_vars):
