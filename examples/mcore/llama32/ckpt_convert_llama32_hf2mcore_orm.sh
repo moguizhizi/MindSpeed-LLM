@@ -10,7 +10,7 @@ python convert_ckpt.py \
    --save-model-type mg \
    --params-dtype bf16 \
    --target-tensor-parallel-size 1 \
-   --target-pipeline-parallel-size 2 \
+   --target-pipeline-parallel-size 1 \
    --load-dir ./model_from_hf/llama32-hf-orm/ \
    --save-dir ./model_weights/llama32-mcore-orm/ \
    --tokenizer-model ./model_from_hf/llama32-hf/tokenizer.json \
