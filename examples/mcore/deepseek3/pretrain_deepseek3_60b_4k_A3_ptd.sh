@@ -15,10 +15,10 @@ DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
-TP=1
+TP=2
 PP=2
-VPP=1
-EP=64
+VPP=2
+EP=32
 CP=1
 CP_TYPE=ulysses_cp_algo
 NUM_LAYERS=8
@@ -61,10 +61,11 @@ MOE_ARGS="
     --topk-group 4 \
     --n-group 8 \
     --routed-scaling-factor 2.5 \
-    --moe-aux-loss-coeff 0.0001 \
+    --moe-aux-loss-coeff 0.001 \
     --norm-topk-prob \
     --moe-router-score-function sigmoid \
-    --moe-router-enable-expert-bias
+    --moe-router-enable-expert-bias \
+    --moe-tp-extend-ep \
 "
 
 MTP_ARGS="
@@ -93,7 +94,6 @@ GPT_ARGS="
     --sequence-parallel \
     --context-parallel-size ${CP} \
     --context-parallel-algo  ${CP_TYPE} \
-    --noop-layers 5,6,7 \
     --num-layers ${NUM_LAYERS} \
     --hidden-size 7168 \
     --ffn-hidden-size 18432 \
@@ -129,6 +129,8 @@ GPT_ARGS="
     --padded-vocab-size 129280 \
     --rotary-base 10000 \
     --norm-epsilon 1e-6 \
+    --manual-gc \
+    --manual-gc-interval 50 \
 "
 
 CKPT_ARGS="
@@ -180,4 +182,4 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS pretrain_gpt.py \
     $MOE_ARGS \
     $MTP_ARGS \
     --distributed-backend nccl \
-    | tee logs/pretrain_deepseek3_26b_4k_A3_ptd.log
+    | tee logs/pretrain_deepseek3_60b_4k_A3_ptd.log
