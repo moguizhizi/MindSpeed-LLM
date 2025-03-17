@@ -136,7 +136,10 @@ class WorkerGroup:
 
             try:
                 method = getattr(user_defined_cls, method_name)
-                assert callable(method), f"{method_name} in {user_defined_cls} is not callable"
+                if not callable(method):
+                    raise TypeError(
+                        f"{method_name} in {user_defined_cls} is not callable"
+                    )
             except Exception as e:
                 # if it is a property, it will fail because Class doesn't have instance property
                 continue
@@ -144,8 +147,15 @@ class WorkerGroup:
             if hasattr(method, MAGIC_ATTR):
                 # this method is decorated by register
                 attribute = getattr(method, MAGIC_ATTR)
-                assert isinstance(attribute, Dict), f'attribute must be a dictionary. Got {type(attribute)}'
-                assert 'dispatch_mode' in attribute, f'attribute must contain dispatch_mode in its key'
+                if not isinstance(attribute, dict):
+                    raise TypeError(
+                        f"Attribute must be a dictionary. Got {type(attribute)} for {method_name}"
+                    )
+                if 'dispatch_mode' not in attribute:
+                    raise KeyError(
+                        f"Attribute must contain 'dispatch_mode' key in {method_name}. "
+                        f"Found keys: {list(attribute.keys())}"
+                    )
 
                 dispatch_mode = attribute['dispatch_mode']
                 execute_mode = attribute['execute_mode']
@@ -158,9 +168,23 @@ class WorkerGroup:
                     dispatch_fn = fn['dispatch_fn']
                     collect_fn = fn['collect_fn']
                 else:
-                    assert isinstance(dispatch_mode, dict)
-                    assert 'dispatch_fn' in dispatch_mode
-                    assert 'collect_fn' in dispatch_mode
+                    if not isinstance(dispatch_mode, dict):
+                        raise TypeError(
+                            f"dispatch_mode must be dict type. Got {type(dispatch_mode)} "
+                            f"in {method_name}"
+                        )
+                    
+                    if 'dispatch_fn' not in dispatch_mode:
+                        raise KeyError(
+                            f"dispatch_mode requires 'dispatch_fn' key in {method_name}. "
+                            f"Found keys: {list(dispatch_mode.keys())}"
+                        )
+                    
+                    if 'collect_fn' not in dispatch_mode:
+                        raise KeyError(
+                            f"dispatch_mode requires 'collect_fn' key in {method_name}. "
+                            f"Found keys: {list(dispatch_mode.keys())}"
+                        )
                     dispatch_fn = dispatch_mode['dispatch_fn']
                     collect_fn = dispatch_mode['collect_fn']
 

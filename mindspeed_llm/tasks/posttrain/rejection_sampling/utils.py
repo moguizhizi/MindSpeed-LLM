@@ -16,7 +16,8 @@ def blending_datasets(
 ):
     datasets = datasets.split(",")
     probabilities = list(map(float, probabilities.split(",")))
-    assert len(probabilities) == len(datasets)
+    if len(probabilities) != len(datasets):
+        raise ValueError(f"Length of probabilities ({len(probabilities)}) must match the length of datasets ({len(datasets)})")
 
     train_data_list = []
     for i, dataset in enumerate(datasets):

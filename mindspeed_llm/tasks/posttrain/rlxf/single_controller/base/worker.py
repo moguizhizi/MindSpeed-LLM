@@ -100,7 +100,8 @@ class Worker(WorkerHelper):
         return instance
 
     def _configure_before_init(self, register_center_name: str, rank: int):
-        assert isinstance(rank, int), f"rank must be int, instead of {type(rank)}"
+        if not isinstance(rank, int):
+            raise TypeError(f"rank must be int, instead of {type(rank)}")
 
         if rank == 0:
             master_addr, master_port = self.get_availale_master_addr_port()
@@ -148,7 +149,11 @@ class Worker(WorkerHelper):
         """
         This function should only be called inside by WorkerGroup
         """
-        assert isinstance(meta, WorkerMeta)
+        if not isinstance(meta, WorkerMeta):
+            raise TypeError(
+                f"Invalid meta type: expected WorkerMeta, got {type(meta).__name__}. "
+                f"(Received value: {repr(meta)})"
+            )
         self.__dict__.update(meta.to_dict())  # this is hacky
         for key in WorkerMeta.keys:
             val = self.__dict__.get(f"_{key.lower()}", None)

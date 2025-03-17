@@ -253,7 +253,8 @@ class custom_multiplier(torch.autograd.Function):
 
 
 def sparsemixer_top2(self, scores, jitter_eps=0.01):
-    assert self.topk == 2
+    if self.topk != 2:
+        raise ValueError(f"Expected topk to be 2, but got {self.topk}.")
     ################ first expert ################
 
     with torch.no_grad():

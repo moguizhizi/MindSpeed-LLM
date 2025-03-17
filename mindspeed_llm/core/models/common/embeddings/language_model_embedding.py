@@ -103,12 +103,14 @@ def language_model_embedding_forward(self,
         embeddings = embeddings.transpose(0, 1).contiguous()
 
     if tokentype_ids is not None:
-        assert self.tokentype_embeddings is not None
+        if self.tokentype_embeddings is None:
+            raise ValueError("tokentype_embeddings should not be None when tokentype_ids are provided.")
         # [b s h] -> [s b h] (So that it can be added with embeddings)
         tokentype_embedding = self.tokentype_embeddings(tokentype_ids).permute(1, 0, 2)
         embeddings = embeddings + tokentype_embedding
     else:
-        assert self.tokentype_embeddings is None
+        if self.tokentype_embeddings is not None:
+            raise ValueError("tokentype_embeddings should be None when tokentype_ids are not provided.")
 
     # If the input flag for fp32 residual connection is set, convert for float.
     if self.config.fp32_residual_connection:

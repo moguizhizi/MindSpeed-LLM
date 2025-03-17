@@ -133,7 +133,8 @@ def load_checkpoint_loosely():
 def convert_token_to_id(token, tokenizer):
     if isinstance(token, str):
         token = tokenizer.encode(token, add_special_tokens=False)
-        assert len(token) == 1
+        if len(token) != 1:
+            raise ValueError(f"Expected token to have length 1, but got {len(token)}.")
         return token[0]
     else:
         raise ValueError("token should be int or str")

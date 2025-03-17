@@ -64,6 +64,7 @@ def masked_whiten(values, mask, shift_mean=True):
 
 
 def split_dict_tensor_into_batches(tensors: TensorDict, batch_size) -> List[TensorDict]:
-    assert tensors.batch_size[0] % batch_size == 0, \
-        f'input data batch size: {tensors.batch_size[0]}, split batch size: {batch_size}'
+    if tensors.batch_size[0] % batch_size != 0:
+        raise ValueError(f"Input data batch size: {tensors.batch_size[0]}, split batch size: {batch_size}. "
+                        f"Please ensure that the input batch size is divisible by the split batch size.")
     return tensors.split(batch_size)

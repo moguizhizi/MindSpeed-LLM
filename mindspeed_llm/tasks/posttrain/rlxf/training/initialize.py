@@ -165,9 +165,8 @@ def _initialize_distributed(two_megatron=False):
             else:
                 device = args.rank % device_count
                 if args.local_rank is not None:
-                    assert (
-                            args.local_rank == device
-                    ), "expected local-rank to be the same as rank % device-count."
+                    if args.local_rank != device:
+                        raise ValueError("expected local-rank to be the same as rank % device-count.")
                 else:
                     args.local_rank = device
                 torch.cuda.set_device(device)
@@ -201,8 +200,8 @@ def _initialize_distributed(two_megatron=False):
                 # It is a little tricky here, that both the training and inference nodes need to build the two groups.
                 TRAIN_SIZE = args.num_gpus_for_train
                 INFER_SIZE = args.num_gpus_for_infer
-                assert torch.distributed.get_world_size() == TRAIN_SIZE + INFER_SIZE, \
-                    "TRAIN_SIZE + INFER_SIZE should equal to total GPU num."
+                if torch.distributed.get_world_size() != TRAIN_SIZE + INFER_SIZE:
+                    raise ValueError("TRAIN_SIZE + INFER_SIZE should equal to total GPU num.")
                 initialize_model_parallel_2megatron(
                     args.tensor_model_parallel_size,
                     args.pipeline_model_parallel_size,

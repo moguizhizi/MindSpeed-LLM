@@ -347,8 +347,9 @@ class PPOActorInferWorker(BaseTrainer):
                 additional_dict[k] = []
 
         max_new_tokens = args.seq_length - args.max_prompt_length
-        assert max_new_tokens % args.pad_to_multiple_of == 0, "please adjust pad_to_multiple_of so that \
-                                                max_new_tokens % args.pad_to_multiple_of == 0"
+        if max_new_tokens % args.pad_to_multiple_of != 0:
+            raise ValueError(f"Please adjust pad_to_multiple_of so that max_new_tokens % args.pad_to_multiple_of == 0. "
+                            f"Current max_new_tokens: {max_new_tokens}, pad_to_multiple_of: {args.pad_to_multiple_of}")
         for _ in range(num_infer_steps):
             for k in self.args.dataset_additional_keys:
                 if not hasattr(additional_dict_per_step, k):

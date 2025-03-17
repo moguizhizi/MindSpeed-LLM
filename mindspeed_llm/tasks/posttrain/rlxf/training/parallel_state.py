@@ -41,7 +41,8 @@ def initialize_model_parallel_2megatron(
     timeout = timedelta(minutes=distributed_timeout_minutes)
 
     # Get world size and rank. Ensure some consistencies.
-    assert torch.distributed.is_initialized()
+    if not torch.distributed.is_initialized():
+        raise RuntimeError("torch.distributed not initialized.")
     world_size: int = torch.distributed.get_world_size()
     rank = torch.distributed.get_rank()
     train_size = world_size - infer_size
@@ -61,7 +62,8 @@ def initialize_model_parallel_2megatron(
 
     # build megatron2 groups for inference and training
     if infer_size and not is_second_megatron: # only build megatron2 groups once with positive inf_size
-        assert _MEGATRON2_LOCAL_GROUP is None, "megatron local group is already initialized."
+        if _MEGATRON2_LOCAL_GROUP is not None:
+            raise RuntimeError("megatron local group is already initialized.")
         ranks_mg2_inference = range(train_size, world_size)
         group_mg2_inference = torch.distributed.new_group(
                 ranks_mg2_inference, timeout=timeout, pg_options=ps.get_nccl_options('dp_cp', nccl_comm_cfgs)
@@ -143,7 +145,8 @@ def initialize_model_parallel_2megatron(
         )
         group_gloo = torch.distributed.new_group(ranks, timeout=timeout, backend="gloo")
         if rank in ranks:
-            assert ps._DATA_PARALLEL_GROUP is None, 'data parallel group is already initialized'
+            if ps._DATA_PARALLEL_GROUP is not None:
+                raise RuntimeError('data parallel group is already initialized')
             ps._DATA_PARALLEL_GROUP = group
             ps._DATA_PARALLEL_GROUP_GLOO = group_gloo
             ps._DATA_PARALLEL_GLOBAL_RANKS = ranks
@@ -167,7 +170,8 @@ def initialize_model_parallel_2megatron(
             ranks, timeout=timeout, pg_options=ps.get_nccl_options('cp', nccl_comm_cfgs)
         )
         if rank in ranks:
-            assert ps._CONTEXT_PARALLEL_GROUP is None, 'context parallel group is already initialized'
+            if ps._CONTEXT_PARALLEL_GROUP is not None:
+                raise RuntimeError('context parallel group is already initialized')
             ps._CONTEXT_PARALLEL_GROUP = group
             ps._CONTEXT_PARALLEL_GLOBAL_RANKS = ranks
 
@@ -176,7 +180,8 @@ def initialize_model_parallel_2megatron(
             ranks, timeout=timeout, pg_options=ps.get_nccl_options('tp_cp', nccl_comm_cfgs)
         )
         if rank in ranks:
-            assert _TENSOR_AND_CONTEXT_PARALLEL_GROUP is None, 'tensor and context parallel group is already initialized'
+            if ps._TENSOR_AND_CONTEXT_PARALLEL_GROUP is not None:
+                raise RuntimeError('tensor and context parallel group is already initialized')
             _TENSOR_AND_CONTEXT_PARALLEL_GROUP = group
             _TENSOR_AND_CONTEXT_PARALLEL_GLOBAL_RANKS = ranks
 
@@ -187,7 +192,8 @@ def initialize_model_parallel_2megatron(
             ranks, timeout=timeout, pg_options=ps.get_nccl_options('mp', nccl_comm_cfgs)
         )
         if rank in ranks:
-            assert ps._MODEL_PARALLEL_GROUP is None, 'model parallel group is already initialized'
+            if ps._MODEL_PARALLEL_GROUP is not None:
+                raise RuntimeError('model parallel group is already initialized')
             ps._MODEL_PARALLEL_GROUP = group
 
     # Build the tensor model-parallel groups.
@@ -196,9 +202,9 @@ def initialize_model_parallel_2megatron(
             ranks, timeout=timeout, pg_options=ps.get_nccl_options('tp', nccl_comm_cfgs)
         )
         if rank in ranks:
-            assert (
-                ps._TENSOR_MODEL_PARALLEL_GROUP is None
-            ), 'tensor model parallel group is already initialized'
+            if ps._TENSOR_MODEL_PARALLEL_GROUP is not None:
+                raise RuntimeError('tensor model parallel group is already initialized')
+
             ps._TENSOR_MODEL_PARALLEL_GROUP = group
             ps._TENSOR_MODEL_PARALLEL_GLOBAL_RANKS = ranks
 
@@ -210,9 +216,9 @@ def initialize_model_parallel_2megatron(
             ranks, timeout=timeout, pg_options=ps.get_nccl_options('pp', nccl_comm_cfgs)
         )
         if rank in ranks:
-            assert (
-                ps._PIPELINE_MODEL_PARALLEL_GROUP is None
-            ), 'pipeline model parallel group is already initialized'
+            if ps._PIPELINE_MODEL_PARALLEL_GROUP is not None:
+                raise RuntimeError('pipeline model parallel group is already initialized')
+
             ps._PIPELINE_MODEL_PARALLEL_GROUP = group
             ps._PIPELINE_GLOBAL_RANKS = ranks
         # Setup embedding group (to exchange gradients between
@@ -237,7 +243,8 @@ def initialize_model_parallel_2megatron(
             embedding_ranks, timeout=timeout, pg_options=ps.get_nccl_options('embd', nccl_comm_cfgs)
         )
         if rank in embedding_ranks:
-            assert ps._EMBEDDING_GROUP is None, 'embedding group is already initialized'
+            if ps._EMBEDDING_GROUP is not None:
+                raise RuntimeError('embedding group is already initialized')
             ps._EMBEDDING_GROUP = group
         if rank in ranks:
             ps._EMBEDDING_GLOBAL_RANKS = embedding_ranks
@@ -248,7 +255,8 @@ def initialize_model_parallel_2megatron(
             pg_options=ps.get_nccl_options('embd', nccl_comm_cfgs),
         )
         if rank in position_embedding_ranks:
-            assert ps._POSITION_EMBEDDING_GROUP is None, 'position embedding group is already initialized'
+            if ps._POSITION_EMBEDDING_GROUP is not None:
+                raise RuntimeError('position embedding group is already initialized')
             ps._POSITION_EMBEDDING_GROUP = group
         if rank in ranks:
             ps._POSITION_EMBEDDING_GLOBAL_RANKS = position_embedding_ranks
@@ -259,9 +267,8 @@ def initialize_model_parallel_2megatron(
             ranks, timeout=timeout, pg_options=ps.get_nccl_options('tp_dp_cp', nccl_comm_cfgs)
         )
         if rank in ranks:
-            assert (
-                ps._TENSOR_AND_DATA_PARALLEL_GROUP is None
-            ), 'Tensor + data parallel group is already initialized'
+            if ps._TENSOR_AND_DATA_PARALLEL_GROUP is not None:
+                raise RuntimeError('Tensor + data parallel group is already initialized')
             ps._TENSOR_AND_DATA_PARALLEL_GROUP_WITH_CP = group
     for ranks in rank_generator.get_ranks('tp-dp'):
         group = torch.distributed.new_group(
@@ -276,9 +283,8 @@ def initialize_model_parallel_2megatron(
             ranks, timeout=timeout, pg_options=ps.get_nccl_options('tp_exp', nccl_comm_cfgs)
         )
         if rank in ranks:
-            assert (
-                ps._TENSOR_AND_EXPERT_PARALLEL_GROUP is None
-            ), 'Tensor + expert parallel group is already initialized'
+            if ps._TENSOR_AND_EXPERT_PARALLEL_GROUP is None:
+                raise RuntimeError('Tensor + expert parallel group is already initialized')
             ps._TENSOR_AND_EXPERT_PARALLEL_GROUP = group
 
     for ranks in rank_generator.get_ranks('ep', independent_ep=True):
@@ -286,7 +292,8 @@ def initialize_model_parallel_2megatron(
             ranks, pg_options=ps.get_nccl_options('exp', nccl_comm_cfgs)
         )
         if rank in ranks:
-            assert ps._EXPERT_MODEL_PARALLEL_GROUP is None, 'Expert parallel group is already initialized'
+            if ps._EXPERT_MODEL_PARALLEL_GROUP is None:
+                raise RuntimeError('Expert parallel group is already initialized')
             ps._EXPERT_MODEL_PARALLEL_GROUP = group
 
     for ranks in rank_generator.get_ranks('dp', independent_ep=True):
@@ -295,9 +302,8 @@ def initialize_model_parallel_2megatron(
         )
         group_gloo = torch.distributed.new_group(ranks, backend="gloo")
         if rank in ranks:
-            assert (
-                ps._DATA_MODULO_EXPERT_PARALLEL_GROUP is None
-            ), 'Data modulo expert group is already initialized'
+            if ps._DATA_MODULO_EXPERT_PARALLEL_GROUP is None:
+                raise RuntimeError('Data modulo expert group is already initialized')
             ps._DATA_MODULO_EXPERT_PARALLEL_GROUP = group
             ps._DATA_MODULO_EXPERT_PARALLEL_GROUP_GLOO = group_gloo
     for ranks in rank_generator.get_ranks('dp-cp', independent_ep=True):
@@ -322,33 +328,28 @@ def is_mg2_first_rank():
     Check if current node is the first node in the Megatron2 local group.
     Use this to extend the old usage rank == 0.
     """
-    assert (
-        _MEGATRON2_LOCAL_RANKS is not None
-    ), 'megatron2 group is not initialized'
+    if _MEGATRON2_LOCAL_RANKS is None:
+        raise RuntimeError('Megatron2 group is not initialized')
     return torch.distributed.get_rank() == _MEGATRON2_LOCAL_RANKS[0]
 
 
 def in_mg2_inference_group():
     """
     """
-    assert (
-        _MEGATRON2_LOCAL_RANKS is not None
-    ), 'megatron2 group is not initialized'
+    if _MEGATRON2_LOCAL_RANKS is None:
+        raise RuntimeError('Megatron2 group is not initialized')
     return _MEGATRON2_LOCAL_RANKS[0] != 0
 
 
 def get_mg2_local_group():
-    assert (
-        _MEGATRON2_LOCAL_GROUP is not None
-    ), 'megatron2 group is not initialized'
+    if _MEGATRON2_LOCAL_GROUP is None:
+        raise RuntimeError('Megatron2 group is not initialized')
     return _MEGATRON2_LOCAL_GROUP
 
 
 def get_mg2_local_ranks():
-    assert (
-
-        _MEGATRON2_LOCAL_RANKS is not None
-    ), 'megatron2 ranks is not initialized'
+    if _MEGATRON2_LOCAL_RANKS is None:
+        raise RuntimeError('Megatron2 ranks are not initialized')
     return _MEGATRON2_LOCAL_RANKS
 
 
@@ -357,9 +358,8 @@ def get_mg2_first_rank():
     When the same world size is divided into multiple process groups in the actor-train
     and actor-rollout worker roles, this method needs to be converted to local.
     """
-    assert (
-            _MEGATRON2_LOCAL_RANKS is not None
-    ), 'megatron2 group is not initialized'
+    if _MEGATRON2_LOCAL_RANKS is None:
+        raise RuntimeError('Megatron2 group is not initialized')
     return _MEGATRON2_LOCAL_RANKS[0]
 
 

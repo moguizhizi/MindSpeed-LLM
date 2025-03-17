@@ -51,12 +51,14 @@ def _split_args_kwargs_data_proto(chunks, *args, **kwargs):
     from mindspeed_llm.tasks.posttrain.rlxf.utils.protocol import DataProto, DataProtoFuture
     splitted_args = []
     for arg in args:
-        assert isinstance(arg, (DataProto, DataProtoFuture))
+        if not isinstance(arg, (DataProto, DataProtoFuture)):
+            raise TypeError(f"Argument {arg} must be an instance of DataProto or DataProtoFuture. Got {type(arg)}")
         splitted_args.append(arg.chunk(chunks=chunks))
 
     splitted_kwargs = {}
     for key, val in kwargs.items():
-        assert isinstance(val, (DataProto, DataProtoFuture))
+        if not isinstance(val, (DataProto, DataProtoFuture)):
+            raise TypeError(f"Value for key {key} must be an instance of DataProto or DataProtoFuture. Got {type(val)}")
         splitted_kwargs[key] = val.chunk(chunks=chunks)
 
     return splitted_args, splitted_kwargs
@@ -81,12 +83,13 @@ def dispatch_megatron_compute(worker_group, *args, **kwargs):
     User passes in dp data. The data is dispatched to all tp/pp ranks with the same dp
     """
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker_group import MegatronWorkerGroup
-    assert isinstance(worker_group,
-                      MegatronWorkerGroup), f'worker_group must be MegatronWorkerGroup, Got {type(worker_group)}'
-
+    if not isinstance(worker_group, MegatronWorkerGroup):
+        raise TypeError(f'worker_group must be MegatronWorkerGroup, Got {type(worker_group)}')
+    
     all_args = []
     for arg in args:
-        assert isinstance(arg, (Tuple, List)) and len(arg) == worker_group.dp_size
+        if not isinstance(arg, (Tuple, List)) or len(arg) != worker_group.dp_size:
+            raise ValueError(f'Each argument must be a Tuple or List of length {worker_group.dp_size}, Got length {len(arg)}')
         transformed_args = []
         for i in range(worker_group.world_size):
             local_dp_rank = worker_group.get_megatron_rank_info(rank=i).dp_rank
@@ -96,7 +99,8 @@ def dispatch_megatron_compute(worker_group, *args, **kwargs):
 
     all_kwargs = {}
     for k, v in kwargs.items():
-        assert isinstance(v, (Tuple, List)) and len(v) == worker_group.dp_size
+        if not isinstance(v, (Tuple, List)) or len(v) != worker_group.dp_size:
+            raise ValueError(f'Each argument in kwargs must be a Tuple or List of length {worker_group.dp_size}, Got length {len(v)}')
         transformed_v = []
         for i in range(worker_group.world_size):
             local_dp_rank = worker_group.get_megatron_rank_info(rank=i).dp_rank
@@ -110,7 +114,8 @@ def collect_megatron_compute(worker_group, output):
     Only collect the data from the tp=0 and pp=last and every dp ranks
     """
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker_group import MegatronWorkerGroup
-    assert isinstance(worker_group, MegatronWorkerGroup)
+    if not isinstance(worker_group, MegatronWorkerGroup):
+        raise TypeError(f'worker_group must be MegatronWorkerGroup, Got {type(worker_group)}')
     output_in_dp = []
     pp_size = worker_group.get_megatron_global_info().pp_size
     for global_rank in range(worker_group.world_size):
@@ -125,7 +130,8 @@ def dispatch_megatron_compute_data_proto(worker_group, *args, **kwargs):
     All the args and kwargs must be DataProto. The batch will be chunked by dp_size and passed to each rank
     """
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker_group import MegatronWorkerGroup
-    assert isinstance(worker_group, MegatronWorkerGroup)
+    if not isinstance(worker_group, MegatronWorkerGroup):
+        raise TypeError(f'worker_group must be an instance of MegatronWorkerGroup. Got {type(worker_group)}')
 
     splitted_args, splitted_kwargs = _split_args_kwargs_data_proto(worker_group.dp_size, *args, **kwargs)
     return dispatch_megatron_compute(worker_group, *splitted_args, **splitted_kwargs)
@@ -137,7 +143,8 @@ def _concat_data_proto_or_future(output: List):
 
     # make sure all the elements in output has the same type
     for o in output:
-        assert type(o) == type(output[0])
+        if not isinstance(o, output[0]):
+            raise TypeError(f"All elements in output must have the same type. Found {type(o)} and {type(output[0])}")
 
     o = output[0]
 
@@ -158,7 +165,8 @@ def collect_megatron_compute_data_proto(worker_group, output):
 
     output = collect_megatron_compute(worker_group, output)
     for o in output:
-        assert isinstance(o, (DataProto, ray.ObjectRef)), f"expecting {o} to be DataProto, but got {type(o)}"
+        if not isinstance(o, (DataProto, ray.ObjectRef)):
+            raise TypeError(f"Expecting {o} to be DataProto or ray.ObjectRef, but got {type(o)}")
 
     return _concat_data_proto_or_future(output)
 
@@ -168,7 +176,8 @@ def dispatch_megatron_pp_as_dp(worker_group, *args, **kwargs):
     treat pp as dp.
     """
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker_group import MegatronWorkerGroup
-    assert isinstance(worker_group, MegatronWorkerGroup)
+    if not isinstance(worker_group, MegatronWorkerGroup):
+        raise TypeError(f'worker_group must be an instance of MegatronWorkerGroup. Got {type(worker_group)}')
 
     pp_size = worker_group.pp_size
     dp_size = worker_group.dp_size
@@ -177,7 +186,8 @@ def dispatch_megatron_pp_as_dp(worker_group, *args, **kwargs):
 
     all_args = []
     for arg in args:
-        assert isinstance(arg, (List, Tuple)) and len(arg) == pp_dp_size
+        if not isinstance(arg, (List, Tuple)) or len(arg) != pp_dp_size:
+            raise ValueError(f'Each argument in args must be a List or Tuple of length {pp_dp_size}, but got length {len(arg)}')
         transformed_args = []
         for i in range(worker_group.world_size):
             local_dp_rank = worker_group.get_megatron_rank_info(rank=i).dp_rank
@@ -199,7 +209,8 @@ def dispatch_megatron_pp_as_dp(worker_group, *args, **kwargs):
 
     all_kwargs = {}
     for k, v in kwargs.items():
-        assert isinstance(v, (List, Tuple)) and len(v) == pp_dp_size, f'expect len(v)=={pp_dp_size}, got {len(v)}'
+        if not isinstance(v, (List, Tuple)) or len(v) != pp_dp_size:
+            raise ValueError(f'Each argument in kwargs must be a List or Tuple of length {pp_dp_size}, but got length {len(v)}')
         transformed_v = []
         for i in range(worker_group.world_size):
             local_dp_rank = worker_group.get_megatron_rank_info(rank=i).dp_rank
@@ -216,7 +227,8 @@ def collect_megatron_pp_as_dp(worker_group, output):
     treat pp as dp. Only collect data on tp=0
     """
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker_group import MegatronWorkerGroup
-    assert isinstance(worker_group, MegatronWorkerGroup)
+    if not isinstance(worker_group, MegatronWorkerGroup):
+        raise TypeError(f'worker_group must be an instance of MegatronWorkerGroup. Got {type(worker_group)}')
     output_in_dp = []
     for global_rank in range(worker_group.world_size):
         local_rank_info = worker_group.get_megatron_rank_info(rank=global_rank)
@@ -230,7 +242,8 @@ def collect_megatron_pp_only(worker_group, output):
     Only collect output of megatron pp. This is useful when examine weight names as they are identical in tp/dp
     """
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker_group import MegatronWorkerGroup
-    assert isinstance(worker_group, MegatronWorkerGroup)
+    if not isinstance(worker_group, MegatronWorkerGroup):
+        raise TypeError(f'worker_group must be an instance of MegatronWorkerGroup. Got {type(worker_group)}')
     output_in_pp = []
     for global_rank in range(worker_group.world_size):
         local_rank_info = worker_group.get_megatron_rank_info(rank=global_rank)
@@ -241,7 +254,8 @@ def collect_megatron_pp_only(worker_group, output):
 
 def dispatch_megatron_pp_as_dp_data_proto(worker_group, *args, **kwargs):
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker_group import MegatronWorkerGroup
-    assert isinstance(worker_group, MegatronWorkerGroup)
+    if not isinstance(worker_group, MegatronWorkerGroup):
+        raise TypeError(f'worker_group must be an instance of MegatronWorkerGroup. Got {type(worker_group)}')
 
     pp_dp_size = worker_group.dp_size * worker_group.pp_size
     splitted_args, splitted_kwargs = _split_args_kwargs_data_proto(pp_dp_size, *args, **kwargs)
@@ -250,7 +264,8 @@ def dispatch_megatron_pp_as_dp_data_proto(worker_group, *args, **kwargs):
 
 def collect_megatron_pp_as_dp_data_proto(worker_group, output):
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker_group import MegatronWorkerGroup
-    assert isinstance(worker_group, MegatronWorkerGroup)
+    if not isinstance(worker_group, MegatronWorkerGroup):
+        raise TypeError(f'worker_group must be an instance of MegatronWorkerGroup. Got {type(worker_group)}')
 
     output = collect_megatron_pp_as_dp(worker_group, output)
     return _concat_data_proto_or_future(output)
@@ -258,32 +273,42 @@ def collect_megatron_pp_as_dp_data_proto(worker_group, output):
 
 def dispatch_dp_compute(worker_group, *args, **kwargs):
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.worker_group import WorkerGroup
-    assert isinstance(worker_group, WorkerGroup)
+    if not isinstance(worker_group, WorkerGroup):
+        raise TypeError(f'worker_group must be an instance of WorkerGroup. Got {type(worker_group)}')
     for arg in args:
-        assert isinstance(arg, (Tuple, List)) and len(arg) == worker_group.world_size
+        if not isinstance(arg, (Tuple, List)) or len(arg) != worker_group.world_size:
+            raise ValueError(f'Each argument in args must be a Tuple or List of length {worker_group.world_size}')
     for k, v in kwargs.items():
-        assert isinstance(v, (Tuple, List)) and len(v) == worker_group.world_size
+        if not isinstance(v, (Tuple, List)) or len(v) != worker_group.world_size:
+            raise ValueError(f'Each argument in kwargs must be a Tuple or List of length {worker_group.world_size}')
     return args, kwargs
 
 
 def collect_dp_compute(worker_group, output):
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.worker_group import WorkerGroup
-    assert isinstance(worker_group, WorkerGroup)
-    assert len(output) == worker_group.world_size
+    if not isinstance(worker_group, WorkerGroup):
+        raise TypeError(f'worker_group must be an instance of WorkerGroup. Got {type(worker_group)}')
+
+    if len(output) != worker_group.world_size:
+        raise ValueError(f'Output must have a length equal to world_size. Got length {len(output)}')
     return output
 
 
 def dispatch_dp_compute_data_proto(worker_group, *args, **kwargs):
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.worker_group import WorkerGroup
-    assert isinstance(worker_group, WorkerGroup)
+    if not isinstance(worker_group, WorkerGroup):
+        raise TypeError(f'worker_group must be an instance of WorkerGroup. Got {type(worker_group)}')
     splitted_args, splitted_kwargs = _split_args_kwargs_data_proto(worker_group.world_size, *args, **kwargs)
     return splitted_args, splitted_kwargs
 
 
 def dispatch_dp_compute_data_proto_with_func(worker_group, *args, **kwargs):
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.worker_group import WorkerGroup
-    assert isinstance(worker_group, WorkerGroup)
-    assert type(args[0]) == FunctionType  # NOTE: The first one args is a function!
+    if not isinstance(worker_group, WorkerGroup):
+        raise TypeError(f'worker_group must be an instance of WorkerGroup. Got {type(worker_group)}')
+
+    if not isinstance(args[0], FunctionType):
+        raise TypeError(f'The first argument must be a callable function. Got {type(args[0])}')  # NOTE: The first one args is a function!
 
     splitted_args, splitted_kwargs = _split_args_kwargs_data_proto(worker_group.world_size, *args[1:], **kwargs)
     splitted_args_with_func = [[args[0]] * worker_group.world_size] + splitted_args
@@ -294,7 +319,8 @@ def collect_dp_compute_data_proto(worker_group, output):
     import ray
     from mindspeed_llm.tasks.posttrain.rlxf.utils.protocol import DataProto
     for o in output:
-        assert isinstance(o, (DataProto, ray.ObjectRef)), f"expecting {o} to be DataProto, but got {type(o)}"
+        if not isinstance(o, (DataProto, ray.ObjectRef)):
+            raise TypeError(f"Expecting {o} to be DataProto or ray.ObjectRef, but got {type(o)}")
 
     output = collect_dp_compute(worker_group, output)
     return _concat_data_proto_or_future(output)
@@ -305,7 +331,8 @@ def collect_dp_all_gather(worker_group, output, is_train):
     collect data in DP groups, in each DP group, only use the output return on TP_0 PP_last.
     """
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.base.megatron.worker_group import MegatronWorkerGroup
-    assert isinstance(worker_group, MegatronWorkerGroup)
+    if not isinstance(worker_group, MegatronWorkerGroup):
+        raise TypeError(f'worker_group must be an instance of MegatronWorkerGroup. Got {type(worker_group)}')
     output_in_dp = []
     from mindspeed_llm.tasks.posttrain.rlxf.single_controller.ray.base import get_actor_train_world_size
     actor_train_world_size = get_actor_train_world_size()
@@ -408,16 +435,18 @@ def get_predefined_execute_fn(execute_mode):
 
 
 def _check_dispatch_mode(dispatch_mode):
-    assert isinstance(dispatch_mode,
-                      (Dispatch, Dict)), f'dispatch_mode must be a Dispatch or a Dict. Got {dispatch_mode}'
+    if not isinstance(dispatch_mode, (Dispatch, Dict)):
+        raise TypeError(f'dispatch_mode must be a Dispatch or a Dict. Got {type(dispatch_mode)}')
     if isinstance(dispatch_mode, Dict):
         necessary_keys = ['dispatch_fn', 'collect_fn']
         for key in necessary_keys:
-            assert key in dispatch_mode, f'key {key} should be in dispatch_mode if it is a dictionary'
+            if key not in dispatch_mode:
+                raise KeyError(f'key {key} should be in dispatch_mode if it is a dictionary')
 
 
 def _check_execute_mode(execute_mode):
-    assert isinstance(execute_mode, Execute), f'execute_mode must be a Execute. Got {execute_mode}'
+    if not isinstance(execute_mode, Execute):
+        raise TypeError(f'execute_mode must be an instance of Execute. Got {type(execute_mode)}')
 
 
 def _materialize_futures(*args, **kwargs):

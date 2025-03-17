@@ -265,8 +265,8 @@ class TrlPPOTrainer():
         if args.manual_gc:
             # Disable the default garbage collector and perform the collection manually.
             # This is to align the timing of garbage collection across ranks.
-            assert args.manual_gc_interval >= 0, \
-                'Manual garbage collection interval should be laerger than or equal to 0.'
+            if args.manual_gc_interval < 0:
+                raise ValueError('Manual garbage collection interval should be larger than or equal to 0.')
             gc.disable()
             gc.collect()
 

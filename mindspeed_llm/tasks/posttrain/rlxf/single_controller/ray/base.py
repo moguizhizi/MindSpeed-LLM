@@ -207,8 +207,8 @@ class RayWorkerGroup(WorkerGroup):
         rank = -1
         for pg_idx, local_world_size in enumerate(resource_pool.store):
             pg = pgs[pg_idx]
-            assert local_world_size <= pg.bundle_count, \
-                f"when generating for {self.name_prefix}, for the "
+            if local_world_size > pg.bundle_count:
+                raise ValueError(f"when generating for {self.name_prefix}, for the ")
             for local_rank in range(local_world_size):
                 rank += 1
 
@@ -250,7 +250,11 @@ class RayWorkerGroup(WorkerGroup):
                             time.sleep(1)
                         else:
                             register_center_actor = ray.get_actor(f"{self.name_prefix}_register_center")
-                    assert register_center_actor is not None, f"failed to get register_center_actor: {self.name_prefix}_register_center in {list_named_actors(all_namespaces=True)}"
+                    if register_center_actor is None:
+                        available_actors = list_named_actors(all_namespaces=True)
+                        raise ValueError(
+                            f"failed to get register_center_actor: {self.name_prefix}_register_center in {list_named_actors(all_namespaces=True)}"
+                        )
                     rank_zero_info = ray.get(register_center_actor.get_rank_zero_info.remote())
                     self._master_addr, self._master_port = rank_zero_info['MASTER_ADDR'], rank_zero_info['MASTER_PORT']
 
@@ -397,7 +401,10 @@ def _bind_workers_method_to_parent(cls, key, user_defined_cls):
     for method_name in dir(user_defined_cls):
         try:
             method = getattr(user_defined_cls, method_name)
-            assert callable(method), f"{method_name} in {user_defined_cls} is not callable"
+            if not callable(method):
+                raise TypeError(
+                    f"{method_name} in {user_defined_cls} is not callable"
+                )
         except Exception as e:
             # if it is a property, it will fail because Class doesn't have instance property
             continue
@@ -440,12 +447,18 @@ def create_colocated_worker_cls(class_dict: Dict[str, RayClassWithInitArgs]):
         if worker_cls == None:
             worker_cls = cls.cls.__ray_actor_class__.__base__
         else:
-            assert worker_cls == cls.cls.__ray_actor_class__.__base__, \
-                'the worker class should be the same when share the same process'
+            if worker_cls != cls.cls.__ray_actor_class__.__base__:
+                raise ValueError(
+                    "the worker class should be the same when sharing the same process"
+                )
         cls_dict[key] = cls.cls
         init_args_dict[key] = {'args': cls.args, 'kwargs': cls.kwargs}
 
-    assert cls_dict.keys() == init_args_dict.keys()
+    if cls_dict.keys() != init_args_dict.keys():
+        raise ValueError(
+            f"Key mismatch: cls_dict keys ({cls_dict.keys()}) "
+            f"must match init_args_dict keys ({init_args_dict.keys()})"
+        )
 
     class WorkerDict(worker_cls):
 

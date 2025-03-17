@@ -57,14 +57,14 @@ def union_two_dict(dict1: Dict, dict2: Dict):
 
 def union_tensor_dict(tensor_dict1: TensorDict, tensor_dict2: TensorDict) -> TensorDict:
     """Union two tensordicts."""
-    assert tensor_dict1.batch_size == tensor_dict2.batch_size, \
-        f'Two tensor dict must have identical batch size. Got {tensor_dict1.batch_size} and {tensor_dict2.batch_size}'
+    if tensor_dict1.batch_size != tensor_dict2.batch_size:
+        raise ValueError(f'Two tensor dicts must have identical batch sizes. Got {tensor_dict1.batch_size} and {tensor_dict2.batch_size}')
     for key in tensor_dict2.keys():
         if key not in tensor_dict1.keys():
             tensor_dict1[key] = tensor_dict2[key]
         else:
-            assert tensor_dict1[key].equal(tensor_dict2[key]), \
-                f'{key} in tensor_dict1 and tensor_dict2 are not the same object'
+            if not tensor_dict1[key].equal(tensor_dict2[key]):
+                raise ValueError(f'{key} in tensor_dict1 and tensor_dict2 are not the same object')
 
     return tensor_dict1
 
@@ -72,10 +72,12 @@ def union_tensor_dict(tensor_dict1: TensorDict, tensor_dict2: TensorDict) -> Ten
 def union_numpy_dict(tensor_dict1, tensor_dict2):
     for key, val in tensor_dict2.items():
         if key in tensor_dict1:
-            assert isinstance(tensor_dict2[key], np.ndarray)
-            assert isinstance(tensor_dict1[key], np.ndarray)
-            assert np.all(tensor_dict2[key] == tensor_dict1[key]), \
-                f'{key} in tensor_dict1 and tensor_dict2 are not the same object'
+            if not isinstance(tensor_dict2[key], np.ndarray):
+                raise TypeError(f"The value for key '{key}' in tensor_dict2 is not a numpy.ndarray.")
+            if not isinstance(tensor_dict1[key], np.ndarray):
+                raise TypeError(f"The value for key '{key}' in tensor_dict1 is not a numpy.ndarray.")
+            if not np.all(tensor_dict2[key] == tensor_dict1[key]):
+                raise ValueError(f"Arrays for key '{key}' in tensor_dict1 and tensor_dict2 are not the same object.")
         tensor_dict1[key] = val
 
     return tensor_dict1
@@ -88,7 +90,8 @@ def list_of_dict_to_dict_of_list(list_of_dict: List[dict]):
     output = {key: [] for key in keys}
     for data in list_of_dict:
         for key, item in data.items():
-            assert key in output
+            if key not in output:
+                raise KeyError(f"Key '{key}' is not found in the output dictionary")
             output[key].append(item)
     return output
 
@@ -161,19 +164,21 @@ class DataProto:
         We expose this function as a public one so that user can call themselves directly
         """
         if self.batch is not None:
-            assert len(self.batch.batch_size) == 1, 'only support num_batch_dims=1'
+            if len(self.batch.batch_size) != 1:
+                raise ValueError('only support num_batch_dims=1')
 
         if len(self.non_tensor_batch) != 0:
             # TODO: we can actually lift this restriction if needed
-            assert len(self.batch.batch_size) == 1, 'only support num_batch_dims=1 when non_tensor_batch is not empty.'
+            if len(self.batch.batch_size) != 1:
+                raise ValueError('only support num_batch_dims=1 when non_tensor_batch is not empty.')
 
             batch_size = self.batch.batch_size[0]
             for key, val in self.non_tensor_batch.items():
-                assert isinstance(
-                    val, np.ndarray
-                ) and val.dtype == object, 'data in the non_tensor_batch must be a numpy.array with dtype=object'
-                assert val.shape[
-                           0] == batch_size, f'key {key} length {len(val)} is not equal to batch size {batch_size}'
+                if not isinstance(val, np.ndarray) or val.dtype != object:
+                    raise TypeError(f'data in the non_tensor_batch must be a numpy.array with dtype=object, '
+                                    f'but found {key} with dtype {val.dtype}')
+                if val.shape[0] != batch_size:
+                    raise ValueError(f'key {key} length {len(val)} is not equal to batch size {batch_size}')
 
     @classmethod
     def from_single_dict(cls, data: Dict[str, Union[torch.Tensor, np.ndarray]], meta_info=None):
@@ -196,17 +201,23 @@ class DataProto:
         1. All the tensor in tensors have the same dim0
         2. Only dim0 is the batch dim
         """
-        assert len(tensors) > 0, 'tensors must not be empty'
-        assert num_batch_dims > 0, 'num_batch_dims must be greater than zero'
+        if len(tensors) == 0:
+            raise ValueError('tensors must not be empty')
+
+        if num_batch_dims <= 0:
+            raise ValueError('num_batch_dims must be greater than zero')
+
         if non_tensors is not None:
-            assert num_batch_dims == 1, 'only support num_batch_dims=1 when non_tensors is not None.'
+            if num_batch_dims != 1:
+                raise ValueError('only support num_batch_dims=1 when non_tensors is not None.')
 
         if meta_info is None:
             meta_info = {}
         if non_tensors is None:
             non_tensors = {}
 
-        assert isinstance(non_tensors, dict)
+        if not isinstance(non_tensors, dict):
+            raise TypeError('non_tensors must be a dictionary')
 
         # get and check batch size
         batch_size = None
@@ -217,8 +228,9 @@ class DataProto:
                 pivot_key = key
             else:
                 current_batch = tensor.shape[:num_batch_dims]
-                assert batch_size == current_batch, \
-                    f'Not all the tensor in tensors have the same batch size with batch_dims={num_batch_dims}. Got {pivot_key} has {batch_size}, {key} has {current_batch}'
+                if batch_size != current_batch:
+                    raise ValueError(f'Not all the tensor in tensors have the same batch size with batch_dims={num_batch_dims}. '
+                                    f'Got {pivot_key} has {batch_size}, {key} has {current_batch}')
 
         for key, val in non_tensors.items():
             non_tensors[key] = np.array(val, dtype=object)
@@ -284,7 +296,9 @@ class DataProto:
         Returns:
             DataProto: the DataProto with the poped batch_keys and meta_info_keys
         """
-        assert batch_keys is not None
+        if batch_keys is None:
+            raise ValueError("batch_keys cannot be None. Please provide a valid list of keys.")
+
         if meta_info_keys is None:
             meta_info_keys = []
         if non_tensor_batch_keys is None:
@@ -293,16 +307,19 @@ class DataProto:
         tensors = {}
         # tensor batch
         for key in batch_keys:
-            assert key in self.batch.keys()
+            if key not in self.batch.keys():
+                raise KeyError(f"Key '{key}' not found in self.batch.")
             tensors[key] = self.batch.pop(key)
         non_tensors = {}
         # non tensor batch
         for key in non_tensor_batch_keys:
-            assert key in self.non_tensor_batch.keys()
+            if key not in self.non_tensor_batch.keys():
+                raise KeyError(f"Key '{key}' not found in self.non_tensor_batch.")
             non_tensors[key] = self.non_tensor_batch.pop(key)
         meta_info = {}
         for key in meta_info_keys:
-            assert key in self.meta_info.keys()
+            if key not in self.meta_info.keys():
+                raise KeyError(f"Key '{key}' not found in self.meta_info.")
             meta_info[key] = self.meta_info.pop(key)
         return DataProto.from_dict(tensors=tensors, non_tensors=non_tensors, meta_info=meta_info)
 
@@ -365,7 +382,8 @@ class DataProto:
             Iterator: an iterator that yields a mini-batch data at a time. The total number of iteration steps is
             ``self.batch.batch_size * epochs // mini_batch_size``
         """
-        assert self.batch.batch_size[0] % mini_batch_size == 0, f"{self.batch.batch_size[0]} % {mini_batch_size} != 0"
+        if self.batch.batch_size[0] % mini_batch_size != 0:
+            raise ValueError(f"Batch size {self.batch.batch_size[0]} is not divisible by mini_batch_size {mini_batch_size}.")
         # we can directly create a dataloader from TensorDict
         if dataloader_kwargs is None:
             dataloader_kwargs = {}
@@ -376,7 +394,8 @@ class DataProto:
         else:
             generator = None
 
-        assert isinstance(dataloader_kwargs, Dict)
+        if not isinstance(dataloader_kwargs, dict):
+            raise TypeError(f"dataloader_kwargs should be a dictionary, but got {type(dataloader_kwargs)}.")
         train_dataloader = DataLoader(dataset=self,
                                       batch_size=mini_batch_size,
                                       collate_fn=collate_fn,
@@ -407,9 +426,12 @@ class DataProto:
 
         non_tensor_batch_lst = [{} for _ in range(chunks)]
         for key, val in self.non_tensor_batch.items():
-            assert isinstance(val, np.ndarray)
+            if not isinstance(val, np.ndarray):
+                raise TypeError(f"Expected value of type np.ndarray for key '{key}', but got {type(val)}.")
             non_tensor_lst = np.array_split(val, chunks)
-            assert len(non_tensor_lst) == chunks
+            if len(non_tensor_lst) != chunks:
+                raise ValueError(f"After splitting, the number of chunks for key '{key}' is {len(non_tensor_lst)}, "
+                                f"which does not match the expected number of chunks: {chunks}.")
             for i in range(chunks):
                 non_tensor_batch_lst[i][key] = non_tensor_lst[i]
 
@@ -494,7 +516,8 @@ class DataProtoFuture:
     def get(self):
         output = ray.get(self.futures)  # dp_size.
         for o in output:
-            assert isinstance(o, DataProto)
+            if not isinstance(o, DataProto):
+                raise TypeError(f"Expected instance of DataProto, but got {type(o)}.")
         output = self.collect_fn(output)  # select dp, concat
         if self.dispatch_fn is not None:
             output = self.dispatch_fn(output)  # split in batch dim, select using dp

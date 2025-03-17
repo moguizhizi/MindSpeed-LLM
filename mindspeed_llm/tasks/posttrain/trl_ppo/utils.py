@@ -49,7 +49,8 @@ def model_provider(is_reward_model=False, pre_process=True, post_process=True) -
     else:
         config = core_transformer_config_from_args(args)
 
-    assert args.use_mcore_models, "training models currently supports mcore only."
+    if not args.use_mcore_models:
+        raise ValueError("Training models currently supports mcore only. Please set use_mcore_models to True.")
     if args.spec is not None:
         transformer_layer_spec = import_module(args.spec)
     else:
@@ -200,7 +201,8 @@ def save_checkpoint(iteration, model, optimizer, opt_param_scheduler,
             torch.save(state_dict, checkpoint_name)
 
     if not args.async_save:
-        assert async_save_request is None
+        if async_save_request is not None:
+            raise ValueError("Async save request should not be None when async_save is False.")
         # Wait so everyone is done (necessary)
         if torch.distributed.is_initialized():
             torch.distributed.barrier()
@@ -220,7 +222,8 @@ def save_checkpoint(iteration, model, optimizer, opt_param_scheduler,
                                        barrier=False)
 
         if args.async_save:
-            assert async_save_request is not None
+            if async_save_request is None:
+                raise ValueError("Async save request must not be None when async_save is True.")
             async_save_request.add_finalize_fn(iter_finalize_fn)
         else:
             iter_finalize_fn()
