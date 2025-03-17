@@ -101,7 +101,6 @@ FINETUNE_ARGS="
     --is-instruction-dataset \
     --lora-r 8 \
     --lora-alpha 16 \
-    --lora-fusion \
     --qlora \
     --lora-target-modules linear_qkv linear_proj linear_fc1 linear_fc2 \
 "
