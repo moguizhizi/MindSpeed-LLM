@@ -558,12 +558,13 @@ class AlpacaStyleProcessRewardHandler(BaseDatasetHandler):
         input_ids = inputs["input_ids"]
         label_values = sample["value"]
 
-        assert isinstance(label_values, list), "labels should be a list of strings or numbers"
+        if not isinstance(label_values, list):
+            raise TypeError("labels should be a list of strings or numbers")
         label_tokens = []
         for label in label_values:
-            assert (
-                self.reward_tokens is None or label in self.reward_tokens
-            ), f"label should be in reward tokens {self.reward_tokens}, got {label}"
+            if self.reward_tokens is not None and label not in self.reward_tokens:
+                raise ValueError(f"label should be in reward tokens {self.reward_tokens}, got {label}")
+
             label_tokens.append(convert_token_to_id(label, self._unwrapped_tokenizer))
 
         labels = [-100] * len(input_ids)
@@ -581,7 +582,8 @@ class AlpacaStyleProcessRewardHandler(BaseDatasetHandler):
             "labels": [label_token]
         }
 
-        assert len(input_token) == len(label_token)
+        if len(input_token) != len(label_token):
+            raise ValueError(f"Length of input_token ({len(input_token)}) does not match length of label_token ({len(label_token)})")
 
         return concatenated_ids
 

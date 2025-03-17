@@ -20,9 +20,7 @@ def _fix_fracs(string):
             if len(substr) > 0 and substr[0] == "{":
                 new_str += substr
             else:
-                try:
-                    assert len(substr) >= 2
-                except:
+                if len(substr) < 2:
                     return string
                 a = substr[0]
                 b = substr[1]
@@ -52,10 +50,11 @@ def _fix_a_slash_b(string):
             a = int(a)
         if "sqrt" not in b:
             b = int(b)
-        assert string == "{}/{}".format(a, b)
+        if string != "{}/{}".format(a, b):
+            raise ValueError(f"String does not match the expected format: {string}")
         new_string = "\\frac{" + str(a) + "}{" + str(b) + "}"
         return new_string
-    except:
+    except ValueError:
         return string
 
 
@@ -67,7 +66,7 @@ def _fix_sqrt(string):
 def convert_word_number(text: str) -> str:
     try:
         text = str(w2n.word_to_num(text))
-    except:
+    except ValueError:
         pass
     return text
 
@@ -654,14 +653,16 @@ def parse_question(example, data_name):
         question = example["content"]
     elif data_name == "mmlu_stem":
         options = example["choices"]
-        assert len(options) == 4
+        if len(options) != 4:
+            raise ValueError(f"Expected 4 answer choices, but got {len(options)}.")
         for i, (label, option) in enumerate(zip("ABCD", options)):
             options[i] = f"({label}) {str(option).strip()}"
         options = " ".join(options)
         question = f"{example['question'].strip()}\nAnswer Choices: {options}"
     elif data_name == "sat_math":
         options = example["options"].strip()
-        assert "A" == options[0]
+        if options[0] != "A":
+            raise ValueError(f"Expected option starting with 'A', but got {options[0]}.")
         options = "(" + options
         for ch in "BCD":
             if f" {ch}) " in options:

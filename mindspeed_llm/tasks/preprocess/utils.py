@@ -113,7 +113,7 @@ def get_dataset_list(data_args) -> List["InstructionDatasetAttr"]:
             )
         dataset_info = None
 
-    if dataset_info == None:
+    if dataset_info is not None:
         raise ValueError(
                 "Cannot load {}.".format(os.path.join(data_args.dataset_dir, DATA_CONFIG))
         )
