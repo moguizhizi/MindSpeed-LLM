@@ -188,8 +188,7 @@ def mmlu(eval_args, agent):
     answer = None 
     score_df = None
     for path in eval_args.task_data_path:
-        if 'mmlu' in path:
-            data_path = path
+        data_path = path
     try:
         if data_path:
             mmlu_eval = MmluEval(test_dir=data_path, eval_args=eval_args)
@@ -207,8 +206,7 @@ def cmmlu(eval_args, agent):
     answer = None 
     score_df = None
     for path in eval_args.task_data_path:
-        if 'cmmlu' in path:
-            data_path = path
+        data_path = path
     try:
         if data_path:
             cmmlu_eval = CmmluEval(test_dir=data_path, eval_args=eval_args)
@@ -223,8 +221,7 @@ def cmmlu(eval_args, agent):
 def needlebench(eval_args, agent):
     data_path = None
     for path in eval_args.task_data_path:
-        if 'needlebench' in path:
-            data_path = path
+        data_path = path
     try:
         if data_path:
             needlebench_eval = NeedleBenchEval(test_dir=data_path, eval_args=eval_args)
@@ -240,8 +237,7 @@ def gsm8k(eval_args, agent):
     answer = None 
     score_df = None
     for path in eval_args.task_data_path:
-        if 'gsm8k' in path:
-            data_path = path
+        data_path = path
     try:
         if data_path:
             gsm8k_eval = Gsm8kEval(test_dir=data_path, eval_args=eval_args)
@@ -260,8 +256,7 @@ def boolq(eval_args, agent):
     score_df = None
 
     for path in eval_args.task_data_path:
-        if 'boolq' in path:
-            data_path = path
+        data_path = path
     try:
         if data_path:
             boolq_eval = BoolqEval(test_dir=data_path, eval_args=eval_args)
@@ -280,8 +275,7 @@ def ceval(eval_args, agent):
     score_df = None
 
     for path in eval_args.task_data_path:
-        if 'ceval' in path:
-            data_path = path
+        data_path = path
     try:
         if data_path:
             ceval_exam = CEvalExam(test_dir=data_path, eval_args=eval_args)
@@ -300,8 +294,7 @@ def human_eval(eval_args, agent):
     score_df = None
 
     for path in eval_args.task_data_path:
-        if 'human_eval' in path:
-            data_path = path
+        data_path = path
     try:
         if data_path:
             human_eval_exam = HumanEval(test_dir=data_path, eval_args=eval_args)
@@ -320,8 +313,7 @@ def agi_eval(eval_args, agent):
     score_df = None
 
     for path in eval_args.task_data_path:
-        if 'agieval' in path:
-            data_path = path
+        data_path = path
     try:
         if data_path:
             agieval_exam = AGIEvalExam(test_dir=data_path, eval_args=eval_args)
@@ -340,8 +332,7 @@ def bbh_eval(eval_args, agent):
     score_df = None
 
     for path in eval_args.task_data_path:
-        if 'bbh' in path:
-            data_path = path
+        data_path = path
     try:
         if data_path:
             bbh = BBHEval(test_dir=data_path, eval_args=eval_args)
