@@ -525,8 +525,6 @@ class MgCkptConvert(object):
                 unused_keys.extend([lora_a, lora_b])
         for name in list(model_dict.keys()):
             if ".base_layer" in name:
-                name_new = name.replace(".base_layer", "")
-                model_dict[name_new] = model_dict[name]
                 unused_keys.append(name)
         unused_keys = list(set(unused_keys))
         for k in unused_keys:
