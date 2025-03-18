@@ -195,7 +195,8 @@ class WorkerGroup:
                 # get execute_fn from string
                 try:
                     execute_fn = getattr(self, wg_execute_fn_name)
-                    assert callable(execute_fn), 'execute_fn must be callable'
+                    if not callable(execute_fn):
+                        raise TypeError(f"{wg_execute_fn_name} is not callable")
                 except Exception as e:
                     print(f'execute_fn {wg_execute_fn_name} is invalid')
                     raise

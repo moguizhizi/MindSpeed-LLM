@@ -444,7 +444,7 @@ def create_colocated_worker_cls(class_dict: Dict[str, RayClassWithInitArgs]):
     init_args_dict = {}
     worker_cls = None
     for key, cls in class_dict.items():
-        if worker_cls == None:
+        if worker_cls is None:
             worker_cls = cls.cls.__ray_actor_class__.__base__
         else:
             if worker_cls != cls.cls.__ray_actor_class__.__base__:
