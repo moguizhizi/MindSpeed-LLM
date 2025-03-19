@@ -3,7 +3,7 @@
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export HCCL_DETERMINISTIC=True
 
-GPUS_PER_NODE=4
+GPUS_PER_NODE=2
 MASTER_ADDR=localhost
 MASTER_PORT=6005
 NNODES=1
@@ -23,7 +23,7 @@ DATA_PATH="your data path"
 TOKENIZER_MODEL="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
-TP=4
+TP=2
 PP=1
 EP=1
 NUM_LAYERS=56
