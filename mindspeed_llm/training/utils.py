@@ -26,8 +26,8 @@ import torch_npu
 from torch import distributed as dist
 import numpy as np
 import megatron
-from megatron.training import get_args
-from megatron.core import mpu
+from megatron.training import get_args, get_tokenizer
+from megatron.core import mpu, tensor_parallel
 from tqdm import tqdm
 
 from mindspeed.utils import (set_actual_seq_len, set_position_ids,
@@ -209,6 +209,11 @@ def unwrap_model_wrapper(fn):
 def get_finetune_data_on_this_tp_rank(data_iterator):
     ds = next(data_iterator)
     tokens = ds.get('input_ids').long().cuda(non_blocking=True)
+    args = get_args()
+    if args.variable_seq_lengths and args.num_nextn_predict_layers:
+        tokenizer = get_tokenizer().tokenizer
+        pad_tensor = torch.ones((tokens.shape[0], args.num_nextn_predict_layers)).to(tokens.device)
+        tokens = torch.cat([tokens, pad_tensor.to(tokens.dtype) * tokenizer.pad_token_id], -1)
     tokens_shape = tokens.shape
     micro_batch_size = tokens_shape[0]
 
@@ -222,6 +227,8 @@ def get_finetune_data_on_this_tp_rank(data_iterator):
         _broadcast(via_length)
         _broadcast(tokens)
         attention_mask_1d = ds.get('attention_mask').long().cuda(non_blocking=True)
+        if args.variable_seq_lengths and args.num_nextn_predict_layers:
+            attention_mask_1d = torch.cat([attention_mask_1d, pad_tensor.to(attention_mask_1d.dtype) * 0], -1)
         _broadcast(attention_mask_1d)
         attention_mask = get_tune_attention_mask(attention_mask_1d)
     else:
