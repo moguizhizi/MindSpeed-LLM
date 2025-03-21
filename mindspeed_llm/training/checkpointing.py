@@ -25,7 +25,7 @@ from megatron.core.dist_checkpointing.strategies.fully_parallel import \
     FullyParallelSaveStrategyWrapper
 from megatron.training.utils import print_rank_0, unwrap_model, append_to_progress_log, is_last_rank
 from megatron.training.async_utils import schedule_async_save
-from megatron.training.checkpointing import (_load_base_checkpoint,get_rng_state, get_checkpoint_name,
+from megatron.training.checkpointing import (_load_base_checkpoint, get_rng_state, get_checkpoint_name,
                                              get_distributed_optimizer_checkpoint_name,
                                              ensure_directory_exists, generate_state_dict, get_checkpoint_tracker_filename)
 from megatron.training.one_logger_utils import on_save_checkpoint_start, on_save_checkpoint_success
