@@ -63,4 +63,6 @@ def first_option_postprocess(text: str, options: str, cushion=True) -> str:
             for option in options:
                 if option in outputs:
                     return option
+    
+    # If there is no match result, return nothing
     return ''

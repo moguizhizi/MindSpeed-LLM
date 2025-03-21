@@ -16,13 +16,18 @@
 import os
 import logging
 import json
-import pandas as pd
 import tqdm
+import torch
+import pandas as pd
 
+from megatron.core import mpu
+from megatron.training import get_args
 from torch import distributed as dist
 from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
 from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
+from mindspeed_llm.tasks.evaluation.utils import get_final_list_dataset
+from mindspeed_llm.tasks.evaluation.eval_utils.boolq_utils import first_capital_postprocess
 
 
 logger = logging.getLogger(__name__)
@@ -33,12 +38,14 @@ class BoolqEval(DatasetEval):
                  instruction_template="{passage}\nQuestion: {question}?\nAnswer:"):
         self.test_dir = test_dir
         self.instruction_template = instruction_template
+        self.alternative_prompt = "{title} -- {passage}\nQuestion: {question}\nA. Yes\nB. No\nAnswer:"
+        self.answer_reference = {'True': 'A', 'False': 'B', 'Yes': 'A', 'No': 'B', 'Y': 'A', 'N': 'B', 'T': 'A', 'F': 'B'}
         self.batch_size = eval_args.evaluation_batch_size
         self.rank = dist.get_rank()
         self.file_pbar = None
         self.task_pbar = None
-        # BoolqEval not support n shot now.
         self.eval_template = None
+        self.broadcast_rank = [[0]]
         self.max_eval_samples = eval_args.max_eval_samples
 
     def eval(self, chat: Chat) -> (dict, pd.DataFrame):
@@ -48,10 +55,14 @@ class BoolqEval(DatasetEval):
         total_n = 0
         rank = None
 
+        args = get_args()
+
         if self.rank == 0:
-            self.file_pbar = tqdm.tqdm(total=len(os.listdir(self.test_dir)), desc="total")
+            self.file_pbar = tqdm.tqdm(total=1, desc="total")
 
         for file in os.listdir(self.test_dir):
+            if 'dev' not in file:
+                continue
             file_path = os.path.join(self.test_dir, file)
             
             if not os.path.exists(file_path):
@@ -73,26 +84,50 @@ class BoolqEval(DatasetEval):
                 )
 
                 logger.info("%s length from %s to %s !!!", file, str(origin_len), str(len(boolq_question_list)))
+            
+            if args.broadcast:
+                group = self.broadcast_rank
+                align_start_dp_rank = 0
+            else:
+                boolq_question_list, group, align_start_dp_rank = get_final_list_dataset(boolq_question_list, 
+                                                                                        dist.get_world_size(), 
+                                                                                        args.tensor_model_parallel_size, 
+                                                                                        args.pipeline_model_parallel_size
+                                                                                        )
 
             if self.rank == 0:
                 self.task_pbar = tqdm.tqdm(total=len(boolq_question_list), desc=file, leave=False)
 
-            for index, item in enumerate(boolq_question_list):
-                instruction = self.instruction_template.format(passage=item['passage'], question=item['question'])
+            index = 0
+            for _, item in enumerate(boolq_question_list):
+                if args.alternative_prompt:
+                    instruction = self.alternative_prompt.format(title=item['title'], passage=item['passage'], question=item['question'])
+                else:
+                    instruction = self.instruction_template.format(passage=item['passage'], question=item['question'])
                 instructions.append(instruction)
                 targets.append(item['answer'])
 
                 if len(instructions) == self.batch_size or len(boolq_question_list) == index + 1:
                     chat_results, rank = chat.chat(instruction=instructions, history=[])
+                    if align_start_dp_rank >= 0 and len(boolq_question_list) == index + 1 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
+                        chat_results = chat_results[:-1]
                     if chat_results:
                         for idx, chat_result in enumerate(chat_results):
-                            answer = chat_result[1].lstrip()
+                            answer = chat_result[1].lstrip().strip() if not args.alternative_prompt else first_capital_postprocess(chat_results[0])
                             try:
-                                if rank == 0:
-                                    logger.info(f"correct: {str(targets[idx])[0]}, AI: {answer}")
-                                    subject_result[str(index - len(chat_result) + idx + 1)] = answer
-                                    if subject_result[str(index - len(chat_result) + idx + 1)] == str(targets[idx])[0]:
-                                        acc_n += 1
+                                if dist.get_rank() in group[0]:
+                                    if not args.alternative_prompt:
+                                        logger.info(f"correct: {str(targets[idx])[0]}, AI: {answer}")
+                                        subject_result[str(index - len(chat_result) + idx + 1)] = answer
+                                        if subject_result[str(index - len(chat_result) + idx + 1)] == str(targets[idx])[0]:
+                                            acc_n += 1
+                                    else:
+                                        if not args.origin_postprocess and answer not in 'ABCD':
+                                            answer = self.answer_reference[answer]
+                                        logger.info(f"correct: {self.answer_reference[str(targets[idx])]}, AI: {answer}")
+                                        subject_result[str(index - len(chat_result) + idx + 1)] = answer
+                                        if subject_result[str(index - len(chat_result) + idx + 1)] == self.answer_reference[str(targets[idx])]:
+                                            acc_n += 1
                             except Exception as e:
                                 if rank == 0:
                                     logger.info(e)
@@ -103,12 +138,25 @@ class BoolqEval(DatasetEval):
 
                 if self.task_pbar is not None:
                     self.task_pbar.update()
+                
+                index += 1
 
-            if rank == 0:
-                total_n += len(boolq_question_list)
-                total_acc_n += acc_n
-                answer_result['Boolq_dataset'] = subject_result
-                score_datas.append(['Boolq_dataset', len(boolq_question_list), check_divisible_by_zero(acc_n, len(boolq_question_list))])
+            if dist.get_rank() in group[0]:
+                question_num = len(boolq_question_list)
+                if align_start_dp_rank >= 0 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
+                    question_num -= 1
+                if not args.broadcast:
+                    local_tensor = torch.tensor([acc_n, question_num], device=torch.cuda.current_device())
+                    dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
+                    acc_n, total_questions = local_tensor.tolist()
+                else:
+                    total_questions = question_num
+                if dist.get_rank() == 0:
+                    logger.info(f'{file} has {acc_n} corrects in {total_questions} questions, with accuracy {acc_n / total_questions}')
+                    total_n += total_questions
+                    total_acc_n += acc_n
+                    answer_result[file] = subject_result
+                    score_datas.append([file, total_questions, acc_n / total_questions])
 
             if self.task_pbar is not None:
                 self.task_pbar.close()
@@ -116,7 +164,7 @@ class BoolqEval(DatasetEval):
             if self.file_pbar is not None:
                 self.file_pbar.update()
 
-        if rank == 0:
+        if dist.get_rank() in group[0]:
             logger.info(f"boolq acc = {total_acc_n}/{total_n}={check_divisible_by_zero(total_acc_n, total_n)}")
             score_datas.append(["total", total_n, total_acc_n / total_n])
         score_df = pd.DataFrame(columns=['subject', 'question_n', 'acc'], data=score_datas)
