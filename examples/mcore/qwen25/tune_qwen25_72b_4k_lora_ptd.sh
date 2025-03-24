@@ -14,11 +14,11 @@ CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
 
-TP=8
+TP=4
 PP=1
 SEQ_LEN=4096
 MBS=1
-GBS=32
+GBS=16
 TRAIN_ITERS=2000
 
 DISTRIBUTED_ARGS="
@@ -94,6 +94,8 @@ GPT_ARGS="
     --use-distributed-optimizer \
     --overlap-grad-reduce \
     --overlap-param-gather \
+    --use-mc2 \
+    --no-shuffle
 "
 
 DATA_ARGS="

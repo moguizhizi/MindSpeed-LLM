@@ -22,13 +22,6 @@ MBS=1
 GBS=64
 TRAIN_ITERS=2000
 
-MEMORY_ARGS="
-    --swap-attention \
-    --recompute-granularity full \
-    --recompute-method block \
-    --recompute-num-layers 4 \
-    --recompute-activation-function \
-"
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -96,7 +89,6 @@ GPT_ARGS="
     --adam-beta1 0.9 \
     --adam-beta2 0.95 \
     --initial-loss-scale 4096 \
-    --no-gradient-accumulation-fusion \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
     --bf16
@@ -129,7 +121,6 @@ torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $CKPT_ARGS \
     $OUTPUT_ARGS \
     $TUNE_ARGS \
-    $MEMORY_ARGS \
     --distributed-backend nccl \
     --load ${CKPT_LOAD_DIR} \
     --save ${CKPT_SAVE_DIR} \
