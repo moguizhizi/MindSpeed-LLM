@@ -325,11 +325,11 @@ def _block_method_checkpointed_forward_func(
     if vpp_size is None or not global_args.enable_recompute_layers_per_pp_rank:
         vpp_size = 1
 
-    for l in range(self.num_layers_per_pipeline_rank):
-        should_recompute = (l * vpp_size + vpp_rank) < self.config.recompute_num_layers
+    for single_layer in range(self.num_layers_per_pipeline_rank):
+        should_recompute = (single_layer * vpp_size + vpp_rank) < self.config.recompute_num_layers
         if should_recompute:
             hidden_states, context = tensor_parallel.checkpoint(
-                custom(l, l + 1),
+                custom(single_layer, single_layer + 1),
                 self.config.distribute_saved_activations,
                 hidden_states,
                 attention_mask,
@@ -339,7 +339,7 @@ def _block_method_checkpointed_forward_func(
                 packed_seq_params,
             )
         else:
-            hidden_states, context = custom(l, l + 1)(
+            hidden_states, context = custom(single_layer, single_layer + 1)(
                 hidden_states,
                 attention_mask,
                 context,

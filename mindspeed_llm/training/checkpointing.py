@@ -239,7 +239,8 @@ def save_checkpoint_wrapper(fn):
                 torch.save(state_dict, checkpoint_name)
         start_misc = time()
         if not args.async_save:
-            assert async_save_request is None
+            if async_save_request is not None:
+                raise ValueError("async_save_request should be None")
             # Wait so everyone is done (necessary)
             if torch.distributed.is_initialized():
                 torch.distributed.barrier()
@@ -259,7 +260,8 @@ def save_checkpoint_wrapper(fn):
                                            barrier=False)
 
             if args.async_save:
-                assert async_save_request is not None
+                if async_save_request is None:
+                    raise ValueError("async_save_request should be None")
                 async_save_request.add_finalize_fn(iter_finalize_fn)
             else:
                 iter_finalize_fn()
@@ -271,7 +273,8 @@ def save_checkpoint_wrapper(fn):
                 on_save_checkpoint_success(productive_metrics, args.async_save)
 
             if args.async_save:
-                assert async_save_request is not None
+                if async_save_request is None:
+                    raise ValueError("async_save_request should be None")
                 async_save_request.add_finalize_fn(onelogger_finalize_fn)
             else:
                 onelogger_finalize_fn()
