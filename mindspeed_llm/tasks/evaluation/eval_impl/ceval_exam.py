@@ -20,12 +20,17 @@ import re
 import pandas as pd
 import tqdm
 
+import torch
 from torch import distributed as dist
 
+from megatron.core import mpu
+from megatron.training import get_args
 from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
 from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
-from .template import CEVAL_TEMPLATE_DIR, get_eval_template
+from mindspeed_llm.tasks.evaluation.eval_utils.ceval_utils import format_ceval_templates, first_capital_postprocess
+from mindspeed_llm.tasks.evaluation.utils import get_final_dataset
+from mindspeed_llm.tasks.evaluation.eval_impl.template import CEVAL_TEMPLATE_DIR, get_eval_template
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +47,7 @@ class CEvalExam(DatasetEval):
         self.task_pbar = None
         self.eval_template = None
         self.prompt_type = None
+        self.broadcast_rank = [[0]]
         if eval_args.prompt_type is not None:
             self.prompt_type = eval_args.prompt_type.strip()
             self.eval_template = get_eval_template(eval_args.eval_language)
@@ -76,6 +82,8 @@ class CEvalExam(DatasetEval):
             instructions = []
             answers = []
 
+            args = get_args()
+
             if self.max_eval_samples is not None:
                 origin_len = len(data_df)
                 data_df = (
@@ -90,10 +98,17 @@ class CEvalExam(DatasetEval):
                     self.file_pbar.update()
                 continue
 
+            if args.broadcast:
+                group = self.broadcast_rank
+                align_start_dp_rank = 0
+            else:
+                data_df, group, align_start_dp_rank = get_final_dataset(data_df, dist.get_world_size(), args.tensor_model_parallel_size, args.pipeline_model_parallel_size)
+
             if self.rank == 0:
                 self.task_pbar = tqdm.tqdm(total=len(data_df), desc=file, leave=False)
 
-            for idx, row in data_df.iterrows():
+            idx = 0
+            for _, row in data_df.iterrows():
                 instruction = None
                 # 5-shot
                 if self.prompt_type is not None:
@@ -112,6 +127,19 @@ class CEvalExam(DatasetEval):
                         support_set=support_set,
                         subject_name=subject_name,
                     )
+                elif args.alternative_prompt:
+                    train_dir = os.path.dirname(self.test_dir) + "/dev/"
+                    train_file_path = os.path.join(train_dir, subject_name + "_dev.csv")
+
+                    if not os.path.exists(train_file_path):
+                        raise FileExistsError("The file ({}) does not exist !".format(train_file_path))
+
+                    train_data_df = pd.read_csv(train_file_path, encoding="utf-8")
+                    instruction = format_ceval_templates(
+                        target_data=row,
+                        support_set=train_data_df,
+                        subject_name=subject_name,
+                    )
                 else:
                     test_question = f"{row['question']}\nA. {row['A']}\nB. {row['B']}\nC. {row['C']}\nD. {row['D']}"
                     instruction = self.instruction_template.format(fewshot_template=ceval_few_shot_template[subject_name],
@@ -121,14 +149,16 @@ class CEvalExam(DatasetEval):
 
                 if len(instructions) == self.batch_size or len(data_df) == idx + 1:
                     chat_results, rank = chat.chat(instruction=instructions, history=[])
+                    if align_start_dp_rank >= 0 and len(data_df) == idx + 1 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
+                        chat_results = chat_results[:-1]
                     if chat_results:
                         for index, chat_result in enumerate(chat_results):
-                            answer = chat_result[0].lstrip()
+                            answer = chat_result[0].lstrip().strip() if not args.alternative_prompt else first_capital_postprocess(chat_result)
                             try:
-                                if rank == 0:
-                                    logger.info("correct: %s, AI: %s", answers[index], answer)
-                                    subject_result[str(idx - len(chat_results) + index + 1)] = answer
-                                    if subject_result[str(idx - len(chat_results) + index + 1)] == answers[index]:
+                                if dist.get_rank() in group[0]:
+                                    logger.info("correct: %s, AI: %s", answers[index].strip(), answer.strip())
+                                    subject_result[str(idx - len(chat_results) + index + 1)] = answer.strip()
+                                    if subject_result[str(idx - len(chat_results) + index + 1)].strip() == answers[index].strip():
                                         acc_n += 1
                             except Exception as e:
                                 subject_result[str(idx - len(chat_results) + index + 1)] = str(
@@ -138,12 +168,19 @@ class CEvalExam(DatasetEval):
 
                 if self.task_pbar is not None:
                     self.task_pbar.update()
+                
+                idx += 1
 
-            if rank == 0:
-                total_n += len(data_df)
-                total_acc_n += acc_n
-                answer_result[subject_name] = subject_result
-                score_datas.append([subject_name, len(data_df), acc_n / len(data_df)])
+            if dist.get_rank() in group[0]:
+                local_tensor = torch.tensor([acc_n, len(data_df)], device=torch.cuda.current_device())
+                dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
+                acc_n, total_questions = local_tensor.tolist()
+                if dist.get_rank() == 0:
+                    logger.info(f'{subject_name} has {acc_n} corrects in {total_questions} questions, with accuracy {acc_n / total_questions}')
+                    total_n += total_questions
+                    total_acc_n += acc_n
+                    answer_result[subject_name] = subject_result
+                    score_datas.append([subject_name, total_questions, acc_n / total_questions])
 
             if self.task_pbar is not None:
                 self.task_pbar.close()
@@ -151,11 +188,10 @@ class CEvalExam(DatasetEval):
             if self.file_pbar is not None:
                 self.file_pbar.update()        
 
-        if rank == 0:
+        if dist.get_rank() in group[0]:
             logger.info(f"ceval acc = {total_acc_n}/{total_n}={check_divisible_by_zero(total_acc_n, total_n)}")
             score_datas.append(["total", total_n, total_acc_n / total_n])
         score_df = pd.DataFrame(columns=['subject', 'question_n', 'acc'], data=score_datas)
-        logger.info(score_df)
         return answer_result, score_df
 
     def top_k_eval(self, ) -> (dict, pd.DataFrame):

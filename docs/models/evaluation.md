@@ -137,6 +137,10 @@ bash examples/legacy/llama2/evaluate_llama2_7B_lora_mmlu_ptd.sh
 ```
 
 ## 评估介绍
-[mmlu评估介绍](../../docs/features/mmlu-evalution.md)
-[cmmlu评估介绍](../../docs/features/cmmlu-evalution.md)
-[boolq评估介绍](../../docs/features/boolq-evalution.md)
+[mmlu评估介绍](../../docs/evaluation/mmlu_evaluation.md)
+
+[cmmlu评估介绍](../../docs/evaluation/cmmlu_evaluation.md)
+
+[boolq评估介绍](../../docs/evaluation/boolq_evaluation.md)
+
+[ceval评估介绍](../../docs/evaluation/ceval_evaluation.md)
