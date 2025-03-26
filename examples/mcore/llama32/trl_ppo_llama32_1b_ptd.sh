@@ -30,9 +30,9 @@ GPT_ARGS="
     --pipeline-model-parallel-size ${PP} \
     --use-fused-swiglu \
     --use-mcore-models \
-    --micro-batch-size 4 \
-    --global-batch-size 4 \
-
+    --micro-batch-size 1 \
+    --global-batch-size 1 \
+    --bf16 \
     --use-rotary-position-embeddings \
     --rope-scaling-type llama3 \
     --rope-scaling-factor 32.0 \
