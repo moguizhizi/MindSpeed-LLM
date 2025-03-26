@@ -30,14 +30,14 @@ def parse_digits(num):
     num = regex.sub(",", "", str(num))
     try:
         return float(num)
-    except ValueError:
+    except:
         if num.endswith("%"):
             num = num[:-1]
             if num.endswith("\\"):
                 num = num[:-1]
             try:
                 return float(num) / 100
-            except ValueError:
+            except:
                 pass
     return None
 
@@ -104,7 +104,7 @@ def math_equal(
                     warnings.warn(f"An exception occurred during comparison: {e}")
                     continue
             return False
-    except (ValueError, TypeError, AttributeError) as e:
+    except:
         pass
 
     if not prediction and prediction not in [0, False]:
@@ -271,25 +271,25 @@ def symbolic_equal(a, b):
     try:
         if str(a) == str(b) or a == b:
             return True
-    except (TypeError, ValueError) as e:
+    except:
         pass
 
     try:
         if a.equals(b) or simplify(a - b) == 0:
             return True
-    except (AttributeError, TypeError) as e:
+    except:
         pass
 
     try:
         if (abs(a.lhs - a.rhs)).equals(abs(b.lhs - b.rhs)):
             return True
-    except AttributeError as e:
+    except:
         pass
 
     try:
         if numeric_equal(float(N(a)), float(N(b))):
             return True
-    except (ValueError, TypeError) as e:
+    except:
         pass
 
     try:
@@ -298,7 +298,7 @@ def symbolic_equal(a, b):
             _b = b.applyfunc(lambda x: round(x, 3))
             if _a.equals(_b):
                 return True
-    except (AttributeError, TypeError) as e:
+    except:
         pass
     return False
 
