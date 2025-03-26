@@ -62,7 +62,11 @@ moe层前的dense层数，最大可设置为3。默认值为3。
 
 【--moe-tp-extend-ep】
 
-TP拓展EP，专家层TP组不切分专家参数，切分专家数量。
+TP拓展EP，专家层TP组不切分专家参数，切分专家数量。默认值为False。
+
+【--mla-mm-split】
+
+在MLA中，将2个up-proj matmul操作拆分成4个。默认值为False。
 
 【--qlora-nf4】
 

@@ -19,6 +19,10 @@ HIDDEN_SIZE = 7168
 NUM_EXPERTS = 256
 FIRST_K_DENSE_REPLACE = 3
 MTP_LAYER_INDEX = 61
+NUM_ATTENTION_HEADS = 128
+QK_NOPE_HEAD_DIM = 128
+QK_ROPE_HEAD_DIM = 64
+V_HEAD_DIM = 128
 
 
 class CkptConvert(object):
@@ -38,6 +42,7 @@ class CkptConvert(object):
         noop_layers (str, optional): should be skipped during conversion. Defaults to None.
         moe_grouped_gemm (bool, optional): Whether to use grouped GEMM for MoE layers.
         moe_tp_extend_ep (bool, optional): Whether to use tp group to extend experts parallism.
+        mla_mm_split (bool, optional): Whether to split up-proj in MLA.
         num_nextn_predict_layers (int, optional): The number of MTP layers. Defaults to 0.
         qlora_nf4 (bool, optional): Whether to use QLORA NF4. Defaults to False.
     """
@@ -56,6 +61,7 @@ class CkptConvert(object):
             vpp_stage: int = None,
             moe_grouped_gemm: bool = False,
             moe_tp_extend_ep: bool = False,
+            mla_mm_split: bool = False,
             num_nextn_predict_layers: int = 0,
             qlora_nf4: bool = False,
     ):
@@ -72,11 +78,16 @@ class CkptConvert(object):
         self.noop_layers = noop_layers
         self.moe_grouped_gemm = moe_grouped_gemm
         self.moe_tp_extend_ep = moe_tp_extend_ep
+        self.mla_mm_split = mla_mm_split
         self.first_k_dense_replace = num_dense_layers
         self.num_nextn_predict_layers = num_nextn_predict_layers
 
         self.hidden_size = HIDDEN_SIZE
         self.num_experts = NUM_EXPERTS
+        self.num_attention_heads = NUM_ATTENTION_HEADS
+        self.qk_nope_head_dim = QK_NOPE_HEAD_DIM
+        self.qk_rope_head_dim = QK_ROPE_HEAD_DIM
+        self.v_head_dim = V_HEAD_DIM
         self.mtp_layer_number = MTP_LAYER_INDEX
         self.share_mtp_embedding_and_output_weight = True
         self.qlora_nf4 = qlora_nf4
@@ -354,6 +365,17 @@ class CkptConvert(object):
 
             return qkv_key, dense_key, q_layernorm_key, kv_layernorm_key, q_b_key, kv_b_key
 
+        def _generate_attn_mm_split_key(mtp_flag, local_idx):
+            prefix = f"mtp_layers.{local_idx}.transformer_layer" if mtp_flag else \
+                f"decoder.layers.{local_idx}"
+
+            qk_nope_key = f"{prefix}.self_attention.linear_qk_nope.weight"
+            qk_rope_key = f"{prefix}.self_attention.linear_qk_rope.weight"
+            kv_nope_key = f"{prefix}.self_attention.linear_kv_nope.weight"
+            linear_v_key = f"{prefix}.self_attention.linear_v.weight"
+
+            return qk_nope_key, qk_rope_key, kv_nope_key, linear_v_key
+
         hf_q_proj = weights_dict.pop(f"model.layers.{hf_layer}.self_attn.q_a_proj.weight")
         hf_kv_proj = weights_dict.pop(f"model.layers.{hf_layer}.self_attn.kv_a_proj_with_mqa.weight")
         qkv_weight = torch.cat([hf_q_proj.reshape((-1, self.hidden_size)),
@@ -369,22 +391,55 @@ class CkptConvert(object):
         qkv_key, dense_key, q_layernorm_key, kv_layernorm_key, q_b_key, kv_b_key = _generate_attn_layers_key(
             mtp_layer_flag, local_layer_idx)
 
+        if self.mla_mm_split:
+            qk_nope_key, qk_rope_key, kv_nope_key, linear_v_key = _generate_attn_mm_split_key(mtp_layer_flag,
+                                                                                              local_layer_idx)
+
+            q_b_proj = q_b_proj.reshape(self.num_attention_heads, (self.qk_nope_head_dim + self.qk_rope_head_dim), -1)
+            kv_b_proj = kv_b_proj.reshape(self.num_attention_heads, (self.qk_nope_head_dim + self.v_head_dim), -1)
+            qk_nope, qk_rope = torch.split(q_b_proj, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=1)
+            kv_nope, linear_v = torch.split(kv_b_proj, [self.qk_nope_head_dim, self.v_head_dim], dim=1)
+            qk_nope = qk_nope.reshape(self.num_attention_heads * self.qk_nope_head_dim, -1)
+            qk_rope = qk_rope.reshape(self.num_attention_heads * self.qk_rope_head_dim, -1)
+            kv_nope = kv_nope.reshape(self.num_attention_heads * self.qk_nope_head_dim, -1)
+            linear_v = linear_v.reshape(self.num_attention_heads * self.v_head_dim, -1)
+
         for ep_rank in range(self.ep_size):
             dense_lst = torch.chunk(dense_weight, self.tp_size, dim=1)
-            linear_qb_lst = torch.chunk(q_b_proj, self.tp_size, dim=0)
-            linear_kvb_lst = torch.chunk(kv_b_proj, self.tp_size, dim=0)
+            if self.mla_mm_split:
+                qk_nope_lst = torch.chunk(qk_nope, self.tp_size, dim=0)
+                qk_rope_lst = torch.chunk(qk_rope, self.tp_size, dim=0)
+                kv_nope_lst = torch.chunk(kv_nope, self.tp_size, dim=0)
+                linear_v_lst = torch.chunk(linear_v, self.tp_size, dim=0)
+            else:
+                linear_qb_lst = torch.chunk(q_b_proj, self.tp_size, dim=0)
+                linear_kvb_lst = torch.chunk(kv_b_proj, self.tp_size, dim=0)
+
             for tp_rank in range(self.tp_size):
                 mg_model[ep_rank][tp_rank][qkv_key] = qkv_weight.clone()
                 mg_model[ep_rank][tp_rank][dense_key] = dense_lst[tp_rank].clone()
                 mg_model[ep_rank][tp_rank][q_layernorm_key] = q_layernorm.clone()
                 mg_model[ep_rank][tp_rank][kv_layernorm_key] = kv_layernorm.clone()
-                mg_model[ep_rank][tp_rank][q_b_key] = linear_qb_lst[tp_rank].clone()
-                mg_model[ep_rank][tp_rank][kv_b_key] = linear_kvb_lst[tp_rank].clone()
                 if self.qlora_nf4:
                     self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, qkv_key, qkv_weight.clone())
                     self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, dense_key, dense_lst[tp_rank].clone())
-                    self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, q_b_key, linear_qb_lst[tp_rank].clone())
-                    self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, kv_b_key, linear_kvb_lst[tp_rank].clone())
+
+                if self.mla_mm_split:
+                    mg_model[ep_rank][tp_rank][qk_nope_key] = qk_nope_lst[tp_rank].clone()
+                    mg_model[ep_rank][tp_rank][qk_rope_key] = qk_rope_lst[tp_rank].clone()
+                    mg_model[ep_rank][tp_rank][kv_nope_key] = kv_nope_lst[tp_rank].clone()
+                    mg_model[ep_rank][tp_rank][linear_v_key] = linear_v_lst[tp_rank].clone()
+                    if self.qlora_nf4:
+                        self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, qk_nope_key, qk_nope_lst[tp_rank].clone())
+                        self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, qk_rope_key, qk_rope_lst[tp_rank].clone())
+                        self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, kv_nope_key, kv_nope_lst[tp_rank].clone())
+                        self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, linear_v_key, linear_v_lst[tp_rank].clone())
+                else:
+                    mg_model[ep_rank][tp_rank][q_b_key] = linear_qb_lst[tp_rank].clone()
+                    mg_model[ep_rank][tp_rank][kv_b_key] = linear_kvb_lst[tp_rank].clone()
+                    if self.qlora_nf4:
+                        self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, q_b_key, linear_qb_lst[tp_rank].clone())
+                        self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, kv_b_key, linear_kvb_lst[tp_rank].clone())
 
     def set_model_layer_mlp(self, hf_layer_idx, local_layer_idx, weights_dict, mg_model, mtp_layer_flag=False):
         """MLP layer process"""
@@ -716,6 +771,8 @@ def get_args():
                         help='Customizing the number of dense layers.')
     parser.add_argument("--moe-tp-extend-ep", action='store_true',
                         help="use tp group to extend experts parallism instead of sharding weight tensor of experts in tp group")
+    parser.add_argument('--mla-mm-split', action='store_true', default=False,
+                        help='Split 2 up-proj matmul into 4 in MLA')
     parser.add_argument('--qlora-nf4', action='store_true',
                         help='use bitsandbytes nf4 to quantize model.')
 
@@ -738,6 +795,7 @@ def main():
         noop_layers=args.noop_layers,
         moe_grouped_gemm=args.moe_grouped_gemm,
         moe_tp_extend_ep=args.moe_tp_extend_ep,
+        mla_mm_split=args.mla_mm_split,
         num_nextn_predict_layers=args.num_nextn_predict_layers,
         qlora_nf4=args.qlora_nf4,
         vpp_stage=args.num_layers_per_virtual_pipeline_stage
