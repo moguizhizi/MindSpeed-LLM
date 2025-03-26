@@ -31,7 +31,7 @@ torchrun ${DISTRIBUTED_ARGS} evaluation.py   \
        --num-layers 48  \
        --hidden-size 6144 \
        --ffn-hidden-size 16384 \
-       --use-rotary-position-embedding \
+       --use-rotary-position-embeddings \
        --group-query-attention \
        --num-query-groups 8 \
        --position-embedding-type rope \

@@ -1,32 +1,37 @@
 #!/bin/bash
+export HCCL_CONNECT_TIMEOUT=3600
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-export HCCL_CONNECT_TIMEOUT=3600
 
 NPUS_PER_NODE=16
 MASTER_ADDR=localhost #主节点IP
 MASTER_PORT=6000
-NNODES=32
+NNODES=16
 NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
+CKPT_LOAD_DIR="your model ckpt path"
 CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
-CKPT_LOAD_DIR="your model ckpt path"
 
-TP=1
-PP=8
-VPP=1
-EP=64
+TP=2
+PP=16
+EP=8
 CP=1
 CP_TYPE='ulysses_cp_algo'
-NUM_LAYERS=61
-
+NUM_LAYERS=64
 SEQ_LEN=4096
 MBS=1
-GBS=64
+GBS=1024
 
+DISTRIBUTED_ARGS="
+    --nproc_per_node $NPUS_PER_NODE \
+    --nnodes $NNODES \
+    --node_rank $NODE_RANK \
+    --master_addr $MASTER_ADDR \
+    --master_port $MASTER_PORT
+"
 
 MLA_ARGS="
     --multi-head-latent-attention \
@@ -42,6 +47,8 @@ MOE_ARGS="
     --moe-grouped-gemm \
     --moe-permutation-async-comm \
     --use-fused-moe-token-permute-and-unpermute \
+    --moe-tp-extend-ep \
+    --moe-alltoall-overlap-comm \
     --moe-token-dispatcher-type alltoall \
     --first-k-dense-replace 3 \
     --moe-layer-freq 1 \
@@ -58,6 +65,13 @@ MOE_ARGS="
     --moe-router-enable-expert-bias \
 "
 
+MTP_ARGS="
+    --num-nextn-predict-layers 1 \
+    --share-mtp-embedding-and-output-weight \
+    --recompute-mtp-layer \
+    --recompute-mtp-norm \
+"
+
 ROPE_ARGS="
     --rope-scaling-beta-fast 32 \
     --rope-scaling-beta-slow 1 \
@@ -71,14 +85,14 @@ ROPE_ARGS="
 GPT_ARGS="
     --spec mindspeed_llm.tasks.models.spec.deepseek_spec layer_spec \
     --recompute-granularity full \
-    --recompute-method block \
-    --recompute-num-layers 8 \
+    --recompute-method uniform \
+    --recompute-num-layers 1 \
     --use-distributed-optimizer \
     --reuse-fp32-param \
     --use-flash-attn \
     --shape-order BNSD \
-    --num-layer-list 7,7,7,8,8,8,8,8 \
     --use-mcore-models \
+    --noop-layers 47,62,63 \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --expert-model-parallel-size ${EP} \
@@ -93,16 +107,10 @@ GPT_ARGS="
     --tokenizer-name-or-path ${TOKENIZER_PATH} \
     --seq-length ${SEQ_LEN} \
     --max-position-embeddings 163840 \
-    --micro-batch-size ${MBS} \
-    --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
-    --lr 1.0e-5 \
-    --train-iters 2000 \
-    --lr-decay-style cosine \
     --untie-embeddings-and-output-weights \
     --disable-bias-linear \
     --attention-dropout 0.0 \
-    --init-method-std 0.02 \
     --hidden-dropout 0.0 \
     --position-embedding-type rope \
     --normalization RMSNorm \
@@ -113,24 +121,41 @@ GPT_ARGS="
     --swiglu \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
-    --min-lr 1.0e-7 \
-    --weight-decay 1e-2 \
-    --lr-warmup-iters 100 \
-    --clip-grad 1.0 \
-    --adam-beta1 0.9 \
-    --adam-beta2 0.999 \
-    --initial-loss-scale 65536 \
     --vocab-size 129280 \
     --padded-vocab-size 129280 \
     --rotary-base 10000 \
     --norm-epsilon 1e-6 \
-    --no-load-optim \
-    --no-load-rng \
-    --bf16 \
     --distributed-timeout-minutes 120 \
 "
 
+TRAIN_ARGS="
+    --micro-batch-size ${MBS} \
+    --global-batch-size ${GBS} \
+    --train-iters 2000 \
+    --lr 1.0e-5 \
+    --lr-decay-style cosine \
+    --init-method-std 0.02 \
+    --min-lr 1.0e-7 \
+    --weight-decay 1e-2 \
+    --clip-grad 1.0 \
+    --adam-beta1 0.9 \
+    --adam-beta2 0.999 \
+    --initial-loss-scale 65536 \
+    --bf16 \
+"
+
+CKPT_ARGS="
+    --no-load-optim \
+    --no-load-rng \
+    --no-save-optim \
+    --no-save-rng \
+    --seed 1234 \
+    --load ${CKPT_LOAD_DIR} \
+    --save ${CKPT_SAVE_DIR} \
+"
+
 DATA_ARGS="
+    --no-shared-storage \
     --data-path $DATA_PATH \
     --split 100,0,0
 "
@@ -140,10 +165,6 @@ OUTPUT_ARGS="
     --save-interval 500 \
     --eval-interval 500 \
     --eval-iters 0 \
-    --no-save-optim \
-    --load ${LOAD_PATH} \
-    --save ${SAVE_PATH} \
-    --no-save-rng
 "
 
 FINETUNE_ARGS="
@@ -153,21 +174,16 @@ FINETUNE_ARGS="
     --variable-seq-lengths \
 "
 
-DISTRIBUTED_ARGS="
-    --nproc_per_node $NPUS_PER_NODE \
-    --nnodes $NNODES \
-    --node_rank $NODE_RANK \
-    --master_addr $MASTER_ADDR \
-    --master_port $MASTER_PORT
-"
-
 python -m torch.distributed.launch $DISTRIBUTED_ARGS posttrain_gpt.py \
     $GPT_ARGS \
+    $CKPT_ARGS \
     $DATA_ARGS \
+    $TRAIN_ARGS \
     $OUTPUT_ARGS \
     $MLA_ARGS \
     $ROPE_ARGS \
+    $MTP_ARGS \
     $MOE_ARGS \
     $FINETUNE_ARGS \
     --distributed-backend nccl \
-    | tee tune_deepseek3_671b_4k_full_A3_512_ptd.log
+    | tee tune_deepseek3_671b_4k_full_A3_256_ptd.log

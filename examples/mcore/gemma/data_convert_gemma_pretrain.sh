@@ -7,7 +7,7 @@ python ./preprocess_data.py \
    --input ./dataset/wikipedia-cn-20230720-filtered.json \
    --tokenizer-name-or-path ./model_from_hf/gemma_hf/ \
    --output-prefix ./dataset/wikipedia_cn \
-   --json-key completion \
+   --json-keys completion \
    --workers 4 \
    --log-interval 1000  \
    --tokenizer-type PretrainedFromHF
