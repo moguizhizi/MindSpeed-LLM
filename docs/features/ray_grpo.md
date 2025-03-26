@@ -99,7 +99,10 @@ ray start --address="IP_ADDRESS:6344" --resources='{"NPU": 8}'
 ```bash
 python ray_gpt.py --config-name grpo_trainer_llama3_8b
 ```
-
+结束之后，使用如下命令行结束 ray 进程
+```
+ray stop
+```
 ## 配置文件
 
 由于 GRPO 训练过程中涉及 3 个模型，通过将模型参数和训练配置解耦的层级化参数配置，来简化 GRPO 训练的参数配置过程。RLXF 训练涉及到的所有配置文件均存储在 configs/rlxf 路径下，其中 model 文件夹下存储了模型结构相关的配置文件，GRPO训练相关的模型参数文件以grpo_{模型名}.yaml方式命名。
