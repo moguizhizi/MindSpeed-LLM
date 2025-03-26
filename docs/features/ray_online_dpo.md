@@ -33,7 +33,7 @@ python ./preprocess_data.py \
 
 ## 模型权重转换
 
-根据 Online DPO 算法要求，Actor 和 Reference 模型应该使用 SFT 微调后的模型进行初始化，Critic 和 Reward 模型应该使用奖励模型训练后的模型进行初始化。PPO算法模型权重均使用Megatron-mcore格式，其他格式的权重需要进行模型权重转换，具体可参考[权重转换](./checkpoint.md)。
+根据 Online DPO 算法要求，Actor 和 Reference 模型应该使用 SFT 微调后的模型进行初始化，Critic 和 Reward 模型应该使用奖励模型训练后的模型进行初始化。DPO算法模型权重均使用Megatron-mcore格式，其他格式的权重需要进行模型权重转换，具体可参考[权重转换](./checkpoint.md)。
 
 下面以llama3.2-1b模型作为示例参考：
 
@@ -43,7 +43,7 @@ actor_rollout_ref 涉及到的actor_rollout 与 ref 均需要 SFT 微调后的�
 critic 与 reward 模型需要使用奖励模型训练后的模型，权重转换示例脚本：<td><a href="../../examples/mcore/llama32/ckpt_convert_llama32_hf2mcore_orm.sh">llama32-1b-orm</a></td>
 
 
-相应的ppo_trainer_llama32_1b.yaml配置如下
+相应的oneline_dpo_trainer_llama32_1b.yaml配置如下
 ```
   actor_rollout_ref:
     actor_rollout:
@@ -116,7 +116,7 @@ ray stop
 
 ## 参数解析
 
-相较于普通模型训练，PPO增加一些特殊参数：
+相较于普通模型训练，DPO增加一些特殊参数：
 
 ### `training:`
 
@@ -126,7 +126,7 @@ ray stop
 
 * `do_sample`：控制 Actor 模型进行推理时是否采样，默认为 False，Online DPO 需要设置为True ；
 * `ppo_mini_batch_size`：Actor 模型的 mini_batch_size，默认为1；
-* `max_prompt_length`：PPO 训练中最大 prompt 长度，默认为512；
+* `max_prompt_length`：DPO 训练中最大 prompt 长度，默认为512；
 * `num_samples_per_step`：Actor 推理时每个step的推理样本数量，默认为1；
 * `ppo_epochs`：Actor 训练对同一批经验数据的重复次数，默认为1；
 * `clip_ratio`：Actor模型训练计算损失函数时的clip比例，默认为0.2 一般取值范围 [0.1，0.3] 最大取值范围[0，1] 该数值越大允许策略更新的幅度越大，反之不然；
