@@ -64,7 +64,7 @@ GPT_ARGS="
     --vocab-size 32000 \
     --rotary-base 1000000 \
     --no-masked-softmax-fusion \
-    --use-fused-rotary-pos-emb \
+    --use-fused-rotary-pos-emb-new \
     --use-flash-attn \
     --use-fused-swiglu \
     --use-fused-rmsnorm \
@@ -79,9 +79,9 @@ GPT_ARGS="
     --context-parallel-algo  ${CP_TYPE}  \
     --num-layers-per-virtual-pipeline-stage 2 \
     --reuse-fp32-param \
-    --swap-attention \
-    --recompute-method block \
-    --recompute-num-layers 30 \
+    --recompute-granularity full \
+    --recompute-method uniform \
+    --recompute-num-layers 1 \
     --tokenizer-type Llama2Tokenizer \
     --tokenizer-model ${TOKENIZER_MODEL} \
     --load ${CKPT_LOAD_DIR} \
