@@ -11,6 +11,7 @@ from collections import OrderedDict
 from tqdm import tqdm
 import torch
 from transformers import AutoModelForCausalLM, AutoConfig, AutoModelForSequenceClassification
+from peft import get_peft_model, LoraConfig, TaskType
 from megatron.core import mpu
 from megatron.training.arguments import validate_args
 from megatron.legacy.model import module
@@ -37,6 +38,8 @@ class ModelBase(abc.ABC):
         self.module = None
         self.module_mapping = None
         self.model_cfg = self.read_model_cfg(args_cmd)
+        if self.args_cmd.save_lora_to_hf:
+            self.lora_layer_mappings = self.read_model_cfg(self.args_cmd, True)
         self.__register_functions()
         self.kwargs_idx = OrderedDict({
             "vp_rank": 0,
@@ -140,8 +143,9 @@ class ModelBase(abc.ABC):
                 setattr(self, "has_" + key + "_bias", _func_generator_has_bias(value).__get__(self, ModelBase))
 
     def update_module(self, src_model):
-        self.set_preprocess_state(src_model)
-        self.set_postprocess_state(src_model)
+        if not self.args_cmd.save_lora_to_hf:
+            self.set_preprocess_state(src_model)
+            self.set_postprocess_state(src_model)
         if not (hasattr(self.args, "noop_layers") and self.args.noop_layers):
             for layer_idx in tqdm(range(self.args.num_layers), "set layer states"):
                 self.set_layer_state(src_model, layer_idx)
@@ -219,6 +223,8 @@ class ModelBase(abc.ABC):
         kwargs = {'src_layer_idx': src_layer_idx, "dst_layer_idx": dst_layer_idx}
         self.set_attn_state(src_layer_idx=src_layer_idx, dst_layer_idx=dst_layer_idx, src_model=src_model)
         self.set_mlp_state(src_model, **kwargs)
+        if self.args_cmd.save_lora_to_hf:
+            return
         input_layernorm_weight = src_model.get_layers_input_layernorm_weight(layer_idx=src_layer_idx)
         self.set_layers_input_layernorm_weight(layer_idx=dst_layer_idx, data=input_layernorm_weight)
 
@@ -243,55 +249,85 @@ class ModelBase(abc.ABC):
 
     def set_attn_state(self, src_layer_idx, dst_layer_idx, src_model):
         """Set self-attention params."""
-        if getattr(src_model.get_args(), "qk_layernorm", False):
-            if getattr(src_model.get_args(), "q_lora_rank", None):
-                q_layernorm = src_model.get_layers_self_attention_q_layernorm_weight(layer_idx=src_layer_idx)
-                self.set_layers_self_attention_q_layernorm_weight(layer_idx=dst_layer_idx, data=q_layernorm)
-            k_layernorm = src_model.get_layers_self_attention_k_layernorm_weight(layer_idx=src_layer_idx)
-            self.set_layers_self_attention_k_layernorm_weight(layer_idx=dst_layer_idx, data=k_layernorm)
+        if self.args.save_lora_to_hf:
+            qkv_lora_A_weight = src_model.get_layers_self_attention_linear_qkv_lora_A_default_weight(layer_idx=src_layer_idx)
+            qkv_lora_B_weight = src_model.get_layers_self_attention_linear_qkv_lora_B_default_weight(layer_idx=src_layer_idx)
+            proj_lora_A_weight = src_model.get_layers_self_attention_linear_proj_lora_A_default_weight(layer_idx=src_layer_idx)
+            proj_lora_B_weight = src_model.get_layers_self_attention_linear_proj_lora_B_default_weight(layer_idx=src_layer_idx)
+            self.set_layers_self_attention_linear_qkv_lora_A_default_weight(layer_idx=dst_layer_idx, data=qkv_lora_A_weight)
+            self.set_layers_self_attention_linear_qkv_lora_B_default_weight(layer_idx=dst_layer_idx, data=qkv_lora_B_weight)
+            self.set_layers_self_attention_linear_proj_lora_A_default_weight(layer_idx=dst_layer_idx, data=proj_lora_A_weight)
+            self.set_layers_self_attention_linear_proj_lora_B_default_weight(layer_idx=dst_layer_idx, data=proj_lora_B_weight)
+        else:
+            if getattr(src_model.get_args(), "qk_layernorm", False):
+                if getattr(src_model.get_args(), "q_lora_rank", None):
+                    q_layernorm = src_model.get_layers_self_attention_q_layernorm_weight(layer_idx=src_layer_idx)
+                    self.set_layers_self_attention_q_layernorm_weight(layer_idx=dst_layer_idx, data=q_layernorm)
+                k_layernorm = src_model.get_layers_self_attention_k_layernorm_weight(layer_idx=src_layer_idx)
+                self.set_layers_self_attention_k_layernorm_weight(layer_idx=dst_layer_idx, data=k_layernorm)
 
-        if getattr(src_model.get_args(), "multi_head_latent_attention", False):
-            if getattr(src_model.get_args(), "q_lora_rank", None):
-                linear_qb = src_model.get_layers_self_attention_linear_qb_weight(layer_idx=src_layer_idx)
-                self.set_layers_self_attention_linear_qb_weight(layer_idx=dst_layer_idx, data=linear_qb)
-            linear_kvb = src_model.get_layers_self_attention_linear_kvb_weight(layer_idx=src_layer_idx)
-            self.set_layers_self_attention_linear_kvb_weight(layer_idx=dst_layer_idx, data=linear_kvb)
+            if getattr(src_model.get_args(), "multi_head_latent_attention", False):
+                if getattr(src_model.get_args(), "q_lora_rank", None):
+                    linear_qb = src_model.get_layers_self_attention_linear_qb_weight(layer_idx=src_layer_idx)
+                    self.set_layers_self_attention_linear_qb_weight(layer_idx=dst_layer_idx, data=linear_qb)
+                linear_kvb = src_model.get_layers_self_attention_linear_kvb_weight(layer_idx=src_layer_idx)
+                self.set_layers_self_attention_linear_kvb_weight(layer_idx=dst_layer_idx, data=linear_kvb)
 
-        qkv_weight = src_model.get_layers_self_attention_linear_qkv_weight(layer_idx=src_layer_idx)
-        proj_weight = src_model.get_layers_self_attention_linear_proj_weight(layer_idx=src_layer_idx)
-        self.set_layers_self_attention_linear_qkv_weight(layer_idx=dst_layer_idx, data=qkv_weight)
-        self.set_layers_self_attention_linear_proj_weight(layer_idx=dst_layer_idx, data=proj_weight)
-        if self.args.add_qkv_bias:
-            qkv_bias = src_model.get_layers_self_attention_linear_qkv_bias(layer_idx=src_layer_idx)
-            self.set_layers_self_attention_linear_qkv_bias(layer_idx=dst_layer_idx, data=qkv_bias)
-        if self.args.add_dense_bias:
-            proj_bias = src_model.get_layers_self_attention_linear_proj_bias(layer_idx=src_layer_idx)
-            self.set_layers_self_attention_linear_proj_bias(layer_idx=dst_layer_idx, data=proj_bias)
+            qkv_weight = src_model.get_layers_self_attention_linear_qkv_weight(layer_idx=src_layer_idx)
+            proj_weight = src_model.get_layers_self_attention_linear_proj_weight(layer_idx=src_layer_idx)
+            self.set_layers_self_attention_linear_qkv_weight(layer_idx=dst_layer_idx, data=qkv_weight)
+            self.set_layers_self_attention_linear_proj_weight(layer_idx=dst_layer_idx, data=proj_weight)
+            if self.args.add_qkv_bias:
+                qkv_bias = src_model.get_layers_self_attention_linear_qkv_bias(layer_idx=src_layer_idx)
+                self.set_layers_self_attention_linear_qkv_bias(layer_idx=dst_layer_idx, data=qkv_bias)
+            if self.args.add_dense_bias:
+                proj_bias = src_model.get_layers_self_attention_linear_proj_bias(layer_idx=src_layer_idx)
+                self.set_layers_self_attention_linear_proj_bias(layer_idx=dst_layer_idx, data=proj_bias)
 
     def _set_mlp_state(self, src_model, **kwargs):
         """Set MLP params."""
-        fc1_weight = src_model.get_layers_mlp_linear_fc1_weight(**kwargs)
-        fc2_weight = src_model.get_layers_mlp_linear_fc2_weight(**kwargs)
-        self.set_layers_mlp_linear_fc1_weight(data=fc1_weight, **kwargs)
-        self.set_layers_mlp_linear_fc2_weight(data=fc2_weight, **kwargs)
-        if src_model.has_layers_mlp_linear_fc1_bias(**kwargs):
-            fc1_bias = src_model.get_layers_mlp_linear_fc1_bias(**kwargs)
-            self.set_layers_mlp_linear_fc1_bias(data=fc1_bias, **kwargs)
-        if src_model.has_layers_mlp_linear_fc2_bias(**kwargs):
-            fc2_bias = src_model.get_layers_mlp_linear_fc2_bias(**kwargs)
-            self.set_layers_mlp_linear_fc2_bias(data=fc2_bias, **kwargs)
-        if self.args.post_norm:
-            pre_mlp_layernorm_weight = src_model.get_layers_self_attention_pre_mlp_layernorm_weight(**kwargs)
-            post_mlp_layernorm_weight = src_model.get_layers_self_attention_post_mlp_layernorm_weight(**kwargs)
-            self.set_layers_self_attention_pre_mlp_layernorm_weight(data=pre_mlp_layernorm_weight, **kwargs)
-            self.set_layers_self_attention_post_mlp_layernorm_weight(data=post_mlp_layernorm_weight, **kwargs)
+        if self.args.save_lora_to_hf:
+            fc1_lora_A_weight = src_model.get_layers_mlp_linear_fc1_lora_A_default_weight(**kwargs)
+            fc1_lora_B_weight = src_model.get_layers_mlp_linear_fc1_lora_B_default_weight(**kwargs)
+            fc2_lora_A_weight = src_model.get_layers_mlp_linear_fc2_lora_A_default_weight(**kwargs)
+            fc2_lora_B_weight = src_model.get_layers_mlp_linear_fc2_lora_B_default_weight(**kwargs)
+            self.set_layers_mlp_linear_fc1_lora_A_default_weight(data=fc1_lora_A_weight, **kwargs)
+            self.set_layers_mlp_linear_fc1_lora_B_default_weight(data=fc1_lora_B_weight, **kwargs)
+            self.set_layers_mlp_linear_fc2_lora_A_default_weight(data=fc2_lora_A_weight, **kwargs)
+            self.set_layers_mlp_linear_fc2_lora_B_default_weight(data=fc2_lora_B_weight, **kwargs)
+        else:
+            fc1_weight = src_model.get_layers_mlp_linear_fc1_weight(**kwargs)
+            fc2_weight = src_model.get_layers_mlp_linear_fc2_weight(**kwargs)
+            self.set_layers_mlp_linear_fc1_weight(data=fc1_weight, **kwargs)
+            self.set_layers_mlp_linear_fc2_weight(data=fc2_weight, **kwargs)
+            if src_model.has_layers_mlp_linear_fc1_bias(**kwargs):
+                fc1_bias = src_model.get_layers_mlp_linear_fc1_bias(**kwargs)
+                self.set_layers_mlp_linear_fc1_bias(data=fc1_bias, **kwargs)
+            if src_model.has_layers_mlp_linear_fc2_bias(**kwargs):
+                fc2_bias = src_model.get_layers_mlp_linear_fc2_bias(**kwargs)
+                self.set_layers_mlp_linear_fc2_bias(data=fc2_bias, **kwargs)
+            if self.args.post_norm:
+                pre_mlp_layernorm_weight = src_model.get_layers_self_attention_pre_mlp_layernorm_weight(**kwargs)
+                post_mlp_layernorm_weight = src_model.get_layers_self_attention_post_mlp_layernorm_weight(**kwargs)
+                self.set_layers_self_attention_pre_mlp_layernorm_weight(data=pre_mlp_layernorm_weight, **kwargs)
+                self.set_layers_self_attention_post_mlp_layernorm_weight(data=post_mlp_layernorm_weight, **kwargs)
     
     def _set_mlp_experts_state(self, src_model, **kwargs):
         """Set MLP experts params."""
-        fc1_weight = src_model.get_layers_mlp_experts_linear_fc1_weight(**kwargs)
-        fc2_weight = src_model.get_layers_mlp_experts_linear_fc2_weight(**kwargs)
-        self.set_layers_mlp_experts_linear_fc1_weight(data=fc1_weight, **kwargs)
-        self.set_layers_mlp_experts_linear_fc2_weight(data=fc2_weight, **kwargs)
+        if self.args.save_lora_to_hf:
+            fc1_lora_A_weight = src_model.get_layers_mlp_experts_linear_fc1_lora_A_default_weight(**kwargs)
+            fc1_lora_B_weight = src_model.get_layers_mlp_experts_linear_fc1_lora_B_default_weight(**kwargs)
+            fc2_lora_A_weight = src_model.get_layers_mlp_experts_linear_fc2_lora_A_default_weight(**kwargs)
+            fc2_lora_B_weight = src_model.get_layers_mlp_experts_linear_fc2_lora_B_default_weight(**kwargs)
+            self.set_layers_mlp_experts_linear_fc1_lora_A_default_weight(data=fc1_lora_A_weight, **kwargs)
+            self.set_layers_mlp_experts_linear_fc1_lora_B_default_weight(data=fc1_lora_B_weight, **kwargs)
+            self.set_layers_mlp_experts_linear_fc2_lora_A_default_weight(data=fc2_lora_A_weight, **kwargs)
+            self.set_layers_mlp_experts_linear_fc2_lora_B_default_weight(data=fc2_lora_B_weight, **kwargs)
+        else:
+            fc1_weight = src_model.get_layers_mlp_experts_linear_fc1_weight(**kwargs)
+            fc2_weight = src_model.get_layers_mlp_experts_linear_fc2_weight(**kwargs)
+            self.set_layers_mlp_experts_linear_fc1_weight(data=fc1_weight, **kwargs)
+            self.set_layers_mlp_experts_linear_fc2_weight(data=fc2_weight, **kwargs)
 
     def _set_mlp_shared_experts_state(self, src_model, **kwargs):
         """Set MLP shared experts params."""
@@ -315,13 +351,14 @@ class ModelBase(abc.ABC):
         shared_expert_gate = getattr(args, 'shared_expert_gate', False)
         dst_layer_idx = kwargs["dst_layer_idx"]
         if dst_layer_idx >= first_k_dense_replace and dst_layer_idx % moe_layer_freq == 0:
-            router_weight = src_model.get_layers_mlp_router_weight(**kwargs)
-            self.set_layers_mlp_router_weight(**kwargs, data=router_weight)
-            if shared_expert_gate:
-                shared_expert_gate_weight = src_model.get_layers_mlp_shared_expert_gate_weight(**kwargs)
-                self.set_layers_mlp_shared_expert_gate_weight(**kwargs, data=shared_expert_gate_weight)
-            if getattr(self.args, "n_shared_experts", None) is not None:
-                self._set_mlp_shared_experts_state(src_model, **kwargs)
+            if not self.args_cmd.save_lora_to_hf:
+                router_weight = src_model.get_layers_mlp_router_weight(**kwargs)
+                self.set_layers_mlp_router_weight(**kwargs, data=router_weight)
+                if shared_expert_gate:
+                    shared_expert_gate_weight = src_model.get_layers_mlp_shared_expert_gate_weight(**kwargs)
+                    self.set_layers_mlp_shared_expert_gate_weight(**kwargs, data=shared_expert_gate_weight)
+                if getattr(self.args, "n_shared_experts", None) is not None:
+                    self._set_mlp_shared_experts_state(src_model, **kwargs)
             if args.moe_grouped_gemm:
                 self._set_moe_grouped_gemm_state(src_model, **kwargs)
             else:
@@ -361,7 +398,7 @@ class ModelBase(abc.ABC):
             return self.args.moe_layer_freq
 
     @staticmethod
-    def read_model_cfg(args_cmd):
+    def read_model_cfg(args_cmd, save_lora_to_hf=False):
         def merge_configs(base_config, specific_config):
             merged_config = base_config.copy()
             for key, value in specific_config.items():
@@ -370,6 +407,15 @@ class ModelBase(abc.ABC):
                 else:
                     merged_config[key] = value
             return merged_config
+
+        if save_lora_to_hf is True:
+            """The key-value pairs adapted for Lora."""
+            current_directory = os.path.dirname(os.path.abspath(__file__))
+            cfg_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current_directory))), "configs/checkpoint/lora_cfg.json")
+            with open(cfg_dir, 'r') as file:
+                config = json.load(file)
+            layer_mappings = config.get("lora_mappings", {})
+            return layer_mappings
 
         if args_cmd.ckpt_cfg_path == "configs/checkpoint/model_cfg.json":
             current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -444,6 +490,7 @@ class HuggingfaceModel(ModelBase):
         self.args.add_qkv_bias = self.args_cmd.add_qkv_bias
         self.args.add_dense_bias = self.args_cmd.add_dense_bias
         self.args.post_norm = self.args_cmd.post_norm
+        self.args.save_lora_to_hf = self.args_cmd.save_lora_to_hf
 
     def get_modules_from_config(self, device_map="cpu", trust_remote_code=True):
         # Load Huggingface model.
@@ -474,11 +521,58 @@ class HuggingfaceModel(ModelBase):
             self.module = [AutoModelForCausalLM.from_pretrained(
                 load_dir, device_map=device_map, trust_remote_code=trust_remote_code, local_files_only=True
             )]
+
+        if self.args_cmd.save_lora_to_hf:
+            lora_config = LoraConfig(
+                task_type=TaskType.CAUSAL_LM,
+                r=self.args_cmd.lora_r,
+                lora_alpha=self.args_cmd.lora_alpha,
+                target_modules=self.target_lora_modules_hf,
+                lora_dropout=0.0,
+                bias="none"
+            )
+            self.module = [get_peft_model(self.module[0], lora_config)]        
         if hasattr(self.args, "torch_dtype") and self.args.torch_dtype in ["float16", "bfloat16"]:
             self.module[0] = self.module[0].to(eval(f'torch.{self.args.torch_dtype}'))
 
+    def get_lora_key(self, layer_name, prefix):
+        return f"{layer_name}.{prefix}"
+
+    def update_lora_mapping(self, target_module, module_mapping, qkv_type, hf_name_prefix="base_model.model."):
+        """
+        Update the LoRA mapping for different modules based on the module type and qkv_type.
+        """
+        if target_module in self.lora_layer_mappings:
+            if target_module == "linear_qkv":
+                if qkv_type not in self.lora_layer_mappings["linear_qkv"]:
+                    raise ValueError(f"Unsupported qkv_type: {qkv_type}")
+                layers = self.lora_layer_mappings["linear_qkv"][qkv_type]
+            else:
+                layers = self.lora_layer_mappings[target_module]
+
+            for layer_name in layers:
+                hf_name = module_mapping.get(layer_name)
+                if hf_name is None:
+                    break
+                hf_name = hf_name_prefix + hf_name
+                last_part = hf_name.split(".")[-1]
+                if last_part: 
+                    self.target_lora_modules_hf.append(last_part)
+
+                lora_key_A = self.get_lora_key(hf_name, "lora_A.default")
+                module_mapping[f"{layer_name}_lora_A_default"] = lora_key_A
+                lora_key_B = self.get_lora_key(hf_name, "lora_B.default")
+                module_mapping[f"{layer_name}_lora_B_default"] = lora_key_B
+        else:
+            raise ValueError(f"Unsupported module: {target_module}")
+
     def get_module_mapping(self):
         self.module_mapping = self.model_cfg.get(self.args_cmd.model_type_hf).get('model_hf_key_mapping')
+        self.args_cmd.qkv_type = self.model_cfg.get(self.args_cmd.model_type_hf).get('config_set_value')["qkv_type"]
+        if self.args_cmd.save_lora_to_hf: 
+            self.target_lora_modules_hf = []
+            for target_module in self.args_cmd.lora_target_modules:
+                self.update_lora_mapping(target_module, self.module_mapping, self.args_cmd.qkv_type)
 
     def __get_layers_self_attention_linear_qkv_module(self, layer_idx=0):
         if self.layers_self_attention_linear_qkv_caches["layer_idx"] == layer_idx:
@@ -590,10 +684,28 @@ class HuggingfaceModel(ModelBase):
         self.set_layers_mlp_gate_proj_weight(data=gate_proj, **kwargs)
         self.set_layers_mlp_up_proj_weight(data=up_proj, **kwargs)
 
+    def set_layers_mlp_linear_fc1_lora_A_default_weight(self, data=None, **kwargs):
+        self.set_layers_mlp_gate_proj_lora_A_default_weight(data=data.clone(), **kwargs)
+        self.set_layers_mlp_up_proj_lora_A_default_weight(data=data.clone(), **kwargs)
+
+    def set_layers_mlp_linear_fc1_lora_B_default_weight(self, data=None, **kwargs):
+        gate_proj, up_proj = torch.chunk(data, 2, dim=0)
+        self.set_layers_mlp_gate_proj_lora_B_default_weight(data=gate_proj, **kwargs)
+        self.set_layers_mlp_up_proj_lora_B_default_weight(data=up_proj, **kwargs)
+
     def set_layers_mlp_experts_linear_fc1_weight(self, data=None, **kwargs):
         gate_proj, up_proj = torch.chunk(data, 2, dim=0)
         self.set_layers_mlp_experts_gate_proj_weight(data=gate_proj, **kwargs)
         self.set_layers_mlp_experts_up_proj_weight(data=up_proj, **kwargs)
+
+    def set_layers_mlp_experts_linear_fc1_lora_A_default_weight(self, data=None, **kwargs):
+        self.set_layers_mlp_experts_gate_proj_lora_A_default_weight(data=data.clone(), **kwargs)
+        self.set_layers_mlp_experts_up_proj_lora_A_default_weight(data=data.clone(), **kwargs)
+
+    def set_layers_mlp_experts_linear_fc1_lora_B_default_weight(self, data=None, **kwargs):
+        gate_proj, up_proj = torch.chunk(data, 2, dim=0)
+        self.set_layers_mlp_experts_gate_proj_lora_B_default_weight(data=gate_proj, **kwargs)
+        self.set_layers_mlp_experts_up_proj_lora_B_default_weight(data=up_proj, **kwargs)
 
     def set_layers_mlp_shared_experts_linear_fc1_weight(self, data=None, **kwargs):
         gate_proj, up_proj = torch.chunk(data, 2, dim=0)
@@ -711,6 +823,70 @@ class HuggingfaceModel(ModelBase):
             self.set_layers_self_attention_linear_kv_proj_weight(layer_idx=layer_idx, data=kv_proj)
         elif qkv_type == "pack_self":
             self.set_layers_self_attention_linear_qkv_pack_weight(layer_idx=layer_idx, data=data)
+        else:
+            raise ValueError(f"Unsupported types. {qkv_type}")
+
+    def set_layers_self_attention_linear_qkv_lora_A_default_weight(self, layer_idx=0, data=None):
+        qkv_type = self.args.qkv_type
+        if qkv_type == "unpack":
+            q_weight = data.clone()
+            k_weight = data.clone()
+            v_weight = data.clone()
+            self.set_layers_self_attention_linear_q_proj_lora_A_default_weight(layer_idx=layer_idx, data=q_weight)
+            self.set_layers_self_attention_linear_k_proj_lora_A_default_weight(layer_idx=layer_idx, data=k_weight)
+            self.set_layers_self_attention_linear_v_proj_lora_A_default_weight(layer_idx=layer_idx, data=v_weight)
+        elif qkv_type == "pack_gqa":
+            self.set_layers_self_attention_linear_qkv_pack_lora_A_default_weight(layer_idx=layer_idx, data=data.clone())
+        elif qkv_type == "pack_mla":
+            self.set_layers_self_attention_linear_q_proj_lora_A_default_weight(layer_idx=layer_idx, data=data.clone())
+            self.set_layers_self_attention_linear_kv_proj_lora_A_default_weight(layer_idx=layer_idx, data=data.clone())
+        elif qkv_type == "pack_self":
+            self.set_layers_self_attention_linear_qkv_pack_lora_A_default_weight(layer_idx=layer_idx, data=data)
+        else:
+            raise ValueError(f"Unsupported types. {qkv_type}")
+
+    def set_layers_self_attention_linear_qkv_lora_B_default_weight(self, layer_idx=0, data=None):
+        def qkv_split_lora_B_weight(query_key_value):
+            qkv_weight = query_key_value.reshape(
+                ng,
+                repeats + 2,
+                query_key_value.shape[0] // ng // (repeats + 2),
+                query_key_value.shape[1],
+            )
+            hidden_size = qkv_weight.shape[-1]
+            qw = qkv_weight[:, :repeats, ...].reshape(-1, hidden_size)
+            kw = qkv_weight[:, repeats: repeats + 1, ...].reshape(-1, hidden_size)
+            vw = qkv_weight[:, repeats + 1:, ...].reshape(-1, hidden_size)
+            return qw, kw, vw
+
+        nh = self.args.num_attention_heads
+        ng = (self.args.num_key_value_heads if self.args.group_query_attention else self.args.num_attention_heads)
+        if not nh % ng == 0:
+            raise ValueError("nh % ng should equal 0")
+        repeats = nh // ng
+
+        qkv_type = self.args.qkv_type
+        if qkv_type == "unpack":
+            q_weight, k_weight, v_weight = qkv_split_lora_B_weight(data)
+            self.set_layers_self_attention_linear_q_proj_lora_B_default_weight(layer_idx=layer_idx, data=q_weight)
+            self.set_layers_self_attention_linear_k_proj_lora_B_default_weight(layer_idx=layer_idx, data=k_weight)
+            self.set_layers_self_attention_linear_v_proj_lora_B_default_weight(layer_idx=layer_idx, data=v_weight)
+        elif qkv_type == "pack_gqa":
+            qw, k_weight, v_weight = qkv_split_lora_B_weight(data)
+            qkv = torch.cat((qw, k_weight, v_weight), dim=0)
+            self.set_layers_self_attention_linear_qkv_pack_lora_B_default_weight(layer_idx=layer_idx, data=qkv)
+        elif qkv_type == "pack_mla":
+            if self.args.q_lora_rank is None:
+                q_head_dim = self.args.qk_nope_head_dim + self.args.qk_rope_head_dim
+                q_proj = data[:self.args.num_attention_heads * q_head_dim, :]
+                kv_proj = data[self.args.num_attention_heads * q_head_dim:, :]
+            else:
+                q_proj = data[:self.args.q_lora_rank, :]
+                kv_proj = data[self.args.q_lora_rank:, :]
+            self.set_layers_self_attention_linear_q_proj_lora_B_default_weight(layer_idx=layer_idx, data=q_proj)
+            self.set_layers_self_attention_linear_kv_proj_lora_B_default_weight(layer_idx=layer_idx, data=kv_proj)
+        elif qkv_type == "pack_self":
+            self.set_layers_self_attention_linear_qkv_pack_lora_B_default_weight(layer_idx=layer_idx, data=data)
         else:
             raise ValueError(f"Unsupported types. {qkv_type}")
 
@@ -900,6 +1076,7 @@ class MegatronModel(ModelBase):
         self.args.add_qkv_bias = self.args_cmd.add_qkv_bias
         self.args.add_dense_bias = self.args_cmd.add_dense_bias
         self.args.post_norm = self.args_cmd.post_norm
+        self.args.save_lora_to_hf = self.args_cmd.save_lora_to_hf
         self.args.tokenizer_model = getattr(self.args_cmd, 'tokenizer_model', None)
         self.args.make_vocab_size_divisible_by = getattr(self.args_cmd, 'make_vocab_size_divisible_by', None)
         if self.args_cmd.params_dtype == 'bf16':
@@ -910,7 +1087,7 @@ class MegatronModel(ModelBase):
             self.args.skip_bias_add = False
         self.args.use_mcore_models = self.args_cmd.use_mcore_models
 
-        if loader_megatron:
+        if loader_megatron or self.args.save_lora_to_hf:
             self.args.lora_target_modules = self.args_cmd.lora_target_modules
             self.args.lora_load = self.args_cmd.lora_load
             self.args.lora_r = self.args_cmd.lora_r
@@ -1010,10 +1187,11 @@ class MegatronModel(ModelBase):
                 for vp_rank in range(virtual_pipeline_model_parallel_size):
                     models[vp_rank][ep_rank][tp_rank] = model_[vp_rank]
                     if self.args.lora_target_modules and from_pretrained:
-                        if virtual_pipeline_model_parallel_size > 1:
-                            raise AssertionError("Virtual pipeline and LoRA weight merging "
-                                                 "are not supported simultaneously")
-                        models[vp_rank][ep_rank][tp_rank].merge_and_unload()
+                        if self.args.save_lora_to_hf is False:
+                            if virtual_pipeline_model_parallel_size > 1:
+                                raise AssertionError("Virtual pipeline and LoRA weight merging "
+                                                    "are not supported simultaneously")
+                            models[vp_rank][ep_rank][tp_rank].merge_and_unload()
 
         self.module = models
 
@@ -1242,6 +1420,33 @@ class MegatronMCoreModel(MegatronModel):
             "layers_mlp_experts_weight1"] = module_layer + "mlp.experts.weight1"
         self.module_mapping[
             "layers_mlp_experts_weight2"] = module_layer + "mlp.experts.weight2"
+
+        # lora
+        if self.args_cmd.save_lora_to_hf:
+            self.module_mapping[
+                "layers_self_attention_linear_qkv_lora_A_default"] = module_layer + "self_attention.linear_qkv.lora_A.default"
+            self.module_mapping[
+                "layers_self_attention_linear_qkv_lora_B_default"] = module_layer + "self_attention.linear_qkv.lora_B.default"
+            self.module_mapping[
+                "layers_self_attention_linear_proj_lora_A_default"] = module_layer + "self_attention.linear_proj.lora_A.default"
+            self.module_mapping[
+                "layers_self_attention_linear_proj_lora_B_default"] = module_layer + "self_attention.linear_proj.lora_B.default"
+            self.module_mapping[
+                "layers_mlp_linear_fc1_lora_A_default"] = module_layer + "mlp.linear_fc1.lora_A.default"
+            self.module_mapping[
+                "layers_mlp_linear_fc1_lora_B_default"] = module_layer + ".mlp.linear_fc1.lora_B.default"
+            self.module_mapping[
+                "layers_mlp_linear_fc2_lora_A_default"] = module_layer + "mlp.linear_fc2.lora_A.default"
+            self.module_mapping[
+                "layers_mlp_linear_fc2_lora_B_default"] = module_layer + "mlp.linear_fc2.lora_B.default"
+            self.module_mapping[
+                "layers_mlp_experts_linear_fc1_lora_A_default"] = module_layer + "mlp.experts.local_experts[expert_idx].linear_fc1.lora_A.default"
+            self.module_mapping[
+                "layers_mlp_experts_linear_fc1_lora_B_default"] = module_layer + ".mlp.experts.local_experts[expert_idx].linear_fc1.lora_B.default"
+            self.module_mapping[
+                "layers_mlp_experts_linear_fc2_lora_A_default"] = module_layer + "mlp.experts.local_experts[expert_idx].linear_fc2.lora_A.default"
+            self.module_mapping[
+                "layers_mlp_experts_linear_fc2_lora_B_default"] = module_layer + "mlp.experts.local_experts[expert_idx].linear_fc2.lora_B.default"
 
 
 def get_megatron_model(model_provider, args_cmd, md=None):

@@ -240,9 +240,9 @@ MindSpeed-LLM 支持 Huggingface、Megatron-Legacy 以及 Megatron-Core 之间�
 </table>
 
 
-### 权重转换使用
+# 权重转换使用
 
-#### 1. 权重下载
+## 1. 权重下载
 
 从Huggingface等网站下载开源模型权重
 
@@ -267,9 +267,9 @@ wget https://huggingface.co/daryl149/llama-2-7b-hf/resolve/main/tokenizer_config
 cd ../../
 ```
 
-#### 2. 权重转换
+## 2. 权重转换
 
-##### 2.1 Huggingface权重转换到Megatron-LM格式
+### 2.1 Huggingface权重转换到Megatron-LM格式
 
 ```shell
 python convert_ckpt.py \
@@ -377,7 +377,7 @@ MindSpeed-LLM Huggingface到Megatron-Mcore权重转换脚本命名风格及启�
 bash examples/mcore/llama2/ckpt_convert_llama2_hf2mcore.sh
 ```
 
-##### 2.2 Megatron-LM权重转换到Huggingface格式
+### 2.2 Megatron-LM权重转换到Huggingface格式
 
 ```shell
 python convert_ckpt.py \
@@ -393,6 +393,8 @@ python convert_ckpt.py \
 ```
 
 参数意义参考2.1
+
+**注意：** 转到Huggingface权重必须设置--target-tensor-parallel-size = 1、--target-pipeline-parallel-size = 1。
 
 【启动脚本】
 
@@ -416,7 +418,7 @@ MindSpeed-LLM Megatron-Mcore到Huggingface的权重转换脚本命名风格及�
 bash examples/mcore/llama2/ckpt_convert_llama2_mcore2hf.sh
 ```
 
-##### 2.3 Megatron-LM格式权重互转
+### 2.3 Megatron-LM格式权重互转
 
 ```shell
 # legacy转legacy
@@ -503,9 +505,15 @@ python convert_ckpt.py \
 
 注：上述权重legacy和mcore互转为高阶功能，MindSpeed-LLM基于llama2提供基础能力，并进行版本迭代看护.对于其他模型的支持，用户需根据实际需求自行进行修改与适配。
 
-##### 2.4 lora权重与base权重合并
+### 2.4 lora权重转换
 
-###### 2.4.1 Megatron-Legacy格式权重合并
+当前仓库支持以下两种lora权重转换方法:
+
+  将Lora微调权重与基础模型权重合并，转换为Megatron或Huggingface格式 ; 
+
+  将Lora微调权重单独转为Huggingface格式。
+
+#### 2.4.1 Megatron-Legacy格式权重合并
 
 在上述权重转换命令中，加入如下参数可以将训练的lora权重与base进行融合。
 
@@ -596,7 +604,7 @@ python convert_ckpt.py \
 bash examples/legacy/llama2/ckpt_convert_llama2_legacy2hf_lora.sh
 ```
 
-###### 2.4.2 Megatron-Mcore格式权重合并
+#### 2.4.2 Megatron-Mcore格式权重合并
 
 在上述权重转换命令中，加入如下参数可以将训练的lora权重与权重转换出的base权重进行融合。
 
@@ -663,8 +671,70 @@ bash examples/mcore/llama2/ckpt_convert_llama2_mcore2hf_lora.sh
 lora参数值需与lora微调时的参数保持一致,且lora权重的切分方式需与base权重的切分方式保持一致。
 
 
+#### 2.4.3 Lora权重转换为Huggingface权重
 
-#### 2.5 优化器权重转换
+```shell
+python convert_ckpt.py \
+    --model-type GPT \
+    --use-mcore-models \
+    --load-model-type mg \
+    --save-model-type hf \
+    --load-dir ./ckpt/llama2_lora_filter \
+    --lora-r 16 \
+    --lora-alpha 32 \
+    --lora-target-modules linear_qkv linear_proj linear_fc1 linear_fc2 \
+    --target-tensor-parallel-size 1 \
+    --target-pipeline-parallel-size 1 \
+    --load-checkpoint-loosely \
+    --save-lora-to-hf \
+    --save-dir ./model_from_hf/llama-2-7b-hf/  # <-- 需要填入原始HF模型路径，新权重会存于./model_from_hf/llama-2-7b-hf/mg2hf/
+```
+
+<table>
+  <thead>
+    <tr>
+      <th>参数</th>
+      <th>说明</th>
+      <th>可选/必选</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>--save-lora-to-hf</td>
+      <td>lora转hf时设置此参数以指定仅转换lora权重</td>
+      <td>可选</td>
+    </tr>
+    <tr>
+      <td>--load-checkpoint-loosely</td>
+      <td>允许松弛加载，转换lora权重时，需要设置此参数</td>
+      <td>可选</td>
+    </tr>
+  </tbody>
+</table>
+
+**注意：** 
+
+原始权重仅为lora权重，不包含base权重，需要在lora微调脚本中加入参数--lora-ckpt-filter仅保存lora权重；
+
+--save-lora-to-hf和--moe-grouped-gemm两个参数不能同时使用,在lora微调时,脚本中不能加入--moe-grouped-gemm参数;
+
+--save-lora-to-hf和--load_hf_from_config两个参数不能同时使用；
+
+lora权重转换仅支持mcore格式，legacy暂未支持；仅支持fc_type为gate_up_down的模型，其余待适配；当前仅验证过llama2、mixtral。
+
+【启动脚本】
+
+MindSpeed-LLM lora到Huggingface的权重转换脚本命名风格及启动方法为：
+
+```shell
+# 命名及启动：
+# bash examples/mcore/model_name/ckpt_convert_xxx_lora2hf.sh
+# 需要配置并行参数以及权重词表加载保存等路径
+
+bash examples\mcore\llama2\ckpt_convert_llama2_lora2hf.sh
+```
+
+### 2.5 优化器权重转换
 
 在权重转换脚本中指定`--load-model-type`参数为`optim` , 则为优化器权重转换
 
@@ -696,7 +766,7 @@ lora参数值需与lora微调时的参数保持一致,且lora权重的切分方�
 
 完成上述步骤后，可以执行优化器权重转换。此时，指定 `--load-model-type optim` 参数来加载优化器权重，并进行转换。
 
-注意：并行配置如：TP、PP、EP、VPP、num-layer-list、noop-layers等参数需要与mcore-mcore权重转换脚本相同。
+**注意：** ：并行配置如：TP、PP、EP、VPP、num-layer-list、noop-layers等参数需要与mcore-mcore权重转换脚本相同。
 
 
 ```

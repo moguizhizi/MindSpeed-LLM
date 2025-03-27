@@ -57,7 +57,7 @@ def add_arguments(parser):
                        help='Configuration for the output layer bias.')
     group.add_argument('--load-checkpoint-loosely', action='store_true', default=False,
                        help='Enable loading checkpoint not strictly.')
-                       
+
 
 def build_metadata(args, margs):
     # Metadata.
@@ -160,6 +160,8 @@ def get_message_layer_attn(message, model, md=None, **kwargs):
     kvb_weight = []
     qkv_bias = []
     dense_weight = []
+    proj_lora_A_weight = []
+    qkv_lora_B_weight = []
     margs = model.get_args()
 
     for tp_rank in range(margs.tensor_model_parallel_size):
@@ -173,6 +175,10 @@ def get_message_layer_attn(message, model, md=None, **kwargs):
             if getattr(model.get_args(), "q_lora_rank", None):
                 qb_weight.append(model.get_layers_self_attention_linear_qb_weight(**kwargs))
             kvb_weight.append(model.get_layers_self_attention_linear_kvb_weight(**kwargs))
+
+        if margs.save_lora_to_hf:
+            proj_lora_A_weight.append(model.get_layers_self_attention_linear_proj_lora_A_default_weight(**kwargs))
+            qkv_lora_B_weight.append(model.get_layers_self_attention_linear_qkv_lora_B_default_weight(**kwargs))
 
     # Handle gated linear units
     # simple concat of the rest
@@ -192,6 +198,12 @@ def get_message_layer_attn(message, model, md=None, **kwargs):
     if md.linear_bias or margs.add_dense_bias:
         message["dense bias"] = model.get_layers_self_attention_linear_proj_bias(**kwargs)
 
+    if margs.save_lora_to_hf:
+        message["proj lora A"] = torch.cat(proj_lora_A_weight, dim=1)
+        message["proj lora B"] = model.get_layers_self_attention_linear_proj_lora_B_default_weight(**kwargs)
+        message["qkv lora A"] = model.get_layers_self_attention_linear_qkv_lora_A_default_weight(**kwargs)
+        message["qkv lora B"] = torch.cat(qkv_lora_B_weight, dim=0)
+
     return message
 
 
@@ -200,14 +212,26 @@ def _get_message_layer_mlp(message, model, md=None, is_moe_mlp=False, **kwargs):
     mlp_l0_weight = []
     mlp_l1_weight = []
     mlp_l0_bias = []
+    fc1_lora_B = []
+    fc2_lora_A = []
     for tp_rank in range(margs.tensor_model_parallel_size):
         kwargs['tp_rank'] = tp_rank
         if is_moe_mlp:
             mlp_l0_weight.append(model.get_layers_mlp_experts_linear_fc1_weight(**kwargs))
             mlp_l1_weight.append(model.get_layers_mlp_experts_linear_fc2_weight(**kwargs))
+            if margs.save_lora_to_hf:
+                fc1_lora_A = model.get_layers_mlp_experts_linear_fc1_lora_A_default_weight(**kwargs)
+                fc1_lora_B.append(model.get_layers_mlp_experts_linear_fc1_lora_B_default_weight(**kwargs))
+                fc2_lora_A.append(model.get_layers_mlp_experts_linear_fc2_lora_A_default_weight(**kwargs))
+                fc2_lora_B = model.get_layers_mlp_experts_linear_fc2_lora_B_default_weight(**kwargs)
         else:
             mlp_l0_weight.append(model.get_layers_mlp_linear_fc1_weight(**kwargs))
             mlp_l1_weight.append(model.get_layers_mlp_linear_fc2_weight(**kwargs))
+            if margs.save_lora_to_hf:
+                fc1_lora_A = model.get_layers_mlp_linear_fc1_lora_A_default_weight(**kwargs)
+                fc1_lora_B.append(model.get_layers_mlp_linear_fc1_lora_B_default_weight(**kwargs))
+                fc2_lora_A.append(model.get_layers_mlp_linear_fc2_lora_A_default_weight(**kwargs))
+                fc2_lora_B = model.get_layers_mlp_linear_fc2_lora_B_default_weight(**kwargs)
         if md.linear_bias:
             if is_moe_mlp:
                 mlp_l0_bias.append(model.get_layers_mlp_experts_linear_fc1_bias(**kwargs))
@@ -235,6 +259,11 @@ def _get_message_layer_mlp(message, model, md=None, is_moe_mlp=False, **kwargs):
         else:
             message[f"mlp l0 bias"] = torch.cat(mlp_l0_bias, dim=0)
         message[f"mlp l1 bias"] = model.get_layers_mlp_linear_fc2_bias(**kwargs)
+    if margs.save_lora_to_hf:
+        message[f"fc1 lora A"] = fc1_lora_A
+        message[f"fc1 lora B"] = torch.cat(fc1_lora_B, dim=0)
+        message[f"fc2 lora A"] = torch.cat(fc2_lora_A, dim=1)
+        message[f"fc2 lora B"] = fc2_lora_B
 
 
 def get_message_layer_mlp(message, model, md=None, **kwargs):

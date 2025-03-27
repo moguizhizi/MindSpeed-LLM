@@ -71,6 +71,8 @@ def main():
                        help='use bitsandbytes nf4 to quantize model.')
     parser.add_argument('--orm', action="store_true", default=False,
                         help='Specify the ORM ckpt conversion, convert additional rm_head layer in ORM.')
+    parser.add_argument('--save-lora-to-hf', action='store_true', default=False,
+                        help='Enable only save lora-checkpoint to hf')  
     known_args, _ = parser.parse_known_args()
 
 
