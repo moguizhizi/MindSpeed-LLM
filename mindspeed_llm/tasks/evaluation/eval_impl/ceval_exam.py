@@ -110,11 +110,11 @@ class CEvalExam(DatasetEval):
             idx = 0
             for _, row in data_df.iterrows():
                 instruction = None
+                normalized_test_dir = os.path.normpath(self.test_dir)
+                train_dir = os.path.join(os.path.dirname(normalized_test_dir), "dev")
+                train_file_path = os.path.join(train_dir, subject_name + "_dev.csv")
                 # 5-shot
                 if self.prompt_type is not None:
-                    train_dir = os.path.join(os.path.dirname(self.test_dir), "dev")
-                    train_file_path = os.path.join(train_dir, f"{subject_name}_dev.csv")
-
                     if not os.path.exists(train_file_path):
                         raise FileExistsError("The file ({}) does not exist !".format(train_file_path))
 
@@ -128,9 +128,6 @@ class CEvalExam(DatasetEval):
                         subject_name=subject_name,
                     )
                 elif args.alternative_prompt:
-                    train_dir = os.path.dirname(self.test_dir) + "/dev/"
-                    train_file_path = os.path.join(train_dir, subject_name + "_dev.csv")
-
                     if not os.path.exists(train_file_path):
                         raise FileExistsError("The file ({}) does not exist !".format(train_file_path))
 
