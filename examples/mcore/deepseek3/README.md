@@ -72,6 +72,12 @@ TP拓展EP，专家层TP组不切分专家参数，切分专家数量。默认�
 
 指定是否开启QLoRA权重量化转换，默认为False
 
+【--save-lora-to-hf】
+
+加入此参数将单独的不含base权重的lora权重转为huggingface格式，与--moe-grouped-gemm不兼容；
+
+在lora微调时,脚本中不能加入--moe-grouped-gemm参数，可以在微调脚本中加入--lora-ckpt-filter仅保存lora权重。
+
 #### 合并lora权重和base权重
 
 ##### 相关参数
