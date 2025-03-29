@@ -173,6 +173,7 @@ class CoreAdaptation(MegatronAdaptationABC):
         self.mcore_tensor_parallel_adaptation()
         self.patch_pipeline_parallel_schedules()
         self.coc_adaptation()
+        self.patch_swap_optimizer()
         self.communication_adaptation()
 
     def patch_core_distributed(self):
@@ -257,6 +258,7 @@ class CoreAdaptation(MegatronAdaptationABC):
         from ..core.models.gpt.gpt_model import gpt_model_init_wrapper, shared_embedding_weight
         from ..core import rotary_embedding_init_wrapper, gpt_model_forward
 
+        args = MegatronAdaptation.get_args()
         # Embedding
         MegatronAdaptation.register(
             'megatron.core.models.common.embeddings.rotary_pos_embedding.get_pos_emb_on_this_cp_rank',
@@ -322,14 +324,14 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.training.utils.get_batch_on_this_cp_rank', get_batch_on_this_cp_rank)
         MegatronAdaptation.register('megatron.training.utils.get_batch_on_this_tp_rank', get_batch_on_this_tp_rank)
         MegatronAdaptation.register('megatron.training.dist_signal_handler.get_device', get_device_wrapper)
-        MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel.forward', gpt_model_forward)
+        if not args.moe_fb_overlap:
+            MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel.forward', gpt_model_forward)
         MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel.__init__', gpt_model_init_wrapper)
 
         from megatron.core.models.gpt.gpt_model import GPTModel
         setattr(GPTModel, 'shared_embedding_weight', shared_embedding_weight)
 
         # For recomputation
-        args = MegatronAdaptation.get_args()
         if args.share_kvstates:
             from mindspeed_llm.core.transformer.transformer_block import share_kvstates_checkpointed_forward_func
             MegatronAdaptation.register(
@@ -404,6 +406,13 @@ class CoreAdaptation(MegatronAdaptationABC):
         from mindspeed.core.transformer.moe.experts import groupedmlp_init_wrapper, groupedmlp_forward
         MegatronAdaptation.register('megatron.core.transformer.moe.experts.GroupedMLP.__init__',
                                     groupedmlp_init_wrapper)
+
+
+        # For Dualpipe
+        args = MegatronAdaptation.get_args()
+        if args.moe_fb_overlap:
+            from ..core.pipeline_parallel.dualpipe.adaptor import dualpipe_register_patches
+            dualpipe_register_patches(MegatronAdaptation)
 
         args = MegatronAdaptation.get_args()
         # For moe tp extend ep ckpt
@@ -499,7 +508,7 @@ class CoreAdaptation(MegatronAdaptationABC):
                     MegatronAdaptation.register('megatron.core.transformer.moe.moe_utils.permute', permute_wrapper)
                     MegatronAdaptation.register('megatron.core.transformer.moe.moe_utils.unpermute', unpermute_wrapper)
 
-        if not args.moe_alltoall_overlap_comm and not args.moe_allgather_overlap_comm:
+        if not args.moe_alltoall_overlap_comm and not args.moe_allgather_overlap_comm and not args.moe_fb_overlap:
             MegatronAdaptation.register('megatron.core.transformer.moe.experts.GroupedMLP.forward',
                                         groupedmlp_forward)
 
@@ -670,6 +679,13 @@ class CoreAdaptation(MegatronAdaptationABC):
         if args.use_ascend_coc:
             MegatronAdaptation.register('megatron.training.initialize.initialize_megatron', coc_registration_wrapper)
 
+    def patch_swap_optimizer(self):
+        args = MegatronAdaptation.get_args()
+        if args.swap_optimizer:
+            from mindspeed.core.optimizer.swap_optimizer import SwapDistributedOptimizer, swap_adamw_step
+            MegatronAdaptation.register('megatron.core.optimizer.distrib_optimizer.DistributedOptimizer',
+                                         SwapDistributedOptimizer)
+            MegatronAdaptation.register('mindspeed.optimizer.adamw.AdamW.step', swap_adamw_step)
 
 
 
