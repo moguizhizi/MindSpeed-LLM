@@ -74,7 +74,15 @@ def process_args(parser):
     parser = _add_megatron2_args(parser)
     parser = _add_inference_args(parser)
     parser = _add_dualpipe_args(parser)
+    parser = _add_ai_framework_args(parser)
 
+    return parser
+
+
+def _add_ai_framework_args(parser):
+    group = parser.add_argument_group(title='ai framework')
+
+    group.add_argument('--ai-framework', type=str, choices=['pytorch', 'mindspore'], default='pytorch', help='support pytorch and mindspore')
     return parser
 
 

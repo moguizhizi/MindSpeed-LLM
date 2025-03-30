@@ -41,8 +41,9 @@ class MegatronAdaptation:
         """
         Execute adaptations.
         """
+        from mindspeed_llm.mindspore.mindspore_adaptor import MindSporeAdaptation
         MegatronAdaptation.pre_execute()
-        for adaptation in [CoreAdaptation(), LegacyAdaptation()]:
+        for adaptation in [CoreAdaptation(), LegacyAdaptation(), MindSporeAdaptation()]:
             adaptation.execute()
         MegatronAdaptation.apply()
         MegatronAdaptation.post_execute()
