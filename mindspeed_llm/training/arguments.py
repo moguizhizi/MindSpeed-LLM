@@ -904,8 +904,13 @@ def _add_training_args(parser):
                        help='Disable final layer norm.')
     group.add_argument('--return-document-ids', action='store_true', default=False,
                        help='Return document ids when get batch.')
+    
+    # for swap-optimizer
     group.add_argument('--swap-optimizer', action='store_true', default=False,
                        help='swap optimizer to cpu.')
+    group.add_argument('--swap-optimizer-times', type=int, default=16,
+                        help='Each swap will be moved (len(shard_fp32_from_float16) // swap_optimizer_times) elements')
+    
     return parser
 
 
