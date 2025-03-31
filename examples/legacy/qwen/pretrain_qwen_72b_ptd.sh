@@ -39,9 +39,9 @@ GPT_ARGS="
     --seq-length 8192 \
     --max-position-embeddings 32768 \
     --micro-batch-size 1 \
-    --global-batch-size 512 \
+    --global-batch-size 16 \
     --make-vocab-size-divisible-by 64 \
-    --lr 1e-5 \
+    --lr 1.25e-6 \
     --train-iters 2000 \
     --lr-decay-style cosine \
     --untie-embeddings-and-output-weights \
@@ -56,7 +56,7 @@ GPT_ARGS="
     --use-flash-attn \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
-    --min-lr 1.0e-6 \
+    --min-lr 1.25e-7 \
     --weight-decay 1e-2 \
     --lr-warmup-fraction 0.1 \
     --clip-grad 1.0 \
