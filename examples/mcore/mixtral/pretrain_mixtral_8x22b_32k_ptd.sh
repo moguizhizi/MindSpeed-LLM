@@ -64,7 +64,7 @@ GPT_ARGS="
     --vocab-size 32000 \
     --rotary-base 1000000 \
     --no-masked-softmax-fusion \
-    --use-fused-rotary-pos-emb-new \
+    --use-fused-rotary-pos-emb \
     --use-flash-attn \
     --use-fused-swiglu \
     --use-fused-rmsnorm \
