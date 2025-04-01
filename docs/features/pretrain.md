@@ -12,7 +12,7 @@ mcore分支的预训练脚本保存在 example/mcore 中各模型文件夹下：
 
 需根据实际情况修改路径和参数值：
 
-**示例：** 
+**示例：**
 
 examples/legacy/llama2/pretrain_llama2_7b_ptd.sh *(legacy分支)*
 
@@ -104,7 +104,13 @@ WORLD_SIZE=$(($GPUS_PER_NODE * $NNODES))
 
 #### 3. 启动预训练
 
-【legacy分支】 
+##### 初始化环境变量 
+
+`source /usr/local/Ascend/ascend-toolkit/set_env.sh`
+
+`source /usr/local/Ascend/nnal/atb/set_env.sh`
+
+【legacy分支】
 
 ```shell
 bash examples/legacy/模型文件夹/pretrain_xxx_xxx.sh

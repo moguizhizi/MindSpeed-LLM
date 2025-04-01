@@ -64,6 +64,10 @@ DATA_PATH="./finetune_dataset/llama-2-7b/alpaca"  # 数据集路径
 MindSpeed-LLM LoRA微调脚本命名和启动方法：
 
 ```shell
+# 初始化环境变量
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+source /usr/local/Ascend/nnal/atb/set_env.sh
+
 # Legacy 模型
 bash examples/legacy/llama2/tune_llama2_7b_lora_ptd.sh
 
@@ -166,11 +170,9 @@ bash examples/legacy/llama2/ckpt_convert_llama2_legacy2hf_lora.sh
 MindSpeed-LLM 推理脚本命名和启动方法：
 
 ```shell
-# Legacy 模型
-bash examples/legacy/llama2/generate_llama2_7b_lora_ptd.sh
-
-# Mcore 模型
-bash examples/mcore/llama2/generate_llama2_7b_lora_ptd.sh
+# 初始化环境变量
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+source /usr/local/Ascend/nnal/atb/set_env.sh
 ```
 
 启动前需根据实际情况修改启动脚本中的模型权重路径和分词器路径：
@@ -181,6 +183,9 @@ CHECKPOINT_LORA="./ckpt/llama-2-7b-lora/"
 TOKENIZER_PATH="./model_from_hf/llama-2-hf/"
 
 # 启动任务
+# Legacy 模型
+bash examples/legacy/llama2/generate_llama2_7b_lora_ptd.sh
+# Mcore 模型
 bash examples/mcore/llama2/generate_llama2_7b_lora_ptd.sh
 ```
 
@@ -189,6 +194,11 @@ bash examples/mcore/llama2/generate_llama2_7b_lora_ptd.sh
 使用 LoRA 微调权重的专用评估脚本：
 
 ```shell
+# 初始化环境变量
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+source /usr/local/Ascend/nnal/atb/set_env.sh
+
+# 启动任务
 bash examples/legacy/llama2/evaluate_llama2_7B_lora_mmlu_ptd.sh
 ```
 
