@@ -10,7 +10,7 @@ git clone -b core_r0.8.0 https://gitee.com/ascend/MindSpeed.git
 cd MindSpeed
 
 # checkout commit from MindSpeed core_r0.8.0 in 2025.02.26
-git checkout 0dfa0035ec54d9a74b2f6ee2867367df897299df
+git checkout 2c085cc9
 pip install -r requirements.txt
 pip3 install -e .
 cd ..
