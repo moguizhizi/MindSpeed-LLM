@@ -169,9 +169,15 @@ class CEvalExam(DatasetEval):
                 idx += 1
 
             if dist.get_rank() in group[0]:
-                local_tensor = torch.tensor([acc_n, len(data_df)], device=torch.cuda.current_device())
-                dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
-                acc_n, total_questions = local_tensor.tolist()
+                question_num = len(data_df)
+                if align_start_dp_rank >= 0 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
+                    question_num -= 1
+                if not args.broadcast:
+                    local_tensor = torch.tensor([acc_n, question_num], device=torch.cuda.current_device())
+                    dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
+                    acc_n, total_questions = local_tensor.tolist()
+                else:
+                    total_questions = question_num
                 if dist.get_rank() == 0:
                     logger.info(f'{subject_name} has {acc_n} corrects in {total_questions} questions, with accuracy {acc_n / total_questions}')
                     total_n += total_questions

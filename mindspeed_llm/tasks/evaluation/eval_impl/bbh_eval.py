@@ -22,15 +22,20 @@ import torch
 import tqdm
 import pandas as pd
 from torch import distributed as dist
+
+from megatron.core import mpu
 from megatron.training import get_args
-from mindspeed_llm.tasks.preprocess.templates import Role
-from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
-from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
-from mindspeed_llm.tasks.evaluation.eval_impl.template import BBH_TEMPLATE_DIR, get_eval_template
+from mindspeed_llm.tasks.preprocess.templates import Role
+from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
+from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
+from mindspeed_llm.tasks.evaluation.eval_impl.template import BBH_TEMPLATE_DIR, BBH_COT_TEMPLATE_DIR, get_eval_template
+from mindspeed_llm.tasks.evaluation.eval_utils.bbh_utils import bbh_mcq_postprocess, bbh_freeform_postprocess, bbh_true_or_false_questions
+from mindspeed_llm.tasks.evaluation.utils import get_final_list_dataset
 
 
 logger = logging.getLogger(__name__)
+
 
 bbh_multiple_choice_sets = [
     'temporal_sequences',
@@ -52,17 +57,15 @@ bbh_multiple_choice_sets = [
     'reasoning_about_colored_objects',
 ]
 
+
 bbh_free_form_sets = [
     'multistep_arithmetic_two',
+    'navigate',
     'dyck_languages',
     'word_sorting',
-    'object_counting',
-]
-
-bbh_true_or_false_questions = [
-    'navigate',
     'sports_understanding',
     'boolean_expressions',
+    'object_counting',
     'formal_fallacies',
     'causal_judgement',
     'web_of_lies',
@@ -80,6 +83,7 @@ class BBHEval(DatasetEval):
         self.task_pbar = None
         self.eval_template = None
         self.prompt_type = None
+        self.broadcast_rank = [[0]]
         if eval_args.prompt_type is not None:
             self.prompt_type = eval_args.prompt_type.strip()
             self.eval_template = get_eval_template(eval_args.eval_language)
@@ -93,8 +97,14 @@ class BBHEval(DatasetEval):
         sample_n = 0
         rank = None
 
-        with open(BBH_TEMPLATE_DIR, encoding='utf-8') as f:
-            bbh_template = json.load(f)
+        args = get_args()
+
+        if args.chain_of_thought:
+            with open(BBH_COT_TEMPLATE_DIR, encoding='utf-8') as f:
+                bbh_template = json.load(f)
+        else:
+            with open(BBH_TEMPLATE_DIR, encoding='utf-8') as f:
+                bbh_template = json.load(f)
 
         if self.rank == 0:
             self.file_pbar = tqdm.tqdm(total=len(os.listdir(self.test_dir)), desc="total")
@@ -107,16 +117,22 @@ class BBHEval(DatasetEval):
             
             with open(file_path, encoding='utf-8') as f:
                 bbh_dataset = json.load(f)
+
             subject_name = re.sub(r'(?:_test|_val|_dev)?\.\w+$', "", file)
             subject_result = {}
+
             if 'examples' in bbh_dataset:
                 sample_n += len(bbh_dataset['examples'])
             else:
                 raise ValueError(f"key 'examples' not found in the bbh_dataset")
-            acc_n = 0
-            sorted_dataset = sorted(bbh_dataset['examples'], key=lambda x: len(x['input']))
+
+            if args.chain_of_thought:
+                sorted_dataset = bbh_dataset['examples']
+            else:
+                sorted_dataset = sorted(bbh_dataset['examples'], key=lambda x: len(x['input']))
             instructions = []
             targets = []
+            acc_n = 0
             result_mapping, choices = None, None
 
             if self.max_eval_samples is not None:
@@ -134,7 +150,13 @@ class BBHEval(DatasetEval):
                     self.file_pbar.update()
                 continue
 
-            if self.rank == 0:
+            if args.broadcast:
+                group = self.broadcast_rank
+                align_start_dp_rank = 0
+            else:
+                sorted_dataset, group, align_start_dp_rank = get_final_list_dataset(sorted_dataset, dist.get_world_size(), args.tensor_model_parallel_size, args.pipeline_model_parallel_size)
+
+            if dist.get_rank() == 0:
                 self.task_pbar = tqdm.tqdm(total=len(sorted_dataset), desc=file, leave=False)
 
             for idx, item in enumerate(sorted_dataset):
@@ -145,19 +167,30 @@ class BBHEval(DatasetEval):
                     choices, answer_idx = self.format_instructions(instruction, instructions)
                     if subject_name in bbh_multiple_choice_sets:
                         result_mapping = {value.strip(): key for key, value in re.findall(r'\(([A-Z])\)\s*([^\(\)]+)', instruction[-1][:answer_idx])} 
+                elif args.chain_of_thought:
+                    instruction = bbh_template.get(subject_name)
+                    target_question = "Q: " + item['input']
+                    instruction += target_question
+                    instruction += "\nA: Let's think step by step."
+                    instructions.append(instruction)
                 else:
                     instructions.append(instruction)
                 targets.append(item['target'].lstrip('(').rstrip(')'))
 
                 if len(instructions) == self.batch_size or len(bbh_dataset['examples']) == idx + 1:
                     chat_results, rank = chat.chat(instruction=instructions, history=[])
+                    if align_start_dp_rank >= 0 and len(sorted_dataset) == idx + 1 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
+                        chat_results = chat_results[:-1]
                     if chat_results:
                         for index, chat_result in enumerate(chat_results):
                             answer = chat_result[0].lstrip()
                             try:
-                                if rank == 0:
-                                    answer = self.extract_answer(index, chat, answer, subject_name, instructions, result_mapping, choices)
-                                    logger.info("correct: %s, AI: %s", targets[index], answer.splitlines()[0])
+                                if dist.get_rank() in group[0]:
+                                    if args.chain_of_thought:
+                                        answer = bbh_mcq_postprocess(chat_result[0]) if subject_name in bbh_multiple_choice_sets else bbh_freeform_postprocess(chat_result[0], subject_name)
+                                    else:
+                                        answer = self.extract_answer(index, chat, answer, subject_name, instructions, result_mapping, choices)
+                                    logger.info(f"correct: {targets[index]}, AI: {answer.splitlines()[0]}, with rank {dist.get_rank()}")
                                     subject_result[str(idx - len(chat_results) + index + 1)] = answer.splitlines()[0]
                                     if subject_result[str(idx - len(chat_results) + index + 1)].lower() == targets[index].lower():
                                         acc_n += 1
@@ -170,22 +203,25 @@ class BBHEval(DatasetEval):
                 if self.task_pbar is not None:
                     self.task_pbar.update()
 
-            if rank == 0:
-                logging.info(f"{subject_name} acc = {acc_n}/{len(bbh_dataset['examples'])}="
-                             f"{check_divisible_by_zero(acc_n, len(bbh_dataset['examples']))}")
-                total_n += len(bbh_dataset['examples'])
-                total_acc_n += acc_n
-                answer_result[subject_name] = subject_result
-                score_datas.append([subject_name, len(bbh_dataset['examples']),
-                                    check_divisible_by_zero(acc_n, len(bbh_dataset['examples']))])
+
+            if dist.get_rank() in group[0]:
+                local_tensor = torch.tensor([acc_n, len(sorted_dataset)], device=torch.cuda.current_device())
+                dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
+                acc_n, total_questions = local_tensor.tolist()
+                if dist.get_rank() == 0:
+                    logger.info(f'{subject_name} has {acc_n} corrects in {total_questions} questions, with accuracy {acc_n / total_questions}')
+                    total_n += total_questions
+                    total_acc_n += acc_n
+                    answer_result[subject_name] = subject_result
+                    score_datas.append([subject_name, total_questions, acc_n / total_questions])
 
             if self.task_pbar is not None:
                 self.task_pbar.close()
 
             if self.file_pbar is not None:
-                self.file_pbar.update()        
+                self.file_pbar.update()
 
-        if rank == 0:
+        if dist.get_rank() in group[0]:
             logger.info(f"bbh acc = {total_acc_n}/{total_n}={check_divisible_by_zero(total_acc_n, total_n)}")
             score_datas.append(["total", total_n, check_divisible_by_zero(total_acc_n, total_n)])
         score_df = pd.DataFrame(columns=['subject', 'question_n', 'acc'], data=score_datas)

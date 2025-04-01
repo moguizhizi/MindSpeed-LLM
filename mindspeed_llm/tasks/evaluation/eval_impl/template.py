@@ -27,6 +27,7 @@ CMMLU_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/cmmlu_5shot_te
 CEVAL_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/ceval_5shot_template.json")
 AGIEVAL_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/AGI_fewshot.json")
 BBH_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/bbh_template.json")
+BBH_COT_TEMPLATE_DIR = os.path.join(cur_file_dir, "fewshot_template/bbh_cot_template.json")
 CODE_TEST_LOG_DIR = os.path.join(cur_file_dir.parent, "codecheck_log")
 
 CHOICES = ["A", "B", "C", "D"]

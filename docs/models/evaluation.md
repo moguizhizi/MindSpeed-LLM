@@ -148,3 +148,5 @@ bash examples/legacy/llama2/evaluate_llama2_7B_lora_mmlu_ptd.sh
 [boolq评估介绍](../../docs/evaluation/boolq_evaluation.md)
 
 [ceval评估介绍](../../docs/evaluation/ceval_evaluation.md)
+
+[bbh评估介绍](../../docs/evaluation/bbh_evaluation.md)

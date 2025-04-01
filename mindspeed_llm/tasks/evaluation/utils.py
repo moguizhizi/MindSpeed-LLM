@@ -58,6 +58,8 @@ def add_text_generate_args(parser):
                     help="enable another alternative prompt to evaluate")
     group.add_argument('--origin-postprocess', action="store_true", default=False,
                     help="use original method to get the answer")
+    group.add_argument('--chain-of-thought', action="store_true", default=False,
+                    help="use chain_of_thought method to evaluate your LLM")
     return parser
 
 
