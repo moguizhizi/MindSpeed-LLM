@@ -10,15 +10,17 @@ import time
 import inspect
 import socket
 import json
+import random
 from abc import ABC, abstractmethod
-
-import torch
-import torch.multiprocessing as mp
-import torch.distributed as dist
 
 import pytest
 from _pytest.outcomes import Skipped
 from _pytest.fixtures import FixtureLookupError, FixtureFunctionMarker
+
+import coverage
+import torch
+import torch.multiprocessing as mp
+import torch.distributed as dist
 
 # Worker timeout for tests that hang
 TEST_TIMEOUT = 600
@@ -305,6 +307,7 @@ class DistributedTest(DistributedExec):
     """
 
     is_dist_test = True
+    IS_TEST_MODEL = (os.environ.get('TEST_MODEL') == 'true')
 
     # Temporary directory that is shared among test methods in a class
     @pytest.fixture(autouse=True, scope="class")
@@ -313,7 +316,15 @@ class DistributedTest(DistributedExec):
         return fn
 
     def run(self, **fixture_kwargs):
+        if os.environ.get('TEST_MODEL') != 'true':
+            self._current_test(**fixture_kwargs)
+            return
+
+        cov = cov = coverage.Coverage(data_suffix=f"usecase-{time.time_ns()}_{random.randint(0, 1000)}")
+        cov.start()
         self._current_test(**fixture_kwargs)
+        cov.stop()
+        cov.save()
 
     def __call__(self, request):
         self._current_test = self._get_current_test_func(request)
@@ -345,5 +356,5 @@ class DistributedTest(DistributedExec):
 def create_testconfig(path: str):
     with open(path) as f:
         raw_data = json.load(f)
-    
+
     return {k: [tuple(s.values()) if len(s) > 1 else tuple(s.values())[0] for s in v] for k, v in raw_data.items()}

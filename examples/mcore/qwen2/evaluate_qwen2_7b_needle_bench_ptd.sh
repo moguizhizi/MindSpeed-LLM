@@ -58,7 +58,7 @@ torchrun $DISTRIBUTED_ARGS evaluation.py \
        --untie-embeddings-and-output-weights \
        --add-qkv-bias \
        --make-vocab-size-divisible-by 1 \
-       --padded-vocab-size 152064 \
+       --padded-vocab-size 128000 \
        --rotary-base 1000000 \
        --no-gradient-accumulation-fusion \
        --attention-softmax-in-fp32 \

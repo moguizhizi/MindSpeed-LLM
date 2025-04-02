@@ -122,6 +122,7 @@ class NeedleBenchEval(DatasetEval):
                 correct_total += correct
                 sum_total += sample_count
         if rank == 0:
+            logger.info(f"needlebench acc = {correct_total}/{sum_total}")
             logger.info("correct_total: {0}, sum_total: {1}, score: {2}".format(correct_total, sum_total,
                                                                           correct_total / sum_total))
 
