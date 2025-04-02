@@ -550,6 +550,16 @@
       <td>【Test】</td>
     </tr>
     <tr>
+      <td rowspan="1"><a href="https://huggingface.co/collections/Qwen/qwq-674762b79b75eac01735070a">QwQ</a></td>
+      <td><a href="https://huggingface.co/Qwen/QwQ-32B/tree/main">32B</a></td>
+      <td rowspan="1"><a href="../../examples/mcore/qwq">qwq</a></td>
+      <td> 4K </td>
+      <th>Mcore</th>
+      <td>1x8</td>
+      <td>【GTS】</td>
+      <td>【Test】</td>
+    </tr>
+    <tr>
       <td rowspan="3"><a href="https://huggingface.co/Qwen">Qwen2.5-Math</a></td>
       <td><a href="https://huggingface.co/Qwen/Qwen2.5-Math-1.5B/tree/main">1.5B</a></td>
       <td rowspan="3"><a href="../../examples/mcore/qwen25_math">qwen25_math</a></td>
