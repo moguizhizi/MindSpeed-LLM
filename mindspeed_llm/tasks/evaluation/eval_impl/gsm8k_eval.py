@@ -19,12 +19,17 @@ import logging
 import json
 import pandas as pd
 import tqdm
+import torch
 
+from megatron.core import mpu
+from megatron.training import get_args
 from torch import distributed as dist
 from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
 from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
-from .template import GSM8K_TEMPLATE_DIR
+from mindspeed_llm.tasks.evaluation.eval_utils.gsm8k_utils import four_shots_prompt, gsm8k_postprocess
+from mindspeed_llm.tasks.evaluation.utils import get_final_list_dataset
+from mindspeed_llm.tasks.evaluation.eval_impl.template import GSM8K_TEMPLATE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +45,8 @@ class Gsm8kEval(DatasetEval):
         self.rank = dist.get_rank()
         self.file_pbar = None
         self.task_pbar = None
+        self.broadcast_rank = [[0]]
+        self.max_eval_samples = eval_args.max_eval_samples
 
     def eval(self, chat: Chat) -> (dict, pd.DataFrame):
         final_result = {}
@@ -47,6 +54,7 @@ class Gsm8kEval(DatasetEval):
         total_acc_n = 0
         total_n = 0
         rank = None
+        args = get_args()
         
         with open(GSM8K_TEMPLATE_DIR, encoding='utf-8') as f:
             gsm8k_few_shot_template = json.load(f)
@@ -69,50 +77,93 @@ class Gsm8kEval(DatasetEval):
             instructions = []
             answers = []
 
+            if self.max_eval_samples is not None:
+                origin_len = len(gsm8k_list)
+                gsm8k_list = (
+                    gsm8k_list[0:min(self.max_eval_samples, origin_len)]
+                )
+
+                logger.info("%s length from %s to %s !!!", file_path, str(origin_len), str(len(gsm8k_list)))
+
+            if args.broadcast:
+                group = self.broadcast_rank
+                align_start_dp_rank = 0
+            else:
+                gsm8k_list, group, align_start_dp_rank = get_final_list_dataset(gsm8k_list, 
+                                                                                dist.get_world_size(), 
+                                                                                args.tensor_model_parallel_size, 
+                                                                                args.pipeline_model_parallel_size
+                                                                                )
+
             if self.rank == 0:
                 self.task_pbar = tqdm.tqdm(total=len(gsm8k_list), desc=file, leave=False)
 
-            for index, item in enumerate(gsm8k_list):
-                instruction = self.instruction_template.format(fewshot_template=gsm8k_few_shot_template['few_shot'],
-                                                               question=item['question'])
+            index = 0
+            for _, item in enumerate(gsm8k_list):
+                if args.chain_of_thought:
+                    instruction = four_shots_prompt + item['question'] + "\nLet's think step by step\nAnswer:"
+                else:
+                    instruction = self.instruction_template.format(fewshot_template=gsm8k_few_shot_template['few_shot'],
+                                                                   question=item['question'])
                 instructions.append(instruction)
-                answers.append([item['answer'].split('#### ')[-1]])
+                answers.append(item['answer'].split('#### ')[-1])
+                
                 if len(instructions) == self.batch_size or len(gsm8k_list) == index + 1:
-                    chat_results, rank = chat.chat(instruction=instructions, history=[])
+                    chat_results, _ = chat.chat(instruction=instructions, history=[])
+                    dist.barrier()
+                    
+                    if align_start_dp_rank >= 0 and len(gsm8k_list) == index + 1 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
+                        chat_results = chat_results[:-1]
 
-                    if chat_results:
-                        for idx, chat_result in enumerate(chat_results):
+                    for idx, chat_result in enumerate(chat_results):
+                        if args.chain_of_thought:
+                            answer = gsm8k_postprocess(chat_result[0].lstrip())
+                        else:
                             answer = chat_result[0].lstrip()
                             answer = answer.split('Q:')[0]
                             answer_result = answer.replace('$', '').replace(',', '') + '  '
                             answer_result = answer_result.replace('.', ' ', -1)
 
-                            try:
-                                if rank == 0:
-                                    logger.info(instruction)
+                        try:
+                            if dist.get_rank() in group[0]:
+                                if args.chain_of_thought:
+                                    final_answer = answer
+                                else:
                                     final_answer = re.findall(self.output_template, answer_result)
                                     final_answer = [final_answer[0][::-1].replace('.', '', 1)[::-1]]
-                                    logger.info("correct: %s, AI: %s", answers[idx], final_answer)
-                                    subject_result[str(index - len(chat_results) + idx + 1)] = final_answer
-                                    if subject_result[str(index - len(chat_results) + idx + 1)] == answers[idx]:
-                                        acc_n += 1
-                            except Exception as e:
-                                if rank == 0:
-                                    logger.info(e)
-                                subject_result[str(index - len(chat_results) + idx + 1)] = str(
-                                    e) + ". AI answer:" + answer
+                                logger.info(f"correct: {answers[idx]}, AI: {final_answer}, rank: {dist.get_rank()}")
+                                subject_result[str(index - len(chat_results) + idx + 1)] = final_answer
+                                if subject_result[str(index - len(chat_results) + idx + 1)] == answers[idx]:
+                                    acc_n += 1
+                        except Exception as e:
+                            if dist.get_rank() in group[0]:
+                                logger.info(e)
+                            subject_result[str(index - len(chat_results) + idx + 1)] = str(
+                                e) + ". AI answer:" + answer
 
                     instructions = []
                     answers = []
 
                 if self.task_pbar is not None:
                     self.task_pbar.update()
+                
+                index += 1
 
-            if rank == 0:
-                total_n += len(gsm8k_list)
-                total_acc_n += acc_n
-                final_result['Gsm8k_dataset'] = subject_result
-                score_datas.append(['Gsm8k_dataset', len(gsm8k_list), acc_n / len(gsm8k_list)])
+            if dist.get_rank() in group[0]:
+                question_num = len(gsm8k_list)
+                if align_start_dp_rank >= 0 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
+                    question_num -= 1
+                if not args.broadcast:
+                    local_tensor = torch.tensor([acc_n, question_num], device=torch.cuda.current_device())
+                    dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
+                    acc_n, total_questions = local_tensor.tolist()
+                else:
+                    total_questions = question_num
+                if dist.get_rank() == 0:
+                    logger.info(f'There {acc_n} corrects in {total_questions} questions, with accuracy {acc_n / total_questions}')
+                    total_n += total_questions
+                    total_acc_n += acc_n
+                    score_datas.append(['gsm8k', total_questions, acc_n / total_questions])
 
             if self.task_pbar is not None:
                 self.task_pbar.close()
@@ -120,7 +171,7 @@ class Gsm8kEval(DatasetEval):
             if self.file_pbar is not None:
                 self.file_pbar.update()        
 
-        if rank == 0:
+        if dist.get_rank() in group[0]:
             logger.info(f"gsm8k acc = {total_acc_n}/{total_n}={check_divisible_by_zero(total_acc_n, total_n)}")
             score_datas.append(["total", total_n, total_acc_n / total_n])
         score_df = pd.DataFrame(columns=['subject', 'question_n', 'acc'], data=score_datas)

@@ -99,3 +99,19 @@ class TestEvaluate(DistributedTest):
 
             expected_score = acquire_score(log_capture)
             assert math.isclose(expected_score, 0.6667, abs_tol=1e-2), expected_score
+
+
+    @pytest.mark.parametrize("params", test_config["test_qwen15_7B_gsm8k_evaluate"])
+    def test_qwen_gsm8k_evaluate(self, build_args, params):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        if dist.get_rank() == 0:
+            handler, log_capture = setup_logger(PATTERN)
+
+        main()
+        
+        if dist.get_rank() == 0:
+            print("=================== qwen15_7B GSM8K score ===============")
+            print(log_capture)
+
+            expected_score = acquire_score(log_capture)
+            assert math.isclose(expected_score, 0.6667, abs_tol=1e-2), expected_score
