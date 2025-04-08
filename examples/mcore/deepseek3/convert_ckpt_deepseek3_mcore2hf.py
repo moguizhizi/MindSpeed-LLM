@@ -61,6 +61,7 @@ class MgCkptConvert(object):
             lora_model_path: str = None,
             lora_r: int = 16,
             lora_alpha: int = 32,
+            lora_target_modules: str = None,
             save_lora_to_hf: bool = False
     ):
         self.tp_size = tp_size
@@ -97,6 +98,7 @@ class MgCkptConvert(object):
 
         self.lora_r = lora_r
         self.lora_alpha = lora_alpha
+        self.lora_target_modules = lora_target_modules
         self.save_lora_to_hf = save_lora_to_hf
 
         self.tp_rank_list = list(range(self.tp_size))
@@ -687,6 +689,29 @@ class MgCkptConvert(object):
         for k in unused_keys:
             del model_dict[k]
 
+    def write_adapter_config(self, save_path):
+        json_path = os.path.join(self.hf_save_path, 'adapter_config.json')
+        adapter_config = {
+            "auto_mapping": None,
+            "base_model_name_or_path": None,
+            "bias": "none",
+            "fan_in_fan_out": False,
+            "inference_mode": True,
+            "init_lora_weights": True,
+            "layers_pattern": None,
+            "layers_to_transform": None,
+            "lora_alpha": self.lora_alpha,
+            "lora_dropout": 0.0,
+            "modules_to_save": [],
+            "peft_type": "LORA",
+            "r": self.lora_r,
+            "revision": None,
+            "target_modules": self.lora_target_modules,
+            "task_type": "CAUSAL_LM"
+            }
+        with open(json_path, 'w') as f:
+            json.dump(adapter_config, f)
+
     def save_safetensors(self, hf_dict, cur_file_idx):
         """保存safetensors文件"""
         global TENSOR_SIZE
@@ -795,13 +820,14 @@ class MgCkptConvert(object):
                 for tp_rank, ep_rank in product(self.tp_rank_list, self.ep_rank_list):
                     model_path = self.get_pt_path_by_tpppep_rank(self.iter_path, tp_rank, pp_rank, ep_rank)
                     tmp_model = load_data(model_path)['model']
-                    if self.lora_r is not None and self.lora_model_path is None:
-                        self._merge_lora(tmp_model, merge_type=1)
-                    elif self.lora_model_path is not None:
-                        lora_path = self.get_pt_path_by_tpppep_rank(self.lora_iter_path, tp_rank, pp_rank, ep_rank)
-                        lora_model = load_data(lora_path)['model']
-                        tmp_model = {**lora_model, **tmp_model}
-                        self._merge_lora(tmp_model, merge_type=2)
+                    if not self.save_lora_to_hf:
+                        if self.lora_r is not None and self.lora_model_path is None:
+                            self._merge_lora(tmp_model, merge_type=1)
+                        elif self.lora_model_path is not None:
+                            lora_path = self.get_pt_path_by_tpppep_rank(self.lora_iter_path, tp_rank, pp_rank, ep_rank)
+                            lora_model = load_data(lora_path)['model']
+                            tmp_model = {**lora_model, **tmp_model}
+                            self._merge_lora(tmp_model, merge_type=2)
                     mg_weights[(tp_rank, ep_rank)] = tmp_model
 
                 self.read_pp_rank_weights(pp_rank, mg_weights)
@@ -810,13 +836,14 @@ class MgCkptConvert(object):
                     for tp_rank, ep_rank in product(self.tp_rank_list, self.ep_rank_list):
                         pt_path = self.get_pt_path_by_tpppep_rank(self.iter_path, tp_rank, pp_rank, ep_rank)
                         tmp_model = load_data(pt_path)[f'model{vpp_rank}']
-                        if self.lora_r is not None and self.lora_model_path is None:
-                            self._merge_lora(tmp_model, merge_type=1)
-                        elif self.lora_model_path is not None:
-                            lora_path = self.get_pt_path_by_tpppep_rank(self.lora_iter_path, tp_rank, pp_rank, ep_rank)
-                            lora_model = load_data(lora_path)[f'model{vpp_rank}']
-                            tmp_model = {**lora_model, **tmp_model}
-                            self._merge_lora(tmp_model, merge_type=2)
+                        if not self.save_lora_to_hf:
+                            if self.lora_r is not None and self.lora_model_path is None:
+                                self._merge_lora(tmp_model, merge_type=1)
+                            elif self.lora_model_path is not None:
+                                lora_path = self.get_pt_path_by_tpppep_rank(self.lora_iter_path, tp_rank, pp_rank, ep_rank)
+                                lora_model = load_data(lora_path)[f'model{vpp_rank}']
+                                tmp_model = {**lora_model, **tmp_model}
+                                self._merge_lora(tmp_model, merge_type=2)
                         mg_weights[(tp_rank, ep_rank)] = tmp_model
 
                     self.read_vpp_rank_weights(pp_rank, vpp_rank, mg_weights)
@@ -824,7 +851,9 @@ class MgCkptConvert(object):
         model_index_file_path = os.path.join(self.hf_save_path, "model.safetensors.index.json")
         with open(model_index_file_path, 'w', encoding='utf-8') as json_file:
             json.dump({"metadata": {"total_size": TENSOR_SIZE}, "weight_map": self.model_index}, json_file, indent=4)
-
+        if self.save_lora_to_hf:
+            self.write_adapter_config(self.hf_save_path)
+            logger.info("Successfully convert lora to hf!")
         logger.info("Done!")
 
 
@@ -861,6 +890,8 @@ def get_args():
                        help='Lora r.')
     parser.add_argument('--lora-alpha', type=int, default=None,
                        help='Lora alpha.')
+    parser.add_argument('--lora-target-modules', nargs='+', type=str, default=[],
+                       help='Lora target modules.')
     parser.add_argument("--save-lora-to-hf", action='store_true',
                         help="only save lora ckpt to hf")
 
@@ -890,6 +921,7 @@ def main():
         lora_model_path=args.lora_load,
         lora_r=args.lora_r,
         lora_alpha=args.lora_alpha,
+        lora_target_modules=args.lora_target_modules,
         save_lora_to_hf=args.save_lora_to_hf
     )
     converter.run()
