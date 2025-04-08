@@ -119,7 +119,7 @@ TRAIN_ARGS="
 DATA_ARGS="
     --no-shared-storage \
     --data-path $DATA_PATH \
-    --split 99990,8,2
+    --split 949,50,1 \
 "
 
 OUTPUT_ARGS="
