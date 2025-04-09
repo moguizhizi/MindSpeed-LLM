@@ -205,9 +205,15 @@ class BBHEval(DatasetEval):
 
 
             if dist.get_rank() in group[0]:
-                local_tensor = torch.tensor([acc_n, len(sorted_dataset)], device=torch.cuda.current_device())
-                dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
-                acc_n, total_questions = local_tensor.tolist()
+                question_num = len(sorted_dataset)
+                if align_start_dp_rank >= 0 and mpu.get_data_parallel_rank() >= align_start_dp_rank:
+                    question_num -= 1
+                if not args.broadcast:
+                    local_tensor = torch.tensor([acc_n, question_num], device=torch.cuda.current_device())
+                    dist.all_reduce(local_tensor, op=dist.ReduceOp.SUM, group=mpu.get_data_parallel_group())
+                    acc_n, total_questions = local_tensor.tolist()
+                else:
+                    total_questions = question_num
                 if dist.get_rank() == 0:
                     logger.info(f'{subject_name} has {acc_n} corrects in {total_questions} questions, with accuracy {acc_n / total_questions}')
                     total_n += total_questions
@@ -221,7 +227,7 @@ class BBHEval(DatasetEval):
             if self.file_pbar is not None:
                 self.file_pbar.update()
 
-        if dist.get_rank() in group[0]:
+        if dist.get_rank() == 0:
             logger.info(f"bbh acc = {total_acc_n}/{total_n}={check_divisible_by_zero(total_acc_n, total_n)}")
             score_datas.append(["total", total_n, check_divisible_by_zero(total_acc_n, total_n)])
         score_df = pd.DataFrame(columns=['subject', 'question_n', 'acc'], data=score_datas)
