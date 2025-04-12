@@ -69,7 +69,7 @@ find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
         # python test testing
         find "$dir" -type f -name "*.py" | while read -r file; do
             echo "running $file"
-            if pytest "$file"; then
+            if pytest --log-level=INFO "$file"; then
                 echo "$file execution success." >> "$BASE_DIR/exec_results.log"
             else
                 echo "$file has failed, check it!" >> "$BASE_DIR/exec_results.log"
