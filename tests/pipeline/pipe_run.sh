@@ -26,15 +26,14 @@ cp -rf /home/master_branch/Megatron-LM/megatron ./
 # Main
 # step 1: define dir
 BASE_DIR=$(dirname "$(readlink -f "$0")")
+CURRENT_TIME=$(date "+%Y-%m-%d_%H-%M-%S")
 BASELINE_DIR="$BASE_DIR/baseline"
+GENERATE_LOG_DIR="/$(echo "$BASE_DIR" | cut -d'/' -f2)/pipeline_log/$CURRENT_TIME"
 
 #mkdir cache to store product and will be removed after test
-mkdir -p "$BASE_DIR/pipe_cache"
-touch "$BASE_DIR/exec_results.log"
-echo "core0.8.0 Execution Results" > $BASE_DIR/exec_results.log
-
-GENERATE_LOG_DIR="$BASE_DIR/pipe_cache"
-GENERATE_JSON_DIR="$BASE_DIR/pipe_cache"
+mkdir -p "$GENERATE_LOG_DIR"
+touch "$GENERATE_LOG_DIR/exec_error.log"
+echo "core0.8.0 Execution Results" > $GENERATE_LOG_DIR/exec_error.log
 
 # step 2: running scripts and execute `test_ci_pipeline.py` && running pytest
 find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
@@ -46,36 +45,28 @@ find "$BASE_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
             echo "running $file"
             bash $file | tee "$GENERATE_LOG_DIR/$name.log"
             SCRIPT_EXITCODE=${PIPESTATUS[0]}
-            if [ $SCRIPT_EXITCODE -ne 0 ]; then
-                echo "${name}.sh Script has failed. Exit!" >> $BASE_DIR/exec_results.log
-                exit 1
-            fi
-
-            # begin to execute the logic of compare
-            echo "$(dirname "$BASE_DIR")/test_tools/test_ci_st.py"
-            pytest -x $(dirname "$BASE_DIR")/test_tools/test_ci_st.py \
-                --baseline-json $BASELINE_DIR/$name.json \
-                --generate-log $GENERATE_LOG_DIR/$name.log \
-                --generate-json $GENERATE_JSON_DIR/$name.json
-            PYTEST_EXITCODE=$?
-            if [ $PYTEST_EXITCODE -ne 0 ]; then
-                echo "${name}.sh compare to baseline has failed, check it!" >> $BASE_DIR/exec_results.log
-                exit 1
+            if [ $SCRIPT_EXITCODE -eq 0 ]; then
+                # begin to execute the logic of compare
+                echo "$(dirname "$BASE_DIR")/test_tools/test_ci_st.py"
+                pytest -x $(dirname "$BASE_DIR")/test_tools/test_ci_st.py \
+                    --baseline-json $BASELINE_DIR/$name.json \
+                    --generate-log $GENERATE_LOG_DIR/$name.log \
+                    --generate-json $GENERATE_LOG_DIR/$name.json
+                PYTEST_EXITCODE=$?
+                if [ $PYTEST_EXITCODE -ne 0 ]; then
+                    echo "${name}.sh compare to baseline has failed, check it!" >> $GENERATE_LOG_DIR/exec_error.log
+                fi
             else
-                echo "Pretrain ${name}.sh execution success." >> $BASE_DIR/exec_results.log
+                echo "${name}.sh Script has failed. Exit!" >> $GENERATE_LOG_DIR/exec_error.log
             fi
         done
 
         # python test testing
         find "$dir" -type f -name "*.py" | while read -r file; do
             echo "running $file"
-            if pytest --log-level=INFO "$file"; then
-                echo "$file execution success." >> "$BASE_DIR/exec_results.log"
-            else
-                echo "$file has failed, check it!" >> "$BASE_DIR/exec_results.log"
+            if ! pytest --log-level=INFO "$file"; then
+                echo "$file has failed, check it!" >> "$GENERATE_LOG_DIR/exec_error.log"
             fi
         done
     fi
 done
-
-rm -rf "$BASE_DIR/pipe_cache"
