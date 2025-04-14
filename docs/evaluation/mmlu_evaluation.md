@@ -1,5 +1,9 @@
 # MMLU评估
 
+## 使用场景
+
+### 问题描述
+
 MMLU（Massive Multitask Language Understanding）评估包含一系列多样化的任务和领域，旨在全面测试模型的理解能力和知识广度。具体来说，MMLU涵盖了以下主要领域：
 
 1. **人文学科**：如历史、哲学、文学等。
@@ -13,7 +17,11 @@ MMLU（Massive Multitask Language Understanding）评估包含一系列多样化
 
 目前MindSpeed-LLM仓库对MMLU评估有三种评估模式：
 
-## 直接评估模式
+## 使用方法
+
+### 1. 直接评估模式
+
+#### 使用影响
 
 此模式将会读取对外的mmlu评估的[模板的文件](../../mindspeed_llm/tasks/evaluation/eval_impl/fewshot_template/mmlu_5shot_template.json)作为评估模板，在与需要模型回答的问题连接后，输入到模型中，直接进行评估。
 
@@ -21,13 +29,15 @@ MMLU（Massive Multitask Language Understanding）评估包含一系列多样化
 
 该模式的优势是直接且速度快，可以直接对模型的预训练权重进行评估。
 
-### 推荐参数配置
+#### 推荐参数配置
 
 【--max-new-tokens】
 
 设置为1或者2
 
-## 微调模板评估模式
+### 2. 微调模板评估模式
+
+#### 使用影响
 
 此模式将会读取您的启动脚本中的`DATA_PATH`路径中`dev`文件夹中对应问题的以dev_csv的文件，作为模板问题，经处理后输入到模型中。
 
@@ -35,7 +45,7 @@ MMLU（Massive Multitask Language Understanding）评估包含一系列多样化
 
 该模式的优势是评估速度较快，适用于对模型的微调权重进行评估。
 
-### 推荐参数配置
+#### 推荐参数配置
 
 【--max-new-tokens】
 
@@ -45,7 +55,9 @@ MMLU（Massive Multitask Language Understanding）评估包含一系列多样化
 
 设置--prompt-type为您在使用MindSpeed-LLM进行微调时的使用的prompt-type名称。
 
-## 平替模板输出模式
+### 3. 平替模板输出模式
+
+#### 使用影响
 
 与`微调模板评估模式`相同的是，该模式也会使用您评估脚本中的`DATA_PATH`路径中`dev`文件夹中对应问题的以dev_csv的文件，并作为模板问题。
 
@@ -53,7 +65,7 @@ MMLU（Massive Multitask Language Understanding）评估包含一系列多样化
 
 该模式的优势是可以使用与业界优秀评估方案相同的评估模板进行评估，并获得较好的评估分数。
 
-### 推荐参数配置
+#### 推荐参数配置
 
 【--max-new-tokens】
 
@@ -62,6 +74,18 @@ MMLU（Massive Multitask Language Understanding）评估包含一系列多样化
 【--alternative-prompt】
 
 使能`平替模板输出模式`
+
+### 4. PPL模式
+
+#### 使用影响
+
+`ppl` 是困惑度 (perplexity) 的缩写，是一种评价模型进行语言建模能力的指标。该模式也会使用您评估脚本中的`DATA_PATH`路径中`dev`文件夹中对应问题的以dev_csv的文件，并作为模板问题。此时，我们会将 n 个选项拼接上上下文后，形成 n 个序列，然后计算模型对这 n 个序列的 perplexity，我们认为其中 perplexity 最低的序列所对应的选项即为模型在这道题上面的推理结果，该种评测方法的后处理简单直接、确定性高。
+
+#### 推荐参数配置
+
+【--task】
+
+设置为 `mmlu_ppl`
 
 ## MMLU评估的子集
 

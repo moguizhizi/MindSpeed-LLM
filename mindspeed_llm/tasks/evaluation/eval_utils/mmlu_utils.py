@@ -106,3 +106,26 @@ def postprocess(text: str, options: str, gold: str, origin_postprocess: bool, cu
     
     # If there is no match result, return nothing
     return ''
+
+
+def format_ppl_prompt(
+    target_data, support_set, subject_name
+):
+    """
+    Converts dataset examples to messages.
+    """
+    messages = f'The following are multiple choice questions (with answers) about  {subject_name.replace("_", " ")}.\n\n'
+    for _, row in support_set.iterrows():
+        prompt, response = parse_ppl_example(row)
+        messages += prompt + response + "\n\n"
+
+    prompt, _ = parse_ppl_example(target_data)
+    messages += prompt
+
+    return messages
+
+
+def parse_ppl_example(example):
+    CHOICES = ["A", "B", "C", "D"]
+    candidates = [f'\n{ch}. {example[ch]}' for ch in CHOICES if ch in example]
+    return "".join(str(item) for item in [example["question"]] + candidates + ['\nAnswer: ']), example["answer"]

@@ -39,6 +39,7 @@ from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.evaluation.eval_impl.boolq_eval import BoolqEval
 from mindspeed_llm.tasks.evaluation.eval_impl.gsm8k_eval import Gsm8kEval
 from mindspeed_llm.tasks.evaluation.eval_impl.mmlu_eval import MmluEval
+from mindspeed_llm.tasks.evaluation.eval_impl.mmlu_ppl import MmluEval_PPL
 from mindspeed_llm.tasks.evaluation.eval_impl.ceval_exam import CEvalExam
 from mindspeed_llm.tasks.evaluation.eval_impl.bbh_eval import BBHEval
 from mindspeed_llm.tasks.evaluation.eval_impl.agi_eval import AGIEvalExam
@@ -232,6 +233,23 @@ def needlebench(eval_args, agent):
     return
 
 
+def mmlu_ppl(eval_args, agent):
+    data_path = None
+    answer = None 
+    score_df = None
+    for path in eval_args.task_data_path:
+        if 'mmlu' in path:
+            data_path = path
+    try:
+        if data_path:
+            mmlu_ppl_eval = MmluEval_PPL(test_dir=data_path, eval_args=eval_args)
+            answer, score_df = mmlu_ppl_eval.eval(chat=agent)
+            if dist.get_rank() == 0:
+                logger.info('\n{}'.format(score_df))
+    except Exception as e:
+        logger.info(e)
+
+
 def gsm8k(eval_args, agent):
     data_path = None
     answer = None 
@@ -362,6 +380,11 @@ def main():
         cmmlu(args, LLMChat(args, model, tokenizer))
         if rank == 0:
             logger.info(f'CMMLU Running Time:, {time.time() - a}')
+    if 'mmlu_ppl' in args.task:
+        a = time.time()
+        mmlu_ppl(args, LLMChat(args, model, tokenizer))
+        if rank == 0:
+            logger.info(f'MMLU_PPL Running Time:, {time.time() - a}')
     if 'mmlu' in args.task:
         a = time.time()
         mmlu(args, LLMChat(args, model, tokenizer))
