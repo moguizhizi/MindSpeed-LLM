@@ -9,18 +9,69 @@ import re
 import json
 import glob
 import sys
+from concurrent.futures import ProcessPoolExecutor
 import subprocess
-import pytest
 import torch
 import torch_npu
+import xxhash
+
+import pytest
+
 import megatron.core.parallel_state as mpu
 from megatron.core.parallel_state import initialize_model_parallel
 from mindspeed.core.parallel_state import initialize_model_parallel_wrapper
 from mindspeed_llm.core.parallel_state import initialize_model_parallel_decorator
 
+
 def judge_expression(expression):
     if not expression:
         raise AssertionError
+
+
+def hash_tensor_in_chunks(tensor, chunk_size=1024 * 1024):
+    """分块计算张量的哈希值，适用于超大张量，支持 BFloat16 等类型。"""
+    hasher = xxhash.xxh3_64()
+    numel = tensor.numel()
+    tensor_flat = tensor.view(-1)  # 展平张量为一维
+
+    if tensor.dtype == torch.bfloat16:
+        tensor_flat = tensor_flat.to(torch.float32)
+
+    for i in range(0, numel, chunk_size):
+        chunk = tensor_flat[i:i + chunk_size]
+        if not chunk.is_contiguous():
+            chunk = chunk.contiguous()
+        hasher.update(chunk.cpu().numpy().tobytes())
+
+    return hasher.digest()
+
+
+def calculate_hash_for_model(data, chunk_size=1024 * 1024):
+    final_hasher = xxhash.xxh3_64()
+
+    tensor_data = {k: v for k, v in data.items() if torch.is_tensor(v)}
+    non_tensor_data = {k: v for k, v in data.items() if not torch.is_tensor(v)}
+
+    if tensor_data:
+        tensor_hashes = [
+            hash_tensor_in_chunks(value, chunk_size)
+            for key, value in sorted(tensor_data.items())
+        ]
+        for key, tensor_hash in zip(sorted(tensor_data.keys()), tensor_hashes):
+            final_hasher.update(key.encode('utf-8'))
+            final_hasher.update(tensor_hash)
+
+    for key in sorted(non_tensor_data.keys()):
+        final_hasher.update(key.encode('utf-8'))
+        value = non_tensor_data[key]
+        if isinstance(value, (int, float)):
+            final_hasher.update(str(value).encode('utf-8'))
+        elif isinstance(value, str):
+            final_hasher.update(value.encode('utf-8'))
+        else:
+            final_hasher.update(repr(value).encode('utf-8'))
+
+    return final_hasher.hexdigest()
 
 
 def compare_state_dicts(state_dict1, state_dict2):
@@ -41,6 +92,63 @@ def compare_state_dicts(state_dict1, state_dict2):
                 return False
         else:
             pass
+
+    return True
+
+
+def process_file(file_path):
+    data = torch.load(file_path, map_location='cpu')
+    layer_ckpt = {}
+    # 兼容带vpp的权重
+    for key in data.keys():
+        if key.startswith('model'):
+            layer_ckpt.update(data[key])
+    data = layer_ckpt
+    return data
+
+
+def compare_with_base_hash(file_path, base_hash, file_type='pt'):
+    if not os.path.exists(file_path):
+        return f"Error: File {file_path} does not exist"
+
+    if file_type == 'pt':
+        try:
+            data = process_file(file_path)
+            if isinstance(data, str):
+                return data
+            current_hash = calculate_hash_for_model(data)
+        except Exception as e:
+            raise ValueError(f"Error: Failed to process file {file_path} - {str(e)}") from e
+    elif file_type == 'safetensors':
+        current_hash = get_md5sum(file_path)
+    else:
+        raise ValueError(f"Unsupported file type: {file_type}")
+    return current_hash == base_hash
+
+
+def weight_compare_hash(model_dir, base_hash, suffix="pt"):
+    models_path = glob.glob(os.path.join(model_dir, '**', f'*.{suffix}'), recursive=True)
+    models_path.sort()
+    if not models_path:
+        raise ValueError(f"Error: No .{suffix} files found in current directory")
+
+    if len(models_path) != len(base_hash):
+        raise ValueError(f"Error: Number of files don't match ({len(models_path)} vs {len(base_hash)})")
+
+    cpu_count = os.cpu_count() or 1
+    max_workers = min(cpu_count, len(models_path))
+    logger.info(f"Using {max_workers} workers based on CPU count: {cpu_count}")
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        tasks = [
+            executor.submit(compare_with_base_hash, models_path[i], base_hash[i], suffix)
+            for i in range(len(models_path))
+        ]
+
+        for _, future in enumerate(tasks):
+            result = future.result()
+            if not result:
+                return False
 
     return True
 
