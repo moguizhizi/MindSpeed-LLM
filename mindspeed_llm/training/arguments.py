@@ -109,6 +109,9 @@ def _add_mla_args(parser):
     group.add_argument('--mla-fa-without-pad', action='store_true', default=False, help='Do not pad v_head_dim to q_head_dim in MLA')
     group.add_argument('--mla-mm-split', action='store_true', default=False, help='Split 2 up-proj matmul into 4 in MLA')
     group.add_argument("--mla-zero-memory", action='store_true', default=False, help="Save activation memory in multi-head-latent-attention.")
+    group.add_argument("--mla-up-proj-tp-overlap", action='store_true', default=False, help='overlap up proj tp comm')
+    group.add_argument("--recompute-mla-up-proj", action='store_true', default=False, help='recompute up projection in mla')
+
     return parser
 
 
@@ -190,6 +193,9 @@ def _add_dualpipe_args(parser):
     group = parser.add_argument_group(title='dualpipe')
     group.add_argument('--moe-fb-overlap', action='store_true', default=False)
     group.add_argument('--schedules-method', type=str, default=None, choices=['dualpipev'])
+    group.add_argument('--dualpipev-dw-detach', action='store_true', help='detach dw in cooldown to reduce bubble')
+    group.add_argument('--moe-unperm2-mem-optim', action='store_true', default=False,
+                       help='deallocate unperm2 activation memory by multiplying prob after act func.')
 
     return parser
 
@@ -1183,6 +1189,12 @@ def _validate_mla(args):
             raise AssertionError('The parameter qk-rope-head-dim should be set when use multi_head_latent_attention.')
         elif args.qk_nope_head_dim is None:
             raise AssertionError('The parameter qk-nope-head-dim should be set when use multi_head_latent_attention.')
+        if args.mla_up_proj_tp_overlap:
+            assert args.mla_mm_split, '--mla-up-proj-tp-overlap can only be used with mla-mm-split by now'
+            assert args.sequence_parallel, '--mla-up-proj-tp-overlap should be used with sequence parallel'
+        if args.recompute_mla_up_proj:
+            assert args.mla_up_proj_tp_overlap, '--recompute-mla-up-proj can only be used with --mla-up-proj-tp-overlap'
+            assert not args.mla_zero_memory, '--recompute-mla-up-proj is incompatible with --mla-zero-memory'
 
 
 def _validate_yarn(args):

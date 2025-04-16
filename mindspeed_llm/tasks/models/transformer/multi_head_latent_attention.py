@@ -21,6 +21,7 @@ from megatron.core.transformer.attention import SelfAttention, SelfAttentionSubm
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core import mpu, parallel_state
 from megatron.training import get_args
+from .mla_up_proj_overlap_tp_comm import mla_up_projection_overlap_tp_comm
 
 try:
     import bitsandbytes as bnb
@@ -221,6 +222,9 @@ class MultiHeadLatentAttention(SelfAttention):
         else:
             self.a2a_hooked_on_attention = False
 
+        self.mla_up_proj_tp_overlap = args.mla_up_proj_tp_overlap
+        self.recompute_mla_up_proj = args.recompute_mla_up_proj
+
     def forward(
         self,
         hidden_states,
@@ -259,98 +263,101 @@ class MultiHeadLatentAttention(SelfAttention):
                 ],
                 dim=-1,
             )
-
-            if self.q_layernorm is not None:
-                q_a = self.q_layernorm(q_a)
-                if not self.mla_mm_split:
-                    q, _ = self.linear_qb(q_a)
-                    q = q.view(q_len, bsz, self.num_attention_heads_per_partition, -1)
+            if self.mla_up_proj_tp_overlap:
+                query, key, value = mla_up_projection_overlap_tp_comm(q_a, compressed_kv, k_pe, rotary_pos_emb,
+                                                                      packed_seq_params, self)
+            else:
+                if self.q_layernorm is not None:
+                    q_a = self.q_layernorm(q_a)
+                    if not self.mla_mm_split:
+                        q, _ = self.linear_qb(q_a)
+                        q = q.view(q_len, bsz, self.num_attention_heads_per_partition, -1)
+                        q_nope, q_pe = torch.split(
+                            q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1
+                        )
+                    else:
+                        q_nope, _ = self.linear_qk_nope(q_a)
+                        q_pe, _ = self.linear_qk_rope(q_a)
+                        q_nope = q_nope.view(
+                            q_len, bsz, self.num_attention_heads_per_partition, -1
+                        )
+                        q_pe = q_pe.view(q_len, bsz, self.num_attention_heads_per_partition, -1)
+                else:
+                    q = q_a.view(q_len, bsz, self.num_attention_heads_per_partition, -1)
                     q_nope, q_pe = torch.split(
                         q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1
                     )
-                else:
-                    q_nope, _ = self.linear_qk_nope(q_a)
-                    q_pe, _ = self.linear_qk_rope(q_a)
-                    q_nope = q_nope.view(
-                        q_len, bsz, self.num_attention_heads_per_partition, -1
+
+                if self.config.sequence_parallel:
+                    k_pe = gather_from_sequence_parallel_region(k_pe)
+
+                k_pe = k_pe.view(q_len, bsz, 1, self.qk_rope_head_dim)
+                compressed_kv_norm = self.k_layernorm(compressed_kv)
+
+                if not self.mla_mm_split:
+                    kv, _ = self.linear_kvb(compressed_kv_norm)
+                    kv = kv.view(
+                        q_len,
+                        bsz,
+                        self.num_attention_heads_per_partition,
+                        self.qk_nope_head_dim + self.v_head_dim,
                     )
-                    q_pe = q_pe.view(q_len, bsz, self.num_attention_heads_per_partition, -1)
-            else:
-                q = q_a.view(q_len, bsz, self.num_attention_heads_per_partition, -1)
-                q_nope, q_pe = torch.split(
-                    q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1
-                )
-
-            if self.config.sequence_parallel:
-                k_pe = gather_from_sequence_parallel_region(k_pe)
-                
-            k_pe = k_pe.view(q_len, bsz, 1, self.qk_rope_head_dim)
-            compressed_kv_norm = self.k_layernorm(compressed_kv)
-
-            if not self.mla_mm_split:
-                kv, _ = self.linear_kvb(compressed_kv_norm)
-                kv = kv.view(
-                    q_len,
-                    bsz,
-                    self.num_attention_heads_per_partition,
-                    self.qk_nope_head_dim + self.v_head_dim,
-                )
-                k_nope, value = torch.split(kv, [self.qk_nope_head_dim, self.v_head_dim], dim=-1)
-            else:
-                k_nope, _ = self.linear_kv_nope(compressed_kv_norm)
-                value, _ = self.linear_v(compressed_kv_norm)
-                k_nope = k_nope.view(q_len, bsz, self.num_attention_heads_per_partition, -1)
-                value = value.view(q_len, bsz, self.num_attention_heads_per_partition, -1)
-
-            if self.a2a_hooked_on_attention:
-                launch_async_all2all()
-            
-            if rotary_pos_emb is not None:
-                q_pos_emb, k_pos_emb = rotary_pos_emb
-
-                if hasattr(args, "rope_scaling_type") and args.rope_scaling_type == "yarn":
-                    b, h, s, d = q_pe.shape
-                    q_pe = q_pe.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
-                    b, h, s, d = k_pe.shape
-                    k_pe = k_pe.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
-
-                if packed_seq_params is not None:
-                    cu_seqlens_q = packed_seq_params.cu_seqlens_q
-                    cu_seqlens_kv = packed_seq_params.cu_seqlens_kv
+                    k_nope, value = torch.split(kv, [self.qk_nope_head_dim, self.v_head_dim], dim=-1)
                 else:
-                    cu_seqlens_q = cu_seqlens_kv = None
+                    k_nope, _ = self.linear_kv_nope(compressed_kv_norm)
+                    value, _ = self.linear_v(compressed_kv_norm)
+                    k_nope = k_nope.view(q_len, bsz, self.num_attention_heads_per_partition, -1)
+                    value = value.view(q_len, bsz, self.num_attention_heads_per_partition, -1)
 
-                q_pe = apply_rotary_pos_emb(q_pe, q_pos_emb, config=self.config, cu_seqlens=cu_seqlens_q)
-                k_pe = apply_rotary_pos_emb(k_pe, k_pos_emb, config=self.config, cu_seqlens=cu_seqlens_kv)
+                if self.a2a_hooked_on_attention:
+                    launch_async_all2all()
 
-            query = torch.cat([q_nope, q_pe], dim=-1)
+                if rotary_pos_emb is not None:
+                    q_pos_emb, k_pos_emb = rotary_pos_emb
 
-            k_pe = k_pe.expand(k_pe.shape[0], k_pe.shape[1], query.shape[2], k_pe.shape[3])
-            key = torch.cat([k_nope, k_pe], dim=-1)
+                    if hasattr(args, "rope_scaling_type") and args.rope_scaling_type == "yarn":
+                        b, h, s, d = q_pe.shape
+                        q_pe = q_pe.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
+                        b, h, s, d = k_pe.shape
+                        k_pe = k_pe.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
 
-            if (
-                self.use_flash_attn
-                and self.q_head_dim != self.v_head_dim
-                and not self.mla_fa_without_pad
-            ):
-                if self.shape_order == "BNSD":
-                    value = F.pad(value, [0, self.q_head_dim - self.v_head_dim])
-                else:
-                    query = F.pad(query, [0, self.fa_padding_length - self.q_head_dim])
-                    key = F.pad(key, [0, self.fa_padding_length - self.q_head_dim])
-                    value = F.pad(value, [0, self.fa_padding_length - self.v_head_dim])
+                    if packed_seq_params is not None:
+                        cu_seqlens_q = packed_seq_params.cu_seqlens_q
+                        cu_seqlens_kv = packed_seq_params.cu_seqlens_kv
+                    else:
+                        cu_seqlens_q = cu_seqlens_kv = None
 
-            # Do repeat KV to support GQA+Ulysses
-            args = get_args()
-            should_kv_repeat_before_uly = (
-                args.context_parallel_size > 1
-                and args.context_parallel_algo in ["ulysses_cp_algo", "hybrid_cp_algo"]
-                and args.kv_head_repeat_before_uly_alltoall
-                )
-            heads_per_gqa_group = self.num_attention_heads_per_partition // self.num_query_groups_per_partition
-            if should_kv_repeat_before_uly and heads_per_gqa_group > 1:
-                key = key.repeat_interleave(heads_per_gqa_group, dim=2)
-                value = value.repeat_interleave(heads_per_gqa_group, dim=2)
+                    q_pe = apply_rotary_pos_emb(q_pe, q_pos_emb, config=self.config, cu_seqlens=cu_seqlens_q)
+                    k_pe = apply_rotary_pos_emb(k_pe, k_pos_emb, config=self.config, cu_seqlens=cu_seqlens_kv)
+
+                query = torch.cat([q_nope, q_pe], dim=-1)
+
+                k_pe = k_pe.expand(k_pe.shape[0], k_pe.shape[1], query.shape[2], k_pe.shape[3])
+                key = torch.cat([k_nope, k_pe], dim=-1)
+
+                if (
+                    self.use_flash_attn
+                    and self.q_head_dim != self.v_head_dim
+                    and not self.mla_fa_without_pad
+                ):
+                    if self.shape_order == "BNSD":
+                        value = F.pad(value, [0, self.q_head_dim - self.v_head_dim])
+                    else:
+                        query = F.pad(query, [0, self.fa_padding_length - self.q_head_dim])
+                        key = F.pad(key, [0, self.fa_padding_length - self.q_head_dim])
+                        value = F.pad(value, [0, self.fa_padding_length - self.v_head_dim])
+
+                # Do repeat KV to support GQA+Ulysses
+                args = get_args()
+                should_kv_repeat_before_uly = (
+                    args.context_parallel_size > 1
+                    and args.context_parallel_algo in ["ulysses_cp_algo", "hybrid_cp_algo"]
+                    and args.kv_head_repeat_before_uly_alltoall
+                    )
+                heads_per_gqa_group = self.num_attention_heads_per_partition // self.num_query_groups_per_partition
+                if should_kv_repeat_before_uly and heads_per_gqa_group > 1:
+                    key = key.repeat_interleave(heads_per_gqa_group, dim=2)
+                    value = value.repeat_interleave(heads_per_gqa_group, dim=2)
 
             # ==================================
             # core attention computation
@@ -374,6 +381,10 @@ class MultiHeadLatentAttention(SelfAttention):
                     attn_mask_type=attn_mask_type,
                     packed_seq_params=packed_seq_params,
                 )
+
+            if self.recompute_mla_up_proj and core_attn_out.requires_grad:
+                self.recompute_mla_up_proj_ckpt.discard_output()
+                core_attn_out.register_hook(self.recompute_mla_up_proj_ckpt.recompute)
 
             if packed_seq_params is not None:
                 # reshape to same output shape as unpacked case
