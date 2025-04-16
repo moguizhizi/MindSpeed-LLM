@@ -57,7 +57,7 @@ class MgCkptConvert(object):
             moe_grouped_gemm: bool = False,
             moe_tp_extend_ep: bool = False,
             mla_mm_split: bool = False,
-            num_nextn_predict_layers: int = 0,
+            mtp_num_layers: int = 0,
             lora_model_path: str = None,
             lora_r: int = 16,
             lora_alpha: int = 32,
@@ -85,7 +85,7 @@ class MgCkptConvert(object):
         self.moe_tp_extend_ep = moe_tp_extend_ep
         self.mla_mm_split = mla_mm_split
         self.first_k_dense_replace = num_dense_layers
-        self.num_nextn_predict_layers = num_nextn_predict_layers
+        self.mtp_num_layers = mtp_num_layers
 
         self.hidden_size = HIDDEN_SIZE
         self.num_experts = NUM_EXPERTS
@@ -94,7 +94,6 @@ class MgCkptConvert(object):
         self.qk_rope_head_dim = QK_ROPE_HEAD_DIM
         self.v_head_dim = V_HEAD_DIM
         self.mtp_layer_number = MTP_LAYER_INDEX
-        self.share_mtp_embedding_and_output_weight = True
 
         self.lora_r = lora_r
         self.lora_alpha = lora_alpha
@@ -275,7 +274,7 @@ class MgCkptConvert(object):
     def set_model_postprocess(self, hf_dict, mg_models):
         """final_norm & output_layer"""
         final_norm_key = "decoder.final_layernorm.weight"
-        if self.num_nextn_predict_layers > 0:
+        if self.mtp_num_layers:
             final_norm_key = "final_layernorm.weight"
 
         final_norm = mg_models[(self.tp_rank_list[0], self.ep_rank_list[0])].pop(final_norm_key)
@@ -291,8 +290,8 @@ class MgCkptConvert(object):
     def set_model_layer_norm(self, hf_dict, mg_models, hf_layer_idx, local_layer_idx, mtp_flag=False):
         """input norm & post attn norm"""
         if mtp_flag:
-            input_norm_key = f"mtp_layers.{local_layer_idx}.transformer_layer.input_layernorm.weight"
-            pre_mlp_norm_key = f"mtp_layers.{local_layer_idx}.transformer_layer.pre_mlp_layernorm.weight"
+            input_norm_key = f"mtp.layers.{local_layer_idx}.transformer_layer.input_layernorm.weight"
+            pre_mlp_norm_key = f"mtp.layers.{local_layer_idx}.transformer_layer.pre_mlp_layernorm.weight"
         else:
             input_norm_key = f"decoder.layers.{local_layer_idx}.input_layernorm.weight"
             pre_mlp_norm_key = f"decoder.layers.{local_layer_idx}.pre_mlp_layernorm.weight"
@@ -307,7 +306,7 @@ class MgCkptConvert(object):
         """attn"""
 
         def _generate_attn_layers_key(mtp_flag, local_idx):
-            prefix = f"mtp_layers.{local_idx}.transformer_layer" if mtp_flag else \
+            prefix = f"mtp.layers.{local_idx}.transformer_layer" if mtp_flag else \
                 f"decoder.layers.{local_idx}"
 
             qkv_key = f"{prefix}.self_attention.linear_qkv.weight"
@@ -320,7 +319,7 @@ class MgCkptConvert(object):
             return qkv_key, dense_key, q_layernorm_key, kv_layernorm_key, q_b_key, kv_b_key
 
         def _generate_attn_mm_split_key(mtp_flag, local_idx):
-            prefix = f"mtp_layers.{local_idx}.transformer_layer" if mtp_flag else \
+            prefix = f"mtp.layers.{local_idx}.transformer_layer" if mtp_flag else \
                 f"decoder.layers.{local_idx}"
 
             qk_nope_key = f"{prefix}.self_attention.linear_qk_nope.weight"
@@ -452,7 +451,7 @@ class MgCkptConvert(object):
         """ dense + moe """
 
         def _generate_moe_layer_key(local_idx, mtp_flag):
-            prefix = f"mtp_layers.{local_idx}.transformer_layer" if mtp_flag else f"decoder.layers.{local_idx}"
+            prefix = f"mtp.layers.{local_idx}.transformer_layer" if mtp_flag else f"decoder.layers.{local_idx}"
 
             router_key = f"{prefix}.mlp.router.weight"
             router_bias_key = f"{prefix}.mlp.router.expert_bias"
@@ -551,7 +550,7 @@ class MgCkptConvert(object):
                             hf_dict[hf_local_down_key.format(hf_layer_idx, expert_idx)] = local_down.contiguous().clone()
             else:
                 if mtp_flag:
-                    local_prefix = f"mtp_layers.{local_layer_idx}.transformer_layer.mlp.experts.local_experts"
+                    local_prefix = f"mtp.layers.{local_layer_idx}.transformer_layer.mlp.experts.local_experts"
                 else:
                     local_prefix = f"decoder.layers.{local_layer_idx}.mlp.experts.local_experts"
 
@@ -628,23 +627,28 @@ class MgCkptConvert(object):
     def set_mtp_layer(self, hf_dict, mg_models, hf_layer_idx):
         """all mtp"""
         # preprocess
-        enorm = mg_models[(self.tp_rank_list[0], self.ep_rank_list[0])].pop("mtp_layers.0.enorm.weight")
-        hnorm = mg_models[(self.tp_rank_list[0], self.ep_rank_list[0])].pop("mtp_layers.0.hnorm.weight")
+        enorm = mg_models[(self.tp_rank_list[0], self.ep_rank_list[0])].pop("mtp.layers.0.enorm.weight")
+        hnorm = mg_models[(self.tp_rank_list[0], self.ep_rank_list[0])].pop("mtp.layers.0.hnorm.weight")
 
         eh_proj_list = []
+        emb_list = []
         for tp_rank in self.tp_rank_list:
-            cur_eh_proj = mg_models[(tp_rank, self.ep_rank_list[0])].pop("mtp_layers.0.eh_proj.weight")
+            cur_eh_proj = mg_models[(tp_rank, self.ep_rank_list[0])].pop("mtp.layers.0.eh_proj.weight")
             eh_proj_list.append(cur_eh_proj.clone())
+            cur_tp_emb = mg_models[(tp_rank, self.ep_rank_list[0])].pop("embedding.word_embeddings.weight")
+            emb_list.append(cur_tp_emb.clone())
 
         eh_proj_weights = torch.cat(eh_proj_list, dim=0)
+        emb_weights = torch.cat(emb_list, dim=0)
 
+        hf_dict[f"model.layers.{hf_layer_idx}.embed_tokens.weight"] = emb_weights.clone()
         hf_dict[f"model.layers.{hf_layer_idx}.enorm.weight"] = enorm.clone()
         hf_dict[f"model.layers.{hf_layer_idx}.hnorm.weight"] = hnorm.clone()
         hf_dict[f"model.layers.{hf_layer_idx}.eh_proj.weight"] = eh_proj_weights.clone()
 
         # postprocess
         mtp_final_norm = mg_models[(self.tp_rank_list[0], self.ep_rank_list[0])].pop(
-            "mtp_layers.0.final_layernorm.weight")
+            "mtp.final_layernorms.0.weight")
         hf_dict[f"model.layers.{hf_layer_idx}.shared_head.norm.weight"] = mtp_final_norm.clone()
 
         local_idx = 0
@@ -718,7 +722,7 @@ class MgCkptConvert(object):
         num_dense_file = 0
         noop_layers = len(list(map(int, self.noop_layers.split(",")))) if self.noop_layers else 0
         num_moe = self.num_layers - self.first_k_dense_replace - noop_layers
-        num_mtp = self.num_nextn_predict_layers
+        num_mtp = self.mtp_num_layers
         num_files = num_dense_file + num_moe + num_mtp
 
         safetensors_file_name = f"model-{cur_file_idx:05d}-of-{num_files:06d}.safetensors"
@@ -763,8 +767,8 @@ class MgCkptConvert(object):
             self.save_safetensors(hf_weight_dict, file_idx)
             file_idx += 1
             hf_weight_dict = defaultdict()
-            if self.num_nextn_predict_layers > 0:
-                hf_layer_number = self.num_real_layers - 1 + self.num_nextn_predict_layers
+            if self.mtp_num_layers:
+                hf_layer_number = self.num_real_layers - 1 + self.mtp_num_layers
                 logger.info(f"Converting the weights of mtp layer {hf_layer_number}")
                 self.set_mtp_layer(hf_weight_dict, mg_models, hf_layer_number)
                 self.save_safetensors(hf_weight_dict, file_idx)
@@ -804,8 +808,8 @@ class MgCkptConvert(object):
             self.save_safetensors(hf_weight_dict, file_idx)
             file_idx += 1
             hf_weight_dict = defaultdict()
-            if self.num_nextn_predict_layers > 0:
-                hf_layer_number = self.num_real_layers - 1 + self.num_nextn_predict_layers
+            if self.mtp_num_layers:
+                hf_layer_number = self.num_real_layers - 1 + self.mtp_num_layers
                 logger.info(f"Converting the weights of mtp layer {hf_layer_number}")
                 self.set_mtp_layer(hf_weight_dict, mg_models, hf_layer_number)
                 self.save_safetensors(hf_weight_dict, file_idx)
@@ -873,7 +877,7 @@ def get_args():
                         help='Number of layers per virtual pipeline stage')
     parser.add_argument('--moe-grouped-gemm', action='store_true', help='Usr moe grouped gemm.')
     parser.add_argument("--noop-layers", type=str, default=None, help='Specity the noop layers.')
-    parser.add_argument('--num-nextn-predict-layers', type=int, default=0, help='Multi-Token prediction layer num')
+    parser.add_argument('--mtp-num-layers', type=int, default=0, help='Multi-Token prediction layer num')
     parser.add_argument('--num-layer-list', type=str,
                         help='a list of number of layers, seperated by comma; e.g., 4,4,4,4')
     parser.add_argument("--moe-tp-extend-ep", action='store_true',
@@ -917,7 +921,7 @@ def main():
         moe_grouped_gemm=args.moe_grouped_gemm,
         moe_tp_extend_ep=args.moe_tp_extend_ep,
         mla_mm_split=args.mla_mm_split,
-        num_nextn_predict_layers=args.num_nextn_predict_layers,
+        mtp_num_layers=args.mtp_num_layers,
         lora_model_path=args.lora_load,
         lora_r=args.lora_r,
         lora_alpha=args.lora_alpha,

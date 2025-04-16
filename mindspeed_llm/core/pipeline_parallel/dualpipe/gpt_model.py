@@ -8,7 +8,6 @@ from torch import Tensor
 from megatron.core import InferenceParams, parallel_state, tensor_parallel
 from megatron.core.packed_seq_params import PackedSeqParams
 from megatron.training import get_args
-from mindspeed.utils import set_actual_seq_len, set_position_ids
 from mindspeed.core.pipeline_parallel.fb_overlap.transformer_block import (
     transformer_block_forward, transformer_block_backward,
     transformer_block_forward_backward_overlaping,
@@ -16,8 +15,6 @@ from mindspeed.core.pipeline_parallel.fb_overlap.transformer_block import (
 from mindspeed.core.pipeline_parallel.fb_overlap.modules.utils import (
     LayerGraph, detach_tensor, run_graph_backward
 )
-from mindspeed_llm.core.models.gpt.gpt_model import inputs_slice
-from mindspeed_llm.training.utils import tensor_slide, compute_actual_seq_len
 
 
 class ModelGraph:
@@ -43,6 +40,7 @@ def gpt_model_forward(
         inference_params: InferenceParams = None,
         packed_seq_params: PackedSeqParams = None,
         extra_block_kwargs: dict = None,
+        loss_mask: Optional[Tensor] = None,
 ) -> Tensor:
     """Forward function of the GPT Model This function passes the input tensors
     through the embedding layer, and then the decoeder and finally into the post
@@ -53,19 +51,14 @@ def gpt_model_forward(
     # If decoder_input is provided (not None), then input_ids and position_ids are ignored.
     # Otherwise, apply embedding layer on input_ids and position_ids to get decoder_input.
     args = get_args()
-    input_ids, labels, position_ids, attention_mask = inputs_slice(
-        args.num_nextn_predict_layers,
-        input_ids,
-        labels,
-        position_ids,
-        attention_mask)
+
     if not self.training and (hasattr(args, "rope_scaling_type") and args.rope_scaling_type == "longrope"):
         args.rope_scaling_original_max_position_embeddings = args.max_position_embeddings
     # Decoder embedding.
     if decoder_input is not None:
         preprocess_graph = None
     elif self.pre_process:
-        decoder_input = self.embedding(input_ids=input_ids[0], position_ids=position_ids[0])
+        decoder_input = self.embedding(input_ids=input_ids, position_ids=position_ids)
         if args.scale_emb is not None:
             decoder_input = decoder_input * args.scale_emb
         preprocess_graph = decoder_input
@@ -86,11 +79,10 @@ def gpt_model_forward(
     detached_block_input = detach_tensor(decoder_input)
 
     # Run decoder.
-
     hidden_states, layer_graphs = transformer_block_forward(
         self.decoder,
         hidden_states=detached_block_input,
-        attention_mask=attention_mask[0],
+        attention_mask=attention_mask,
         inference_params=inference_params,
         rotary_pos_emb=rotary_pos_emb,
         packed_seq_params=packed_seq_params,
@@ -105,48 +97,36 @@ def gpt_model_forward(
     if self.share_embeddings_and_output_weights:
         output_weight = self.shared_embedding_or_output_weight()
 
-    loss = 0
     graph = ModelGraph(
         layer_graphs, hidden_states, preprocess_graph, detached_block_input
     )
 
-    # Multi token predication module
-    if args.num_nextn_predict_layers and self.training:
+    if self.mtp_process:
         detached_hidden_states = detach_tensor(hidden_states)
         graph.layer_graphs[-1].unperm2_graph = (graph.layer_graphs[-1].unperm2_graph[0], detached_hidden_states)
-        if not self.share_embeddings_and_output_weights and self.share_mtp_embedding_and_output_weight:
-            output_weight = self.output_layer.weight
-            output_weight.zero_out_wgrad = True
-        embedding_weight = self.shared_embedding_weight() if self.share_mtp_embedding_and_output_weight else None
-        extra_block_kwargs = {'use_orig_layer_forward': True}
-        for i in range(args.num_nextn_predict_layers):
-            if args.reset_position_ids:
-                set_position_ids(position_ids[i + 1].transpose(0, 1).contiguous())
-                actual_seq_len = compute_actual_seq_len(position_ids[i + 1])
-                set_actual_seq_len(actual_seq_len)
-            if i == 0:
-                mtp_hidden_states = detached_hidden_states
-            mtp_hidden_states, mtp_loss = self.mtp_layers[i](
-                mtp_hidden_states,  # [s,b,h]
-                input_ids[i + 1],
-                position_ids[i + 1] if position_ids[0] is not None else None,
-                attention_mask[i + 1] if attention_mask[0] is not None else None,
-                decoder_input,
-                labels[i + 1] if labels[0] is not None else None,
-                inference_params,
-                packed_seq_params,
-                extra_block_kwargs,
-                embeding_weight=embedding_weight,
-                output_weight=output_weight,
-            )
+        hidden_states = self.mtp(
+            input_ids=input_ids,
+            position_ids=position_ids,
+            labels=labels,
+            loss_mask=loss_mask,
+            hidden_states=detached_hidden_states,
+            attention_mask=attention_mask,
+            inference_params=inference_params,
+            rotary_pos_emb=rotary_pos_emb,
+            packed_seq_params=packed_seq_params,
+            embedding=self.embedding,
+            output_layer=self.output_layer,
+            output_weight=output_weight,
+            compute_language_model_loss=self.compute_language_model_loss,
+        )
 
-            loss += args.mtp_loss_scale / args.num_nextn_predict_layers * mtp_loss
-
-    if args.num_nextn_predict_layers and self.final_layernorm is not None:
-        hidden_states = self.final_layernorm(detached_hidden_states)
+    if self.final_layernorm is not None:
+        hidden_states = self.final_layernorm(hidden_states)
 
     if args.dim_model_base is not None:
         hidden_states = hidden_states / (args.hidden_size / args.dim_model_base)
+    if getattr(args, "task", False) and args.task[0] == 'needlebench':
+        hidden_states = hidden_states[-100:]
     logits, _ = self.output_layer(hidden_states, weight=output_weight)
     # new add to scale logits
     if args.output_multiplier_scale:
@@ -157,17 +137,15 @@ def gpt_model_forward(
         logits = torch.tanh(logits)
         logits = logits * args.output_logit_softcapping
 
-    if labels[0] is None:
+    if labels is None:
         # [s b h] => [b s h]
         logits = logits.transpose(0, 1).contiguous()
         return logits, graph
 
-    if isinstance(labels, List):
-        labels = labels[0]
     if args.is_instruction_dataset:
         labels = labels[:, 1:].contiguous()
         logits = logits[:-1, :, :].contiguous()
-    loss += self.compute_language_model_loss(labels, logits)
+    loss = self.compute_language_model_loss(labels, logits)
     return loss, graph
 
 
@@ -194,28 +172,24 @@ def gpt_model_forward_backward_overlaping(
         inference_params: InferenceParams = None,
         packed_seq_params: PackedSeqParams = None,
         extra_block_kwargs: dict = None,
+        loss_mask: Optional[Tensor] = None,
 ):
     if extra_block_kwargs is None or extra_block_kwargs['bwd_model_graph'] is None:
         return gpt_model_forward(
             fwd_model, input_ids, position_ids, attention_mask, decoder_input, labels, inference_params,
-            packed_seq_params, extra_block_kwargs
+            packed_seq_params, extra_block_kwargs, loss_mask
         )
 
     bwd_model_grad, bwd_model_graph = extra_block_kwargs['bwd_model_grad'], extra_block_kwargs[
         'bwd_model_graph']  # Fwd Model Decoder embedding.
     args = get_args()
-    input_ids, labels, position_ids, attention_mask = inputs_slice(
-        args.num_nextn_predict_layers,
-        input_ids,
-        labels,
-        position_ids,
-        attention_mask)
+
     if not fwd_model.training and (hasattr(args, "rope_scaling_type") and args.rope_scaling_type == "longrope"):
         args.rope_scaling_original_max_position_embeddings = args.max_position_embeddings
     if decoder_input is not None:
         preprocess_graph = None
     elif fwd_model.pre_process:
-        decoder_input = fwd_model.embedding(input_ids=input_ids[0], position_ids=position_ids[0])
+        decoder_input = fwd_model.embedding(input_ids=input_ids, position_ids=position_ids)
         if args.scale_emb is not None:
             decoder_input = decoder_input * args.scale_emb
         preprocess_graph = decoder_input
@@ -240,7 +214,7 @@ def gpt_model_forward_backward_overlaping(
         = transformer_block_forward_backward_overlaping(
         fwd_model.decoder,
         detached_block_input,
-        attention_mask[0],
+        attention_mask,
         bwd_model_grad,
         bwd_model_graph.layer_graphs,
         rotary_pos_emb=rotary_pos_emb,
@@ -265,45 +239,33 @@ def gpt_model_forward_backward_overlaping(
     graph = ModelGraph(
         layer_graphs, hidden_states, preprocess_graph, detached_block_input
     )
-    # Multi token predication module
-    loss = 0
-    if args.num_nextn_predict_layers and fwd_model.training:
+
+    if fwd_model.mtp_process:
         detached_hidden_states = detach_tensor(hidden_states)
         graph.layer_graphs[-1].unperm2_graph = (graph.layer_graphs[-1].unperm2_graph[0], detached_hidden_states)
-        if not fwd_model.share_embeddings_and_output_weights and fwd_model.share_mtp_embedding_and_output_weight:
-            output_weight = fwd_model.output_layer.weight
-            output_weight.zero_out_wgrad = True
-        embedding_weight = fwd_model.shared_embedding_weight() if fwd_model.share_mtp_embedding_and_output_weight else None
-        extra_block_kwargs = {'use_orig_layer_forward': True}
-        for i in range(args.num_nextn_predict_layers):
-            if args.reset_position_ids:
-                set_position_ids(position_ids[i + 1].transpose(0, 1).contiguous())
-                actual_seq_len = compute_actual_seq_len(position_ids[i + 1])
-                set_actual_seq_len(actual_seq_len)
-            if i == 0:
-                mtp_hidden_states = detached_hidden_states
-            mtp_hidden_states, mtp_loss = fwd_model.mtp_layers[i](
-                mtp_hidden_states,  # [s,b,h]
-                input_ids[i + 1],
-                position_ids[i + 1] if position_ids[0] is not None else None,
-                attention_mask[i + 1] if attention_mask[0] is not None else None,
-                decoder_input,
-                labels[i + 1] if labels[0] is not None else None,
-                inference_params,
-                packed_seq_params,
-                extra_block_kwargs,
-                embeding_weight=embedding_weight,
-                output_weight=output_weight,
-            )
+        hidden_states = fwd_model.mtp(
+            input_ids=input_ids,
+            position_ids=position_ids,
+            labels=labels,
+            loss_mask=loss_mask,
+            hidden_states=detached_hidden_states,
+            attention_mask=attention_mask,
+            inference_params=inference_params,
+            rotary_pos_emb=rotary_pos_emb,
+            packed_seq_params=packed_seq_params,
+            embedding=fwd_model.embedding,
+            output_layer=fwd_model.output_layer,
+            output_weight=output_weight,
+            compute_language_model_loss=fwd_model.compute_language_model_loss,
+        )
 
-            loss += args.mtp_loss_scale / args.num_nextn_predict_layers * mtp_loss
-
-    if args.num_nextn_predict_layers and fwd_model.final_layernorm is not None:
-        # move block main model final norms here
-        hidden_states = fwd_model.final_layernorm(detached_hidden_states)
+    if fwd_model.final_layernorm is not None:
+        hidden_states = fwd_model.final_layernorm(hidden_states)
 
     if args.dim_model_base is not None:
         hidden_states = hidden_states / (args.hidden_size / args.dim_model_base)
+    if getattr(args, "task", False) and args.task[0] == 'needlebench':
+        hidden_states = hidden_states[-100:]
     logits, _ = fwd_model.output_layer(hidden_states, weight=output_weight)
     # new add to scale logits
     if args.output_multiplier_scale:
@@ -314,18 +276,16 @@ def gpt_model_forward_backward_overlaping(
         logits = torch.tanh(logits)
         logits = logits * args.output_logit_softcapping
 
-    if labels[0] is None:
+    if labels is None:
         # [s b h] => [b s h]
         logits = logits.transpose(0, 1).contiguous()
         return logits, graph, pp_comm_output
 
-    if isinstance(labels, List):
-        labels = labels[0]
     if args.is_instruction_dataset:
         labels = labels[:, 1:].contiguous()
         logits = logits[:-1, :, :].contiguous()
 
-    loss += fwd_model.compute_language_model_loss(labels, logits)
+    loss = fwd_model.compute_language_model_loss(labels, logits)
 
     return loss, graph, pp_comm_output
 

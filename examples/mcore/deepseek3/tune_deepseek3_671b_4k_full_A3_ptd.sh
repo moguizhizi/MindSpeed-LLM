@@ -60,14 +60,15 @@ MOE_ARGS="
     --topk-group 4 \
     --routed-scaling-factor 2.5 \
     --seq-aux \
+    --moe-aux-loss-coeff 0.001 \
     --norm-topk-prob \
     --moe-router-score-function sigmoid \
     --moe-router-enable-expert-bias \
 "
 
 MTP_ARGS="
-    --num-nextn-predict-layers 1 \
-    --share-mtp-embedding-and-output-weight \
+    --mtp-num-layers 1 \
+    --mtp-loss-scaling-factor 0.3 \
     --recompute-mtp-layer \
     --recompute-mtp-norm \
 "

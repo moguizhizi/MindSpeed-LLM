@@ -46,36 +46,49 @@ WRITE_FILE_DEFAULT_FLAGS = os.O_WRONLY | os.O_CREAT
 WRITE_FILE_DEFAULT_MODES = stat.S_IWUSR | stat.S_IRUSR
 
 
-def compute_actual_seq_len(seq, stride=0):
-    """
-    compute actual seq len.
-    MTP layer bring extra n tokens, which should be cut.
-    """
-    res = list()
-    _args = get_args()
-    seq_length = _args.seq_length
-    batch_size = seq.shape[0]
-    for batch_idx in range(batch_size):
-        batch_seq = seq[batch_idx]
-        if batch_idx == 0:
-            zero_pos = (batch_seq == 0).nonzero()[1:].squeeze(dim=1)
-        else:
-            zero_pos = (batch_seq == 0).nonzero().squeeze(dim=1)
-        res.extend((zero_pos + (batch_idx * seq_length - stride)).tolist())
-        batch_len = len(batch_seq) + batch_idx * seq_length - stride
-        if batch_len > seq_length * (batch_idx + 1):
-            batch_len = seq_length * (batch_idx + 1)
-        if batch_idx == batch_size - 1:
-            res.append(batch_len)
+def compute_actual_seq_len(origin_seq):
+    seq = origin_seq.view(-1)
+    zero_pos = (seq == 0).nonzero()[1:].squeeze(dim=1)
+    res = zero_pos.tolist()
+    res.append(len(seq))
     return res
 
 
 def generate_actual_seq_len(batch):
+    args = get_args()
     position_ids = batch.get('position_ids').transpose(0, 1).contiguous()
     set_position_ids(position_ids)
     position_ids = batch.get('position_ids')
     actual_seq_len = compute_actual_seq_len(position_ids)
-    set_actual_seq_len(actual_seq_len)
+    if args.mtp_num_layers:
+        seq_len = position_ids.shape[1]
+        mtp_res = [actual_seq_len]
+        for i in range(1, args.mtp_num_layers + 1):
+            next_actual_seq_len = []
+            for j in actual_seq_len:
+                if j % seq_len == 0:
+                    next_actual_seq_len.append(j)
+                else:
+                    next_actual_seq_len.append(j - i)
+            mtp_res.append(next_actual_seq_len)
+        set_actual_seq_len(mtp_res)
+    else:
+        set_actual_seq_len(actual_seq_len)
+
+
+def regenerate_position_ids(tensor, offset):
+    if tensor is None:
+        return None
+    tensor = tensor.clone()
+    for i in range(tensor.size(0)):
+        row = tensor[i]
+        zero_mask = (row == 0)
+        if zero_mask.any():
+            first_zero_idx = torch.argmax(zero_mask.int()).item()
+            tensor[i, :first_zero_idx] = torch.arange(first_zero_idx)
+        else:
+            tensor = tensor - offset
+    return tensor
 
 
 def parse_args():
@@ -216,10 +229,6 @@ def get_finetune_data_on_this_tp_rank(data_iterator):
         ds = next(data_iterator)
     tokens = ds.get('input_ids').long().cuda(non_blocking=True)
     args = get_args()
-    if args.variable_seq_lengths and args.num_nextn_predict_layers:
-        tokenizer = get_tokenizer().tokenizer
-        pad_tensor = torch.ones((tokens.shape[0], args.num_nextn_predict_layers)).to(tokens.device)
-        tokens = torch.cat([tokens, pad_tensor.to(tokens.dtype) * tokenizer.pad_token_id], -1)
     tokens_shape = tokens.shape
     micro_batch_size = tokens_shape[0]
 
@@ -233,8 +242,6 @@ def get_finetune_data_on_this_tp_rank(data_iterator):
         _broadcast(via_length)
         _broadcast(tokens)
         attention_mask_1d = ds.get('attention_mask').long().cuda(non_blocking=True)
-        if args.variable_seq_lengths and args.num_nextn_predict_layers:
-            attention_mask_1d = torch.cat([attention_mask_1d, pad_tensor.to(attention_mask_1d.dtype) * 0], -1)
         _broadcast(attention_mask_1d)
         attention_mask = get_tune_attention_mask(attention_mask_1d)
     else:
@@ -310,12 +317,15 @@ def get_batch_on_this_tp_rank(data_iterator):
                 _broadcast(batch['labels'])
 
         elif mpu.is_pipeline_last_stage():
-            if args.num_nextn_predict_layers or args.schedules_method == 'dualpipev':
+            # Multi-Token Prediction (MTP) layers need tokens and position_ids to calculate embedding.
+            # Currently the Multi-Token Prediction (MTP) layers is fixed on the last stage, so we need
+            # to broadcast tokens and position_ids to all of the tensor parallel ranks on the last stage.
+            if args.mtp_num_layers or args.schedules_method == 'dualpipev':
                 _broadcast(batch['tokens'])
             _broadcast(batch['labels'])
             _broadcast(batch['loss_mask'])
             _broadcast(batch['attention_mask'])
-            if args.reset_position_ids or args.num_nextn_predict_layers or args.schedules_method == 'dualpipev':
+            if args.reset_position_ids or args.mtp_num_layers or args.schedules_method == 'dualpipev':
                 _broadcast(batch['position_ids'])
         else:
             _broadcast(batch['attention_mask'])
@@ -324,24 +334,24 @@ def get_batch_on_this_tp_rank(data_iterator):
 
     else:
 
-        tokens = torch.empty((args.micro_batch_size, args.seq_length + args.num_nextn_predict_layers),
+        tokens = torch.empty((args.micro_batch_size, args.seq_length),
                              dtype=torch.int64,
                              device=torch.cuda.current_device())
-        labels = torch.empty((args.micro_batch_size, args.seq_length + args.num_nextn_predict_layers),
+        labels = torch.empty((args.micro_batch_size, args.seq_length),
                              dtype=torch.int64,
                              device=torch.cuda.current_device())
-        loss_mask = torch.empty((args.micro_batch_size, args.seq_length + args.num_nextn_predict_layers),
+        loss_mask = torch.empty((args.micro_batch_size, args.seq_length),
                                 dtype=torch.float32,
                                 device=torch.cuda.current_device())
         if args.create_attention_mask_in_dataloader:
             attention_mask = torch.empty(
-                (args.micro_batch_size, 1, args.seq_length + args.num_nextn_predict_layers,
-                 args.seq_length + args.num_nextn_predict_layers), dtype=torch.bool,
+                (args.micro_batch_size, 1, args.seq_length,
+                 args.seq_length), dtype=torch.bool,
                 device=torch.cuda.current_device()
             )
         else:
             attention_mask = None
-        position_ids = torch.empty((args.micro_batch_size, args.seq_length + args.num_nextn_predict_layers),
+        position_ids = torch.empty((args.micro_batch_size, args.seq_length),
                                    dtype=torch.int64,
                                    device=torch.cuda.current_device())
 
@@ -364,14 +374,14 @@ def get_batch_on_this_tp_rank(data_iterator):
                 loss_mask = None
 
         elif mpu.is_pipeline_last_stage():
-            if args.num_nextn_predict_layers or args.schedules_method == 'dualpipev':
+            if args.mtp_num_layers or args.schedules_method == 'dualpipev':
                 _broadcast(tokens)
             else:
                 tokens = None
             _broadcast(labels)
             _broadcast(loss_mask)
             _broadcast(attention_mask)
-            if args.reset_position_ids or args.num_nextn_predict_layers or args.schedules_method == 'dualpipev':
+            if args.reset_position_ids or args.mtp_num_layers or args.schedules_method == 'dualpipev':
                 _broadcast(position_ids)
             else:
                 position_ids = None

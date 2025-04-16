@@ -13,8 +13,8 @@ WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
 DATA_PATH=/data/pretrain_dataset/alpaca_text_document
-TOKENIZER_PATH=/data/deepseek-v3-mcore-tp1-pp2-ep4-32experts
-CKPT_LOAD_DIR=/data/deepseek-v3-mcore-tp1-pp2-ep4-32experts
+TOKENIZER_PATH=/data/deepseek-v3-mcore-tp1-pp2-ep4-16experts
+CKPT_LOAD_DIR=/data/deepseek-v3-mcore-tp1-pp2-ep4-16experts
 
 TP=1
 PP=2
@@ -41,12 +41,14 @@ MLA_ARGS="
     --q-lora-rank 1536 \
     --kv-lora-rank 512 \
     --v-head-dim 128 \
-    --qk-layernorm
+    --qk-layernorm \
+    --mla-mm-split
 "
 
 MOE_ARGS="
     --n-group 4 \
     --seq-aux \
+    --moe-aux-loss-coeff 0.0001 \
     --moe-alltoall-overlap-comm \
     --moe-grouped-gemm \
     --moe-permutation-async-comm \
@@ -55,20 +57,19 @@ MOE_ARGS="
     --first-k-dense-replace 1 \
     --moe-layer-freq 1 \
     --n-shared-experts 1 \
-    --num-experts 32 \
+    --num-experts 16 \
     --moe-router-topk 8 \
     --moe-intermediate-size 2048 \
     --moe-router-load-balancing-type noaux_tc \
     --topk-group 4 \
     --routed-scaling-factor 2.5 \
-    --norm-topk-prob \
     --moe-router-score-function sigmoid \
     --moe-router-enable-expert-bias
 "
 
 MTP_ARGS="
-    --num-nextn-predict-layers 1 \
-    --share-mtp-embedding-and-output-weight \
+    --mtp-num-layers 1 \
+    --mtp-loss-scaling-factor 0.3 \
     --recompute-mtp-norm \
     --recompute-mtp-layer
 "
@@ -86,6 +87,7 @@ ROPE_ARGS="
 GPT_ARGS="
     --finetune \
     --spec mindspeed_llm.tasks.models.spec.deepseek_spec layer_spec \
+    --noop-layers 2,3 \
     --recompute-granularity full \
     --recompute-method uniform \
     --recompute-num-layers 1 \
@@ -93,7 +95,6 @@ GPT_ARGS="
     --use-distributed-optimizer \
     --reuse-fp32-param \
     --use-flash-attn \
-    --shape-order BNSD \
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \

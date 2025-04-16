@@ -9,7 +9,7 @@ python examples/mcore/deepseek3/convert_ckpt_deepseek3.py \
     --load-dir ./model_from_hf/deepseek3-bf16-hf \
     --save-dir ./model_weights/deepseek3-mcore \
     --num-layers 64 \
-    --num-nextn-predict-layers 1 \
+    --mtp-num-layers 1 \
     --num-layers-per-virtual-pipeline-stage 2 \
     --noop-layers 47,62,63
     # --num-layer-list, --moe-tp-extend-ep 等参数根据任务需要进行配置

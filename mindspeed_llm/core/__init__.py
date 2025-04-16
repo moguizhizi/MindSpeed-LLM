@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .tensor_parallel.layers import vocab_parallel_embedding_forward, vocab_embedding_init_func, checkpoint_forward_wrapper, checkpoint_backward_wrapper
+from mindspeed_llm.core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec_wrapper, build_layers_wrapper
+from .tensor_parallel.layers import vocab_embedding_init_wrapper, vocab_embedding_forward_wrapper
 from .parallel_state import (initialize_model_parallel_decorator, destroy_model_parallel_decorator,
                              get_expert_model_parallel_rank,
                              get_expert_model_parallel_world_size, get_expert_parallel_group,
@@ -29,8 +30,6 @@ from .transformer.moe.router import (topk_router_forward, topk_router_routing, t
 from .transformer.moe.moe_utils import z_loss_func, topk_softmax_with_capacity
 from .transformer.transformer_layer import TransformerLayer
 from .transformer.transformer_block import get_num_layers_to_build_wrapper, transformer_block_init_wrapper, transformer_block_forward
-from .models.gpt.gpt_model import gpt_model_forward
-from .models.gpt.gpt_layer_specs import get_gpt_layer_local_spec_wrapper, build_layers_wrapper
 from .distributed.param_and_grad_buffer import start_grad_sync_wrapper
 from .distributed.distributed_data_parallel import distributed_data_parallel_init_wrapper
 from .optimizer import get_megatron_optimizer_wrapper

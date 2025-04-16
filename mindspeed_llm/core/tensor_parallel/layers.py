@@ -14,18 +14,11 @@
 # limitations under the License.
 
 from functools import wraps
-from typing import Optional, Callable
+from typing import Optional
 
 import torch
-from torch.nn.parameter import Parameter
-import torch.nn.functional as F
 
-from megatron.core.tensor_parallel.mappings import (
-    reduce_scatter_to_sequence_parallel_region,
-    reduce_from_tensor_model_parallel_region,
-)
-from megatron.core.tensor_parallel.utils import VocabUtility
-from megatron.training import get_args
+from megatron.core import parallel_state
 from megatron.core.tensor_parallel import (
     copy_to_tensor_model_parallel_region,
     gather_from_tensor_model_parallel_region
@@ -34,118 +27,32 @@ from megatron.core.tensor_parallel.layers import (
     linear_with_frozen_weight,
     linear_with_grad_accumulation_and_async_allreduce,
     ColumnParallelLinear,
-    _initialize_affine_weight_cpu,
-    _initialize_affine_weight_gpu,
-    VocabParallelEmbedding,
 )
 from megatron.legacy.model.fused_layer_norm import MixedFusedLayerNorm
-from megatron.core import parallel_state, ModelParallelConfig
-
-from mindspeed.utils import get_actual_seq_len, set_actual_seq_len
+from megatron.training import get_args
 
 
-def vocab_embedding_init_func(
-        self,
-        num_embeddings: int,
-        embedding_dim: int,
-        *,
-        init_method: Callable,
-        config: ModelParallelConfig,
-        reduce_scatter_embeddings: bool = False,
-        skip_weight_param_allocation: bool = False,
-):
+def vocab_embedding_init_wrapper(fn):
     """Patch for legacy norm."""
-    super(VocabParallelEmbedding, self).__init__()
-    # Keep the input dimensions.
-    self.num_embeddings = num_embeddings
-    self.embedding_dim = embedding_dim
-    self.reduce_scatter_embeddings = reduce_scatter_embeddings
-    self.tensor_model_parallel_size = parallel_state.get_tensor_model_parallel_world_size()
-    # Divide the weight matrix along the vocaburaly dimension.
-    (
-        self.vocab_start_index,
-        self.vocab_end_index,
-    ) = VocabUtility.vocab_range_from_global_vocab_size(
-        self.num_embeddings, parallel_state.get_tensor_model_parallel_rank(), self.tensor_model_parallel_size
-    )
-    self.num_embeddings_per_partition = self.vocab_end_index - self.vocab_start_index
-    self.deterministic_mode = config.deterministic_mode
-
-    # Allocate weights and initialize.
-    if not skip_weight_param_allocation:
-        if config.use_cpu_initialization:
-            self.weight = Parameter(
-                torch.empty(
-                    self.num_embeddings_per_partition, self.embedding_dim, dtype=config.params_dtype
-                )
-            )
-            if config.perform_initialization:
-                _initialize_affine_weight_cpu(
-                    self.weight,
-                    self.num_embeddings,
-                    self.embedding_dim,
-                    self.num_embeddings_per_partition,
-                    0,
-                    init_method,
-                    params_dtype=config.params_dtype,
-                )
-        else:
-            self.weight = Parameter(
-                torch.empty(
-                    self.num_embeddings_per_partition,
-                    self.embedding_dim,
-                    device=torch.cuda.current_device(),
-                    dtype=config.params_dtype,
-                )
-            )
-            if config.perform_initialization:
-                _initialize_affine_weight_gpu(self.weight, init_method, partition_dim=0, stride=1)
-    else:
-        self.weight = None
-
-    args = get_args()
-    if parallel_state.is_pipeline_first_stage() and args.embed_layernorm:
-        norm = MixedFusedLayerNorm(args.hidden_size)
-        self.norm = norm
+    @wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        fn(self, *args, **kwargs)
+        args = get_args()
+        if parallel_state.is_pipeline_first_stage() and args.embed_layernorm:
+            norm = MixedFusedLayerNorm(args.hidden_size)
+            self.norm = norm
+    return wrapper
 
 
-def vocab_parallel_embedding_forward(self, input_, weight=None):
-    if weight is None:
-        if self.weight is None:
-            raise RuntimeError(
-                "weight was not supplied to VocabParallelEmbedding forward pass "
-                "and skip_weight_param_allocation is True."
-            )
-        weight = self.weight
-
-    if self.tensor_model_parallel_size > 1:
-        # Build the mask.
-        input_mask = (input_ < self.vocab_start_index) | \
-                     (input_ >= self.vocab_end_index)
-        # Mask the input.
-        masked_input = input_.clone() - self.vocab_start_index
-        masked_input *= ~input_mask
-    else:
-        masked_input = input_
-        # Get the embeddings.
-
-    # For higher accumulation accuracy for bf16 on NPU.
-    output_parallel = F.embedding(masked_input, weight)
-
-    # Mask the output embedding.
-    if self.tensor_model_parallel_size > 1:
-        output_parallel *= ~input_mask[..., None]
-    if self.reduce_scatter_embeddings:
-        # Data format change to avoid explicit tranposes : [b s h] --> [s b h].
-        output_parallel = output_parallel.transpose(0, 1).contiguous()
-        output = reduce_scatter_to_sequence_parallel_region(output_parallel)
-    else:
-        # Reduce across all the model parallel GPUs.
-        output = reduce_from_tensor_model_parallel_region(output_parallel)
-    args_ = get_args()
-    if hasattr(self, 'norm'):
-        output = self.norm(output)
-    return output * args_.embedding_multiplier_scale if args_.embedding_multiplier_scale else output
+def vocab_embedding_forward_wrapper(fn):
+    @wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        output = fn(self, *args, **kwargs)
+        args_ = get_args()
+        if hasattr(self, 'norm'):
+            output = self.norm(output)
+        return output * args_.embedding_multiplier_scale if args_.embedding_multiplier_scale else output
+    return wrapper
 
 
 class SegmentedColumnParallelLinear(ColumnParallelLinear):
@@ -238,19 +145,3 @@ class SegmentedColumnParallelLinear(ColumnParallelLinear):
             output = output_parallel
         output_bias = self.bias if self.skip_bias_add else None
         return output, output_bias
-
-
-def checkpoint_forward_wrapper(fn):
-    def wrapper(ctx, run_function, distribute_saved_activations, *args):
-        ctx.actual_seq_len = get_actual_seq_len()
-        return fn(ctx, run_function, distribute_saved_activations, *args)
-
-    return wrapper
-
-
-def checkpoint_backward_wrapper(fn):
-    def wrapper(ctx, *args):
-        set_actual_seq_len(ctx.actual_seq_len)
-        return fn(ctx, *args)
-
-    return wrapper

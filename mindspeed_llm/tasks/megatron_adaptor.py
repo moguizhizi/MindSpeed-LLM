@@ -250,15 +250,14 @@ class CoreAdaptation(MegatronAdaptationABC):
         from mindspeed.core.models.common.embeddings.language_model_embedding import language_model_embedding_forward_wrapper
         from mindspeed.core.data_parallel.distributed_data_parallel import distributed_data_parallel_init_with_cp
         from mindspeed.core.transformer.attention import attention_init, self_attention_init_wrapper
-        from ..core.models.common.embeddings.language_model_embedding import (
-            language_model_embedding_forward, language_model_embedding_init_func)
         from ..training.utils import get_batch_on_this_cp_rank, get_batch_on_this_tp_rank, get_device_wrapper
         from ..core import rotary_embedding_forward, apply_rotary_pos_emb_bshd
         from ..core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec_wrapper
         from ..core.transformer.dot_product_attention import dot_product_attention_init, \
             dot_product_attention_forward_wrapper, ulysses_context_parallel_forward_wrapper
-        from ..core.models.gpt.gpt_model import gpt_model_init_wrapper, shared_embedding_weight
-        from ..core import rotary_embedding_init_wrapper, gpt_model_forward
+        from ..core.models.gpt.gpt_model import GPTModel
+        from ..core import rotary_embedding_init_wrapper
+
 
         args = MegatronAdaptation.get_args()
         # Embedding
@@ -278,12 +277,18 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register(
             'megatron.core.models.common.embeddings.rotary_pos_embedding.RotaryEmbedding.get_rotary_seq_len',
             rotary_embedding_get_rotary_seq_len_wrapper)
+        from ..core.models.common.language_module.language_module import (
+            setup_embeddings_and_output_layer,
+            tie_embeddings_and_output_weights_state_dict,
+        )
         MegatronAdaptation.register(
-            'megatron.core.models.common.embeddings.language_model_embedding.LanguageModelEmbedding.__init__',
-            language_model_embedding_init_func)
+            'megatron.core.models.common.language_module.language_module.LanguageModule'
+            '.setup_embeddings_and_output_layer',
+            setup_embeddings_and_output_layer)
         MegatronAdaptation.register(
-            'megatron.core.models.common.embeddings.language_model_embedding.LanguageModelEmbedding.forward',
-            language_model_embedding_forward)
+            'megatron.core.models.common.language_module.language_module.LanguageModule'
+            '.tie_embeddings_and_output_weights_state_dict',
+            tie_embeddings_and_output_weights_state_dict)
         MegatronAdaptation.register(
             'megatron.core.models.common.embeddings.language_model_embedding.LanguageModelEmbedding.forward',
             language_model_embedding_forward_wrapper)
@@ -326,12 +331,8 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.training.utils.get_batch_on_this_cp_rank', get_batch_on_this_cp_rank)
         MegatronAdaptation.register('megatron.training.utils.get_batch_on_this_tp_rank', get_batch_on_this_tp_rank)
         MegatronAdaptation.register('megatron.training.dist_signal_handler.get_device', get_device_wrapper)
-        if not args.moe_fb_overlap:
-            MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel.forward', gpt_model_forward)
-        MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel.__init__', gpt_model_init_wrapper)
-
-        from megatron.core.models.gpt.gpt_model import GPTModel
-        setattr(GPTModel, 'shared_embedding_weight', shared_embedding_weight)
+        # moe_fb_overlap will shadow this forward impl
+        MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel', GPTModel)
 
         # For recomputation
         if args.share_kvstates:
@@ -370,6 +371,10 @@ class CoreAdaptation(MegatronAdaptationABC):
 
         MegatronAdaptation.register('megatron.core.transformer.transformer_config.TransformerConfig.__post_init__',
                                     transformer_config_post_init_wrapper)
+        # for mtp
+        from ..core.transformer.transformer_config import transformer_config_post_init_mtp_wrapper
+        MegatronAdaptation.register('megatron.core.transformer.transformer_config.TransformerConfig.__post_init__',
+                                    transformer_config_post_init_mtp_wrapper)
         MegatronAdaptation.register('torch.cuda.get_device_capability', get_device_capability)
         megatron.core.transformer.transformer_block.LayerNormImpl = PTNorm
         MegatronAdaptation.register('megatron.core.transformer.transformer_block.TENorm', PTNorm)
@@ -530,16 +535,20 @@ class CoreAdaptation(MegatronAdaptationABC):
         from ..core.pipeline_parallel.schedules import get_forward_backward_func_wrapper
         MegatronAdaptation.register('megatron.core.pipeline_parallel.schedules.get_forward_backward_func', get_forward_backward_func_wrapper)
 
+        # for mtp
+        from ..core.pipeline_parallel.schedules import forward_step_wrapper
+        MegatronAdaptation.register('megatron.core.pipeline_parallel.schedules.forward_step', forward_step_wrapper)
+
     def patch_tensor_parallel(self):
         from mindspeed.core.tensor_parallel.random import _set_cuda_rng_state
-        from ..core import vocab_parallel_embedding_forward, vocab_embedding_init_func, checkpoint_forward_wrapper, checkpoint_backward_wrapper
+        from ..core import vocab_embedding_init_wrapper, vocab_embedding_forward_wrapper
 
         # default_generators need replace after set_device
         MegatronAdaptation.register('megatron.core.tensor_parallel.random._set_cuda_rng_state', _set_cuda_rng_state)
-        
+
         # change masked_target for better performance
         if MegatronAdaptation.get_args().mtp_mem_efficient_logits:
-            from ..tasks.models.transformer.multi_token_predication import calculate_logits_max, calculate_predicted_logits
+            from ..core.tensor_parallel.cross_entropy import calculate_logits_max, calculate_predicted_logits
             MegatronAdaptation.register(
                 'megatron.core.tensor_parallel.cross_entropy.VocabParallelCrossEntropy.calculate_logits_max',
                 calculate_logits_max)
@@ -551,15 +560,11 @@ class CoreAdaptation(MegatronAdaptationABC):
             MegatronAdaptation.register(
                 'megatron.core.tensor_parallel.cross_entropy.VocabParallelCrossEntropy.calculate_predicted_logits',
                 calculate_predicted_logits)
-        
+
         MegatronAdaptation.register('megatron.core.tensor_parallel.layers.VocabParallelEmbedding.forward',
-                                    vocab_parallel_embedding_forward)
+                                    vocab_embedding_forward_wrapper)
         MegatronAdaptation.register('megatron.core.tensor_parallel.layers.VocabParallelEmbedding.__init__',
-                                    vocab_embedding_init_func)
-        MegatronAdaptation.register('megatron.core.tensor_parallel.random.CheckpointFunction.forward',
-                                    checkpoint_forward_wrapper)
-        MegatronAdaptation.register('megatron.core.tensor_parallel.random.CheckpointFunction.backward',
-                                    checkpoint_backward_wrapper)
+                                    vocab_embedding_init_wrapper)
         # For recompute-in-advance
         from mindspeed.core.tensor_parallel.random import checkpoint_wrapper
         MegatronAdaptation.register('megatron.core.tensor_parallel.random.checkpoint', checkpoint_wrapper)
@@ -637,7 +642,6 @@ class CoreAdaptation(MegatronAdaptationABC):
                                     add_item_wrapper)
         MegatronAdaptation.register('megatron.core.datasets.indexed_dataset.IndexedDatasetBuilder.finalize',
                                     finalize_wrapper)
-        # MTP need extra token
         from ..core.datasets.gpt_dataset import (
             gpt_dataset_getitem_wrapper,
             _get_ltor_masks_and_position_ids
@@ -652,6 +656,8 @@ class CoreAdaptation(MegatronAdaptationABC):
         from mindspeed_llm.training.utils import unwrap_model_wrapper
         MegatronAdaptation.register('megatron.training.checkpointing.unwrap_model', unwrap_model_wrapper)
         MegatronAdaptation.register('megatron.training.training.unwrap_model', unwrap_model_wrapper)
+        from ..training.training import training_log
+        MegatronAdaptation.register('megatron.training.training.training_log', training_log)
 
         from mindspeed_llm.training.utils import generate_adaptive_cp_mask_list_by_user, generate_adaptive_cp_grid_mask_by_user
         MegatronAdaptation.register('mindspeed.core.context_parallel.utils.generate_adaptive_cp_mask_list_by_user',

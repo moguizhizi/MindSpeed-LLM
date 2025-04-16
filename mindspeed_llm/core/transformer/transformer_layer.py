@@ -49,6 +49,9 @@ class TransformerLayer(MegatronTransformerLayer):
                     expert.layer_number = self.layer_number
         else:
             self.mlp.layer_number = self.layer_number
+        # set mtp_idx
+        self.mtp_idx = 0
+        self.self_attention.core_attention.mtp_idx = 0
 
     def forward(self, hidden_states, attention_mask, context=None,
                               context_mask=None,

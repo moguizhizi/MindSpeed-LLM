@@ -1,7 +1,18 @@
 #  Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
+from contextlib import nullcontext
+
 import torch
+from torch import Tensor
 from megatron.training import get_args
+from megatron.core import InferenceParams, parallel_state, tensor_parallel
+from megatron.core.packed_seq_params import PackedSeqParams
+from megatron.core.utils import make_tp_sharded_tensor_for_checkpoint, make_viewless_tensor
+from megatron.core.tensor_parallel import (
+    all_gather_last_dim_from_tensor_parallel_region,
+    scatter_to_sequence_parallel_region,
+)
+
 from mindspeed.core.pipeline_parallel.fb_overlap.transformer_layer import (
     transformer_layer_forward,
     transformer_layer_forward_moe,
@@ -9,7 +20,17 @@ from mindspeed.core.pipeline_parallel.fb_overlap.transformer_layer import (
 )
 
 from mindspeed.core.tensor_parallel.random import CheckpointWithoutOutput
-from megatron.core import tensor_parallel
+
+try:
+    from megatron.core.extensions.transformer_engine import (
+        TEColumnParallelLinear,
+        TEDelayedScaling,
+        TENorm,
+    )
+
+    HAVE_TE = True
+except ImportError:
+    HAVE_TE = False
 
 
 class TransformerMTPoverlap(torch.autograd.Function):
@@ -18,15 +39,17 @@ class TransformerMTPoverlap(torch.autograd.Function):
                 layer,
                 hidden_states,
                 attention_mask,
+                context=None,
+                context_mask=None,
                 rotary_pos_emb=None,
                 inference_params=None,
                 packed_seq_params=None, ):
         with torch.enable_grad():
-            output, context, graph = transformer_layer_forward_moe(layer,
+            output, context_out, graph = transformer_layer_forward_moe(layer,
                                                                    hidden_states,
                                                                    attention_mask,
-                                                                   None,
-                                                                   None,
+                                                                   context,
+                                                                   context_mask,
                                                                    rotary_pos_emb,
                                                                    inference_params,
                                                                    packed_seq_params)
@@ -34,12 +57,12 @@ class TransformerMTPoverlap(torch.autograd.Function):
         if args.recompute_mtp_layer:
             graph.deallocate_graph()
             graph.record_layer_inputs(
-                attention_mask, None, None, rotary_pos_emb,
+                attention_mask, context, context_mask, rotary_pos_emb,
                 inference_params, packed_seq_params
             )
         ctx.graph = graph
 
-        return output.detach(), context
+        return output.detach(), context_out
 
     @staticmethod
     def backward(ctx, *args):
@@ -59,113 +82,113 @@ class TransformerMTPoverlap(torch.autograd.Function):
 
 
 def forward_overlap(self,
-                    hidden_input_ids,
-                    embed_input_ids,
-                    position_ids,
-                    attention_mask,
-                    decoder_input=None,
-                    labels=None,
-                    inference_params=None,
-                    packed_seq_params=None,
-                    extra_block_kwargs: dict = None,
-                    embeding_weight=None,
-                    output_weight=None, ):
-    args = get_args()
-    if not self.training and (hasattr(args, "rope_scaling_type") and args.rope_scaling_type == "longrope"):
-        args.rope_scaling_original_max_position_embeddings = args.max_position_embeddings
-    # Decoder embedding.
-    decoder_input = self.embedding(
-        input_ids=embed_input_ids,
-        position_ids=position_ids,
-        weight=embeding_weight,
-    )
-    if args.scale_emb is not None:
-        decoder_input = decoder_input * args.scale_emb
+                    decoder_input: Tensor,
+                    hidden_states: Tensor,
+                    attention_mask: Tensor,
+                    context: Tensor = None,
+                    context_mask: Tensor = None,
+                    rotary_pos_emb: Tensor = None,
+                    attention_bias: Tensor = None,
+                    inference_params: InferenceParams = None,
+                    packed_seq_params: PackedSeqParams = None,):
+    if context is not None:
+        raise NotImplementedError(f"multi token prediction + cross attention is not yet supported.")
 
-    # Rotary positional embeddings (embedding is None for PP intermediate devices)
-    rotary_pos_emb = None
-    if self.position_embedding_type == 'rope':
-        if inference_params is not None:
-            rotary_seq_len = inference_params.max_sequence_length
-        else:
-            rotary_seq_len = decoder_input.size(0)
+    hidden_states = make_viewless_tensor(inp=hidden_states, requires_grad=True, keep_graph=True)
 
-            if self.config.sequence_parallel:
-                rotary_seq_len *= self.config.tensor_model_parallel_size
-
-        rotary_seq_len *= self.config.context_parallel_size
-        rotary_pos_emb = self.rotary_pos_emb(rotary_seq_len)
-    if self.recompute_layer_norm:
-        self.enorm_ckpt = CheckpointWithoutOutput()
-        enorm_output = self.enorm_ckpt.checkpoint(self.enorm, False, decoder_input)
-        self.hnorm_ckpt = CheckpointWithoutOutput()
-        hnorm_output = self.hnorm_ckpt.checkpoint(self.hnorm, False, hidden_input_ids)
+    if self.config.sequence_parallel:
+        rng_context = tensor_parallel.get_cuda_rng_tracker().fork()
     else:
-        enorm_output = self.enorm(decoder_input)
-        hnorm_output = self.hnorm(hidden_input_ids)
+        rng_context = nullcontext()
 
-        # [s, b, h] -> [s, b, 2h]
-    hidden_states = torch.concat(
-        [hnorm_output,
-         enorm_output],
-        dim=-1
-    )
+    if self.config.fp8:
+        import transformer_engine  # To keep out TE dependency when not training in fp8
 
-    if self.recompute_layer_norm:
-        self.enorm_ckpt.discard_output()
-        self.hnorm_ckpt.discard_output()
-        hidden_states.register_hook(self.enorm_ckpt.recompute)
-        hidden_states.register_hook(self.hnorm_ckpt.recompute)
-    # hidden_states -> [s, b, h]
-
-    hidden_states, _ = self.eh_proj(hidden_states)
-    if self.config.tensor_model_parallel_size > 1:
-        hidden_states = tensor_parallel.gather_from_tensor_model_parallel_region(hidden_states)
-        if self.config.sequence_parallel:
-            hidden_states = tensor_parallel.scatter_to_sequence_parallel_region(hidden_states)
-
-    trans = TransformerMTPoverlap.apply
-    hidden_states, _ = trans(
-        self.transformer_layer,
-        hidden_states,
-        attention_mask,
-        rotary_pos_emb,
-        inference_params,
-        packed_seq_params,
-    )
-
-    # Final layer norm.
-    if self.final_layernorm is not None:
-        if self.recompute_layer_norm:
-            self.finalnorm_ckpt = CheckpointWithoutOutput()
-            finalnorm_output = self.finalnorm_ckpt.checkpoint(self.final_layernorm, False, hidden_states)
+        if self.config.fp8 == "e4m3":
+            fp8_format = transformer_engine.common.recipe.Format.E4M3
+        elif self.config.fp8 == "hybrid":
+            fp8_format = transformer_engine.common.recipe.Format.HYBRID
         else:
-            finalnorm_output = self.final_layernorm(hidden_states)
+            raise ValueError("E4M3 and HYBRID are the only supported FP8 formats.")
+
+        fp8_recipe = TEDelayedScaling(
+            config=self.config,
+            fp8_format=fp8_format,
+            override_linear_precision=(False, False, not self.config.fp8_wgrad),
+        )
+        fp8_group = None
+        if parallel_state.model_parallel_is_initialized():
+            fp8_group = parallel_state.get_amax_reduction_group(
+                with_context_parallel=True, tp_only_amax_red=self.tp_only_amax_red
+            )
+        fp8_context = transformer_engine.pytorch.fp8_autocast(
+            enabled=True, fp8_recipe=fp8_recipe, fp8_group=fp8_group
+        )
     else:
-        finalnorm_output = hidden_states
+        fp8_context = nullcontext()
 
-    if args.dim_model_base is not None:
-        finalnorm_output = finalnorm_output / (args.hidden_size / args.dim_model_base)
-    logits, _ = self.output_layer(finalnorm_output, weight=output_weight)
+    with rng_context, fp8_context:
 
-    if self.recompute_layer_norm:
-        self.finalnorm_ckpt.discard_output()
-        logits.register_hook(self.finalnorm_ckpt.recompute)
-    if args.output_multiplier_scale:
-        logits = logits * args.output_multiplier_scale
+        def enorm(tensor):
+            tensor = self.enorm(tensor)
+            tensor = make_viewless_tensor(
+                inp=tensor, requires_grad=True, keep_graph=True
+            )
+            return tensor
 
-    if args.output_logit_softcapping:
-        logits = logits / args.output_logit_softcapping
-        logits = torch.tanh(logits)
-        logits = logits * args.output_logit_softcapping
+        def hnorm(tensor):
+            tensor = self.hnorm(tensor)
+            tensor = make_viewless_tensor(
+                inp=tensor, requires_grad=True, keep_graph=True
+            )
+            return tensor
 
-    if labels is None:
-        # [s b h] => [b s h]
-        return logits.transpose(0, 1).contiguous()
+        if self.recompute_mtp_norm:
+            self.enorm_ckpt = CheckpointWithoutOutput()
+            enorm_output = self.enorm_ckpt.checkpoint(enorm, False, decoder_input)
+            self.hnorm_ckpt = CheckpointWithoutOutput()
+            hnorm_output = self.hnorm_ckpt.checkpoint(hnorm, False, hidden_states)
+        else:
+            enorm_output = enorm(decoder_input)
+            hnorm_output = hnorm(hidden_states)
+        # At the (k - 1)-th MTP module, concatenates the i-th tocken's hidden_states
+        # and the (i + K)-th tocken's embedding, and combine them with linear projection.
+        hidden_states = torch.cat((enorm_output, hnorm_output), -1)
+        if self.recompute_mtp_norm:
+            self.enorm_ckpt.discard_output()
+            self.hnorm_ckpt.discard_output()
+            hidden_states.register_hook(self.enorm_ckpt.recompute)
+            hidden_states.register_hook(self.hnorm_ckpt.recompute)
+        hidden_states, _ = self.eh_proj(hidden_states)
+        # For tensor parallel, all gather after linear_fc.
+        hidden_states = all_gather_last_dim_from_tensor_parallel_region(hidden_states)
+        # For sequence parallel, scatter after linear_fc and before transformer layer.
+        if self.sequence_parallel:
+            hidden_states = scatter_to_sequence_parallel_region(hidden_states)
+        trans = TransformerMTPoverlap.apply
+        if self.recompute_mtp_layer:
+            hidden_states, _ = tensor_parallel.checkpoint(
+                trans,
+                self.config.distribute_saved_activations,
+                self.transformer_layer,
+                hidden_states,
+                attention_mask,
+                context,
+                context_mask,
+                rotary_pos_emb,
+                inference_params,
+                packed_seq_params,
+            )
+        else:
+            hidden_states, _ = trans(
+                self.transformer_layer,
+                hidden_states,
+                attention_mask,
+                context,
+                context_mask,
+                rotary_pos_emb,
+                inference_params,
+                packed_seq_params,
+            )
 
-    if args.is_instruction_dataset:
-        labels = labels[:, 1:].contiguous()
-        logits = logits[:-1, :, :].contiguous()
-
-    loss = self.compute_language_model_loss(labels, logits)
-    return hidden_states, loss
+        return hidden_states

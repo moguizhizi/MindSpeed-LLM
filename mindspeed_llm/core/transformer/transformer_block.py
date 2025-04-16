@@ -103,8 +103,8 @@ def _transformer_block_build_layers(self):
     )
 
     # mtp require seperate layernorms for main model and mtp modules, thus move finalnorm out of block
-    move_final_norm_out_of_block = args.num_nextn_predict_layers > 0
-    if self.submodules.layer_norm and self.post_process and self.post_layer_norm and not move_final_norm_out_of_block:
+    init_block_fn_flag = self.post_layer_norm and not args.mtp_num_layers
+    if self.submodules.layer_norm and self.post_process and init_block_fn_flag:
         self.final_layernorm = build_module(
             self.submodules.layer_norm,
             config=self.config,

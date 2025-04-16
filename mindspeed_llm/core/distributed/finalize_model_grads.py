@@ -15,6 +15,14 @@ from mindspeed.core.tensor_parallel.comm_group_api import TPXCollectiveComm
 from mindspeed_llm.core.transformer.moe.moe_utils import get_updated_expert_bias
 
 
+def _get_main_grad_attr(param: torch.nn.Parameter, use_custom_fsdp: bool = False):
+    if use_custom_fsdp:
+        return "fsdp_managed_main_grad"
+    if hasattr(param, "main_grad"):
+        return "main_grad"
+    return "grad"
+
+
 def allreduce_layernorm_grads(model: List[torch.nn.Module], config: TransformerConfig):
     """
     All-reduce layernorm grads (for sequence parallelism).
@@ -67,37 +75,31 @@ def _allreduce_word_embedding_grads(model: List[torch.nn.Module], config: Transf
     All-reduce word embedding grads.
 
     Reduce grads across first and last stages to ensure that word_embeddings parameters stay in
-    sync. This should only run for models that support pipelined model parallelism (BERT and GPT).
+    sync.
     """
 
     if (
-        parallel_state.is_rank_in_embedding_group(ignore_virtual=True)
-        and parallel_state.get_pipeline_model_parallel_world_size() > 1
+            parallel_state.is_rank_in_embedding_group(ignore_virtual=True)
+            and torch.distributed.get_world_size(parallel_state.get_embedding_group()) > 1
     ):
         if parallel_state.is_pipeline_first_stage(ignore_virtual=True):
             model_module = model[0]
         elif parallel_state.is_pipeline_last_stage(ignore_virtual=True):
             model_module = model[-1]
-        else:  # We do not support the interleaved schedule for T5 yet.
+        else:  # We do not support an interleaved schedule for models with encoders yet.
             model_module = model[0]
 
-        # Look for module with 'pre_process' attribute to get around the fact that DDP and
-        # other wrapper classes inherit from non-core MegatronModule that has
-        # 'share_embeddings_and_output_weights' and 'shared_embedding_or_output_weight'
-        # attributes already, causing get_attr_wrapped_model() to not unwrap anything here.
         model_module = get_attr_wrapped_model(model_module, 'pre_process', return_model_obj=True)
-        if model_module.share_embeddings_and_output_weights:
+        # If share_embeddings_and_output_weights is True, we need to maintain duplicated
+        # embedding weights in post processing stage. If use Multi-Token Prediction (MTP),
+        # we also need to maintain duplicated embedding weights in mtp process stage.
+        # So we need to allreduce grads of embedding in the embedding group in these cases.
+        if model_module.share_embeddings_and_output_weights or getattr(config, 'mtp_num_layers', 0):
             weight = model_module.shared_embedding_or_output_weight()
             if not weight.requires_grad:
                 return
-            grad = weight.main_grad
-            torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
-        if hasattr(model_module,
-                   "share_mtp_embedding_and_output_weight") and model_module.share_mtp_embedding_and_output_weight:
-            weight = model_module.shared_embedding_weight()
-            if not weight.requires_grad:
-                return
-            grad = weight.main_grad
+            grad_attr = _get_main_grad_attr(weight)
+            grad = getattr(weight, grad_attr)
             torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
 
 

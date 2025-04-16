@@ -19,6 +19,7 @@ from megatron.core.datasets.gpt_dataset import MockGPTDataset, GPTDataset
 from megatron.core.datasets.utils import get_blend_from_list
 import megatron.legacy.model
 from megatron.core.models.gpt import GPTModel
+from mindspeed_llm.core.models.gpt.gpt_layer_specs import get_gpt_mtp_block_spec
 from mindspeed_llm.training import pretrain
 from megatron.core.transformer.spec_utils import import_module
 from megatron.training.utils import (
@@ -66,6 +67,9 @@ def model_provider(pre_process=True, post_process=True) -> Union[GPTModel, megat
                 transformer_layer_spec = get_gpt_layer_with_transformer_engine_spec(args.num_experts, args.moe_grouped_gemm)
             else:
                 transformer_layer_spec = get_gpt_layer_local_spec(args.num_experts, args.moe_grouped_gemm)
+        mtp_block_spec = None
+        if args.mtp_num_layers is not None:
+            mtp_block_spec = get_gpt_mtp_block_spec(config, transformer_layer_spec, use_transformer_engine=use_te)
 
         model = GPTModel(
             config=config,
@@ -79,7 +83,8 @@ def model_provider(pre_process=True, post_process=True) -> Union[GPTModel, megat
             share_embeddings_and_output_weights=not args.untie_embeddings_and_output_weights,
             position_embedding_type=args.position_embedding_type,
             rotary_percent=args.rotary_percent,
-            seq_len_interpolation_factor=args.rotary_seq_len_interpolation_factor
+            seq_len_interpolation_factor=args.rotary_seq_len_interpolation_factor,
+            mtp_block_spec=mtp_block_spec,
         )
     else:
         if not args.context_parallel_size == 1:
@@ -124,8 +129,6 @@ def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
     args = get_args()
 
     losses = output_tensor.float()
-    if args.num_nextn_predict_layers > 0:
-        loss_mask = tensor_slide(loss_mask, args.num_nextn_predict_layers, return_first=True)[0]
     loss_mask = loss_mask.view(-1).float()
     if args.context_parallel_size > 1:
         loss = torch.cat([torch.sum(losses.view(-1) * loss_mask).view(1), loss_mask.sum().view(1)])
@@ -163,8 +166,12 @@ def forward_step(data_iterator, model: GPTModel):
         data_iterator)
     timers('batch-generator').stop()
 
-    output_tensor = model(tokens, position_ids, attention_mask,
-                          labels=labels)
+    if args.use_legacy_models:
+        output_tensor = model(tokens, position_ids, attention_mask,
+                              labels=labels)
+    else:
+        output_tensor = model(tokens, position_ids, attention_mask,
+                              labels=labels, loss_mask=loss_mask)
 
     return output_tensor, partial(loss_func, loss_mask)
 
@@ -178,7 +185,7 @@ def core_gpt_dataset_config_from_args(args):
 
     return GPTDatasetConfig(
         random_seed=args.seed,
-        sequence_length=args.seq_length + args.num_nextn_predict_layers,
+        sequence_length=args.seq_length,
         blend=get_blend_from_list(args.data_path),
         blend_per_split=[
             get_blend_from_list(args.train_data_path),

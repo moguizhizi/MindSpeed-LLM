@@ -408,6 +408,8 @@ def flash_attention_forward(
     scale = 1.0 / math.sqrt(self.hidden_size_per_attention_head) \
         if self.scale_mask_softmax.scale is None else self.softmax_scale
     actual_seq_len = get_actual_seq_len()
+    if actual_seq_len is not None and args.mtp_num_layers:
+        actual_seq_len = actual_seq_len[self.mtp_idx]
 
     if args.context_parallel_size > 1 and args.context_parallel_algo in ['megatron_cp_algo', 'hybrid_cp_algo',
                                                                          'adaptive_cp_algo', 'hybrid_adaptive_cp_algo']:

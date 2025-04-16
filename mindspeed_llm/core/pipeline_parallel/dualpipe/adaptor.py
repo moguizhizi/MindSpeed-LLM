@@ -1,6 +1,7 @@
 #  Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
 from megatron.training.utils import print_rank_0
+
 try:
     from mindspeed.core.pipeline_parallel.fb_overlap import (
         linear_backward_wgrad_detach,
@@ -14,7 +15,7 @@ try:
 except ImportError:
     pass
 
-from mindspeed_llm.tasks.models.transformer.multi_token_predication import MultiTokenPredication
+from mindspeed_llm.core.transformer.multi_token_prediction import MultiTokenPredictionLayer
 
 
 def dualpipe_register_patches(MegatronAdaptation):
@@ -22,7 +23,7 @@ def dualpipe_register_patches(MegatronAdaptation):
     MegatronAdaptation.register('megatron.core.distributed.distributed_data_parallel.DistributedDataParallel._make_param_hook',
                                 _make_param_hook)
 
-    MultiTokenPredication.forward = forward_overlap
+    MultiTokenPredictionLayer.forward = forward_overlap
     MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel.forward',
                                 gpt_model_forward_backward_overlaping)
     MegatronAdaptation.register('megatron.core.transformer.transformer_layer.TransformerLayer.forward',

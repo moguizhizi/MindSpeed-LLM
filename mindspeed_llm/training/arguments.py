@@ -167,14 +167,20 @@ def _add_deepseek_moe_args(parser):
 
 def _add_mtp_args(parser):
     group = parser.add_argument_group(title='multi token prediction')
-    group.add_argument('--num-nextn-predict-layers', type=int, default=0, help='Multi-Token prediction layer num')
-    group.add_argument('--mtp-loss-scale', type=float, default=0.3, help='Multi-Token prediction loss scale')
+    group.add_argument('--mtp-num-layers', type=int, default=None,
+                       help='Number of Multi-Token Prediction (MTP) Layers.'
+                       'MTP extends the prediction scope to multiple future tokens at each position.'
+                       'This MTP implementation sequentially predict additional tokens '
+                       'by using D sequential modules to predict D additional tokens.')
+    group.add_argument('--mtp-loss-scaling-factor', type=float, default=0.1,
+                       help='Scaling factor of Multi-Token Prediction (MTP) loss. '
+                       'We compute the average of the MTP losses across all depths, '
+                       'and multiply it the scaling factor to obtain the overall MTP loss, ' 
+                       'which serves as an additional training objective.')
     group.add_argument('--recompute-mtp-norm', action='store_true', default=False,
                        help='Multi-Token prediction recompute norm')
     group.add_argument('--recompute-mtp-layer', action='store_true', default=False,
                        help='Multi-Token prediction recompute layer')
-    group.add_argument('--share-mtp-embedding-and-output-weight', action='store_true', default=False,
-                       help='Main model share embedding and output weight with mtp layer.')
     group.add_argument('--mtp-mem-efficient-logits', action='store_true', default=False,
                        help='Optimize ce_loss memory when use mtp block.')
     return parser
@@ -904,13 +910,13 @@ def _add_training_args(parser):
                        help='Disable final layer norm.')
     group.add_argument('--return-document-ids', action='store_true', default=False,
                        help='Return document ids when get batch.')
-    
+
     # for swap-optimizer
     group.add_argument('--swap-optimizer', action='store_true', default=False,
                        help='swap optimizer to cpu.')
     group.add_argument('--swap-optimizer-times', type=int, default=16,
                         help='Each swap will be moved (len(shard_fp32_from_float16) // swap_optimizer_times) elements')
-    
+
     return parser
 
 
@@ -1515,6 +1521,16 @@ def _validate_fused_opts(args):
                 '--position-embedding-type=rope')
 
 
+def _validate_mtp_args(args):
+    if args.mtp_num_layers:
+        assert not args.use_legacy_models, "The legacy Megatron models does not support Multi-Token Prediction (MTP)."
+        assert args.context_parallel_size == 1, "Multi-Token Prediction (MTP) is not supported with Context Parallelism."
+        assert args.position_embedding_type == "rope" or args.position_embedding_type == "none", (
+                f"Multi-Token Prediction (MTP) is not supported with {args.position_embedding_type} position embedding type."
+                + f"The supported position embedding types are rope and none."
+        )
+
+
 def validate_args_decorator(megatron_validate_args):
     @wraps(megatron_validate_args)
     def wrapper(args, defaults=None):
@@ -1558,6 +1574,9 @@ def validate_args_decorator(megatron_validate_args):
         _validate_noop_layer(args)
         _valid_tp_2d_args(args)
         _add_dummy_args(args)
+        # remove in future megatron version
+        _validate_mtp_args(args)
+
 
         from mindspeed_llm.training.utils import print_args
         print_args('MindSpeed-LLM Arguments', args)

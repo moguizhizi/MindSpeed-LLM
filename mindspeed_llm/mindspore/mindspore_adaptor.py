@@ -9,12 +9,12 @@ class MindSporeAdaptation(MegatronAdaptationABC):
         args = MegatronAdaptation.get_args()
         if not hasattr(args, "ai_framework") or args.ai_framework != "mindspore":
             return
-        from ..mindspore.core.models.gpt.gpt_model import gpt_model_init_wrapper
+        from ..core.models.gpt.gpt_model import GPTModel
         from ..mindspore.core.transformer.moe.moe_layer import moe_layer_init_wrapper, moe_layer_forward
         from mindspeed.mindspore.core.data_parallel.distributed_data_parallel import distributed_data_parallel_init_with_cp
         from mindspeed.mindspore.core.transformer.moe.experts import groupedmlp_init_wrapper, groupedmlp_forward
 
-        MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel.__init__', gpt_model_init_wrapper)
+        MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel', GPTModel)
         MegatronAdaptation.register('megatron.core.distributed.distributed_data_parallel.DistributedDataParallel.__init__',
                     distributed_data_parallel_init_with_cp, force_patch=True)
         MegatronAdaptation.register('megatron.core.transformer.moe.moe_layer.MoELayer.__init__',

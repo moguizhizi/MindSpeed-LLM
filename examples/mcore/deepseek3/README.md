@@ -57,7 +57,7 @@ bash examples\mcore\deepseek3\ckpt_convert_deepseek3_merge_lora2hf.sh
 
 转换后的megatron格式权重的存储路径。
 
-【--num-nextn-predict-layers】
+【--mtp-num-layers】
 
 MTP层的层数。如不需要MTP层，可设置为0。最大可设置为1。默认值为0。
 MTP层权重默认存储在最后一个pp stage。

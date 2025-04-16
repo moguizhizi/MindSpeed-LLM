@@ -75,8 +75,8 @@ MOE_ARGS="
 "
 
 MTP_ARGS="
-    --num-nextn-predict-layers 1 \
-    --share-mtp-embedding-and-output-weight \
+    --mtp-num-layers 1 \
+    --mtp-loss-scaling-factor 0.3 \
     --mtp-mem-efficient-logits \
 "
 

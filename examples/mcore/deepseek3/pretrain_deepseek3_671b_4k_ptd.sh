@@ -70,6 +70,7 @@ MOE_ARGS="
     --routed-scaling-factor 2.5 \
     --moe-aux-loss-coeff 0.0001 \
     --seq-aux \
+    --moe-aux-loss-coeff 0.001 \
     --norm-topk-prob \
     --moe-router-score-function sigmoid \
     --moe-router-enable-expert-bias \
@@ -77,8 +78,8 @@ MOE_ARGS="
 "
 
 MTP_ARGS="
-    --num-nextn-predict-layers 1 \
-    --share-mtp-embedding-and-output-weight \
+    --mtp-num-layers 1 \
+    --mtp-loss-scaling-factor 0.3 \
     --recompute-mtp-norm \
     --mtp-mem-efficient-logits \
 "

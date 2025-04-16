@@ -55,15 +55,6 @@ class SFTTrainer(BaseTrainer):
         # ignored label -100
         loss_mask = torch.where(labels == IGNORE_INDEX, 0, 1)
 
-        # Adapt to MTP
-        if args.variable_seq_lengths and args.num_nextn_predict_layers:
-            tokenizer = get_tokenizer().tokenizer
-            pad_tensor = torch.ones((labels.shape[0], args.num_nextn_predict_layers)).to(labels.device)
-            labels = torch.cat([labels, pad_tensor.to(labels.dtype) * IGNORE_INDEX], -1)
-            tokens = torch.cat([tokens, pad_tensor.to(tokens.dtype) * tokenizer.pad_token_id], -1)
-            attention_mask_1d = torch.cat([attention_mask_1d, pad_tensor.to(attention_mask_1d.dtype) * 0], -1)
-            loss_mask = torch.cat([loss_mask, pad_tensor.to(loss_mask.dtype) * 0], -1)
-
         if get_args().spec is not None and args.spec[0] == "mindspeed_llm.tasks.models.spec.hunyuan_spec":
             input_ids = tokens
             pad_id = 127961
@@ -86,11 +77,6 @@ class SFTTrainer(BaseTrainer):
             if args.reset_position_ids:
                 position_ids = data_b.get('position_ids').long()
                 generate_actual_seq_len(data_b)
-
-                # Adapt to MTP
-                if args.num_nextn_predict_layers:
-                    pad_tensor = torch.zeros((labels.shape[0], args.num_nextn_predict_layers)).to(labels.device)
-                    position_ids = torch.cat([position_ids, pad_tensor.to(position_ids.dtype)], -1)
 
                 batch = {
                     'tokens': tokens,
@@ -151,6 +137,7 @@ class SFTTrainer(BaseTrainer):
             data_iterator : Input data iterator
             model (GPTModel): The GPT Model
         """
+        args = get_args()
         timers = get_timers()
 
         # Get the batch.
@@ -159,11 +146,11 @@ class SFTTrainer(BaseTrainer):
             data_iterator)
         timers('batch-generator').stop()
 
-        output_tensor = model(tokens, position_ids, attention_mask,
-                              labels=labels)
-
-        if self.args.num_nextn_predict_layers and loss_mask is not None:
-            return output_tensor, partial(self.loss_func,
-                                          loss_mask[:, :loss_mask.shape[-1] - self.args.num_nextn_predict_layers])
+        if args.use_legacy_models:
+            output_tensor = model(tokens, position_ids, attention_mask,
+                                  labels=labels)
         else:
-            return output_tensor, partial(self.loss_func, loss_mask)
+            output_tensor = model(tokens, position_ids, attention_mask,
+                                  labels=labels, loss_mask=loss_mask)
+
+        return output_tensor, partial(self.loss_func, loss_mask)

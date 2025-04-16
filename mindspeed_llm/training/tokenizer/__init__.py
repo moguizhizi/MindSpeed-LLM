@@ -14,4 +14,4 @@
 # limitations under the License.
 
 
-from .tokenizer import build_tokenizer
+from mindspeed_llm.training.tokenizer.tokenizer import build_tokenizer

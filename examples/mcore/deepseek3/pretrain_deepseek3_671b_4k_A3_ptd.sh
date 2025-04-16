@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 # 需要切换MindSpeed版本
 # git checkout f2acbe71a47b9307c2425bc51f9565802bd901cf  # checkout commit from MindSpeed core_r0.8.0 in 2025.03.30
@@ -75,8 +75,8 @@ MOE_ARGS="
 "
 
 MTP_ARGS="
-    --num-nextn-predict-layers 1 \
-    --share-mtp-embedding-and-output-weight \
+    --mtp-num-layers 1 \
+    --mtp-loss-scaling-factor 0.3 \
     --mtp-mem-efficient-logits \
 "
 
@@ -189,5 +189,5 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS pretrain_gpt.py \
     $MOE_ARGS \
     $MTP_ARGS \
     --save $CKPT_SAVE_DIR \
-    --load $CKPT_LOAD_DIR \    
+    --load $CKPT_LOAD_DIR \
     --distributed-backend nccl | tee logs/pretrain_deepseek3_671b_4k_A3_ptd.log

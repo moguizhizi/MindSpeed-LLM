@@ -20,6 +20,7 @@ from megatron.core.models.gpt.gpt_layer_specs import (
 )
 from megatron.core.models.gpt import GPTModel
 from megatron.training.checkpointing import save_checkpoint
+from mindspeed_llm.core.models.gpt.gpt_layer_specs import get_gpt_mtp_block_spec
 from mindspeed_llm.training import build_train_args
 from mindspeed_llm.training import train
 from mindspeed_llm.training.initialize import set_jit_fusion_options
@@ -124,6 +125,9 @@ class BaseTrainer(ABC):
                                                                                         args.moe_grouped_gemm)
                 else:
                     transformer_layer_spec = get_gpt_layer_local_spec(args.num_experts, args.moe_grouped_gemm)
+            mtp_block_spec = None
+            if args.mtp_num_layers is not None:
+                mtp_block_spec = get_gpt_mtp_block_spec(config, transformer_layer_spec, use_transformer_engine=use_te)
 
             model = GPTModel(
                 config=config,
@@ -137,7 +141,8 @@ class BaseTrainer(ABC):
                 share_embeddings_and_output_weights=not args.untie_embeddings_and_output_weights,
                 position_embedding_type=args.position_embedding_type,
                 rotary_percent=args.rotary_percent,
-                seq_len_interpolation_factor=args.rotary_seq_len_interpolation_factor
+                seq_len_interpolation_factor=args.rotary_seq_len_interpolation_factor,
+                mtp_block_spec=mtp_block_spec,
             )
         else:
             if not args.context_parallel_size == 1:
