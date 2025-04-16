@@ -26,7 +26,7 @@ cp -rf /home/master_branch/Megatron-LM/megatron ./
 # Main
 # step 1: define dir
 BASE_DIR=$(dirname "$(readlink -f "$0")")
-CURRENT_TIME=$(date "+%Y-%m-%d_%H-%M-%S")
+CURRENT_TIME=$(date "+%Y-%m-%d")
 BASELINE_DIR="$BASE_DIR/baseline"
 GENERATE_LOG_DIR="/$(echo "$BASE_DIR" | cut -d'/' -f2)/pipeline_log/$CURRENT_TIME"
 
