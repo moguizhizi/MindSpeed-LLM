@@ -152,3 +152,5 @@ bash examples/legacy/llama2/evaluate_llama2_7B_lora_mmlu_ptd.sh
 [gsm8k评估介绍](../../docs/evaluation/gsm8k_evaluation.md)
 
 [bbh评估介绍](../../docs/evaluation/bbh_evaluation.md)
+
+[hellaswag评估介绍](../../docs/evaluation/hellaswag_evaluation.md)
