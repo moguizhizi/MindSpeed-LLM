@@ -137,7 +137,7 @@ def weight_compare_hash(model_dir, base_hash, suffix="pt"):
 
     cpu_count = os.cpu_count() or 1
     max_workers = min(cpu_count, len(models_path))
-    logger.info(f"Using {max_workers} workers based on CPU count: {cpu_count}")
+    logging.info(f"Using {max_workers} workers based on CPU count: {cpu_count}")
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         tasks = [
@@ -256,6 +256,8 @@ def create_testconfig(path: str, cmd: bool = False):
         cmdlsts = []
         cmdlst = []
         for target in param_value:
+            if not isinstance(target, dict):
+                continue
             for k, v in target.items():
                 cmdlst.append(f"--{k}")
                 if v is not None:

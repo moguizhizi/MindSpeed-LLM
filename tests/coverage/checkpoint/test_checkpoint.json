@@ -165,8 +165,67 @@
                 "67179d05a7a420eb"
             ]
         }
-    ]
+    ],
 
+    "test_llama2_merge_lora2mg": [
+        {
+            "param": {
+                "model-type":"GPT",
+                "model-type-hf": "llama2",
+                "use-mcore-models": null,
+                "load-model-type":"mg",
+                "save-model-type": "mg",
+                "target-tensor-parallel-size": "2",
+                "target-pipeline-parallel-size": "4",
+                "save-dir":"/data/llama2_merge_lora_ckpt/merge_lora_mcore/",
+                "load-dir":"/data/llama2_merge_lora_ckpt/Llama2_mcore_l4tp4pp2/",
+                "lora-load":"/data/llama2_merge_lora_ckpt/llama2_l4_tp4pp2_lora/",
+                "lora-r":"16",
+                "lora-alpha":"32",
+                "lora-target-modules":"linear_qkv linear_proj linear_fc1 linear_fc2"
+            }
+        },
+        {
+            "Base_MD5": [
+                "56c4dd1a2dae585a",
+                "6a14b4a381f2e826",
+                "c7c42a938810a9cb",
+                "e4971bfde561bd0c",
+                "cd3229971bc01484",
+                "80be876df5f174f7",
+                "cccc9b855d424bac",
+                "4143f71dd4521bb3"
+            ]
+        }
+    ],
+
+    "test_mixtral_lora2hf": [
+        {
+            "param": {
+                "model-type":"GPT",
+                "model-type-hf": "mixtral",
+                "params-dtype": "bf16",
+                "use-mcore-models": null,
+                "load-model-type":"mg",
+                "save-model-type": "hf",
+                "target-tensor-parallel-size": "1",
+                "target-pipeline-parallel-size": "1",
+                "target-expert-parallel-size": "1",
+                "save-dir":"/data/Mixtral-legacy-hf/",
+                "load-dir":"/data/mixtral_lora_filter/",
+                "lora-r":"8",
+                "lora-alpha":"16",
+                "lora-target-modules":"linear_qkv linear_proj linear_fc1 linear_fc2",
+                "save-lora-to-hf":null,
+                "load-checkpoint-loosely":null
+            }
+        },
+        {
+            "Base_MD5": [
+                "da647f99147222a696b939a41a9fca83"
+            ]
+        }
+    ]
 
 }
 

@@ -80,3 +80,26 @@ class TestCheckpoint(object):
         assert weight_compare_hash(save_dir, base_hash, "pt")
         shutil.rmtree(save_dir)
 
+    def test_llama2_merge_lora2mg(self):
+        """
+        Test case for merge lora and base.
+        """
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_llama2_merge_lora2mg'])
+        assert exit_code == 0
+        base_hash = self.test_config['test_llama2_merge_lora2mg'][1]
+        save_dir = self.test_config['test_llama2_merge_lora2mg'][0]['save-dir']
+        assert weight_compare_hash(save_dir, base_hash, "pt")
+        shutil.rmtree(save_dir)
+
+    def test_mixtral_lora2hf(self):
+        """
+        Test case for lora2hf.
+        """
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        exit_code = run_cmd(["python3", CKPT_PYPATH] + self.test_config_cmd['test_mixtral_lora2hf'])
+        assert exit_code == 0
+        base_hash = self.test_config['test_mixtral_lora2hf'][1]
+        save_dir = os.path.join(self.test_config['test_mixtral_lora2hf'][0]['save-dir'], 'mg2hf')
+        assert weight_compare_hash(save_dir, base_hash, "safetensors")
+        shutil.rmtree(save_dir)
