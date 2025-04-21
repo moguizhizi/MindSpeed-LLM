@@ -3,7 +3,7 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 权重格式转换
 python convert_ckpt.py \
-   --model-type-hf chatglm4 \
+   --model-type-hf glm4 \
    --post-norm \
    --spec mindspeed_llm.tasks.models.spec.gemma2_spec layer_spec \
    --model-type GPT \

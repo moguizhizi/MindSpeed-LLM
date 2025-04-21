@@ -7,13 +7,11 @@ python convert_ckpt.py \
    --post-norm \
    --spec mindspeed_llm.tasks.models.spec.gemma2_spec layer_spec \
    --model-type GPT \
-   --load-model-type hf \
-   --save-model-type mg \
-   --target-tensor-parallel-size 2 \
-   --target-pipeline-parallel-size 4 \
-   --load-dir ./model_from_hf/GLM-4-9B-0414 \
-   --save-dir ./model_weights/ \
-   --tokenizer-model ./model_from_hf/GLM-4-9B-0414/tokenizer.json \
-   --add-qkv-bias \
+   --load-model-type mg \
+   --save-model-type hf \
+   --target-tensor-parallel-size 1 \
+   --target-pipeline-parallel-size 1 \
+   --load-dir ./model_weights/glm-z1-mcore \
+   --save-dir ./model_from_hf/GLM-Z1-32B-0414/ \
    --use-mcore-models \
    --params-dtype bf16

@@ -130,7 +130,7 @@
         "output_layer": "transformer.output_layer"
       }
     },
-    "chatglm4": {
+    "glm4": {
       "__base__": "base",
       "config_set_value": {
         "seq_length": 32768,
