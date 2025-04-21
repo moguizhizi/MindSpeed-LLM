@@ -163,3 +163,19 @@ class TestEvaluate(DistributedTest):
 
             expected_score = acquire_score(log_capture)
             assert math.isclose(expected_score, 1.0, abs_tol=1e-2), expected_score
+
+
+    @pytest.mark.parametrize("params", test_config["test_qwen15_7B_human_eval_evaluate"])
+    def test_qwen_human_eval_evaluate(self, build_args, params):
+        os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+        if dist.get_rank() == 0:
+            handler, log_capture = setup_logger(PATTERN)
+
+        main()
+        
+        if dist.get_rank() == 0:
+            print("=================== qwen15_7B HUMAN_EVAL score ===============")
+            print(log_capture)
+
+            expected_score = acquire_score(log_capture)
+            assert math.isclose(expected_score, 0.0, abs_tol=1e-2), expected_score

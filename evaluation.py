@@ -46,7 +46,6 @@ from mindspeed_llm.tasks.evaluation.eval_impl.agi_eval import AGIEvalExam
 from mindspeed_llm.tasks.evaluation.eval_impl.human_eval import HumanEval
 from mindspeed_llm.tasks.evaluation.eval_impl.cmmlu_eval import CmmluEval
 from mindspeed_llm.tasks.evaluation.eval_impl.needlebench_eval import NeedleBenchEval
-from mindspeed_llm.tasks.evaluation.eval_impl.hellaswag_eval import HellaswagEval
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 logging.getLogger().setLevel(logging.INFO)
@@ -171,17 +170,25 @@ class LLMChat(Chat):
             instruction_temp = self.template.format(instruction=instruction) if (self.tokenizer.chat_template is None or self.args.no_chat_template) else self.tokenizer.apply_chat_template([{"role": "user", "content": instruction}])
         else:
             instruction_temp = instruction
-
-        result = self.model.generate(
-            instruction_temp,
-            do_sample=False,
-            max_new_tokens=self.args.max_new_tokens,
-            stream=False,
-            num_beams=4,
-            top_k=50,
-            top_p=0.95,
-            length_penalty=0.7
-        )
+        
+        if "human_eval" in self.args.task and self.args.alternative_prompt:
+            result = self.model.generate(
+                instruction_temp,
+                do_sample=False,
+                max_new_tokens=self.args.max_new_tokens,
+                stream=False
+            )
+        else:
+            result = self.model.generate(
+                instruction_temp,
+                do_sample=False,
+                max_new_tokens=self.args.max_new_tokens,
+                stream=False,
+                num_beams=4,
+                top_k=50,
+                top_p=0.95,
+                length_penalty=0.7
+            )
         return [result], dist.get_rank()
 
 
@@ -364,25 +371,6 @@ def bbh_eval(eval_args, agent):
     return answer, score_df
 
 
-def hellaswag_eval(eval_args, agent):
-    data_path = None
-    score_df = None
-
-    for path in eval_args.task_data_path:
-        if 'hellaswag' in path:
-            data_path = path
-    try:
-        if data_path:
-            Hellaswag_exam = HellaswagEval(test_dir=data_path, eval_args=eval_args)
-            _, score_df = Hellaswag_exam.eval(chat=agent)
-            if dist.get_rank() == 0:
-                logger.info('\n{}'.format(score_df))
-    except Exception as e:
-        logger.info(e)
-
-    return
-
-
 def main():
     initialize_megatron(extra_args_provider=add_text_generate_args,
                         args_defaults={'no_load_rng': True,
@@ -445,11 +433,6 @@ def main():
         needlebench(args, LLMChat(args, model, tokenizer))
         if rank == 0:
             logger.info(f'NeedleBench_eval Running Time: {time.time() - a}')
-    if 'hellaswag_eval' in args.task:
-        a = time.time()
-        hellaswag_eval(args, LLMChat(args, model, tokenizer))
-        if rank == 0:
-            logger.info(f'hellaswag_eval Running Time: {time.time() - a}')
 
 
 

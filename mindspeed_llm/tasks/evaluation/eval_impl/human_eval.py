@@ -22,13 +22,17 @@ import subprocess
 from typing import Iterable, Dict
 import pandas as pd
 import tqdm
+import torch
 
+from megatron.core import mpu
+from megatron.training import get_args
 from torch import distributed as dist
+from mindspeed_llm.tasks.evaluation.eval_impl.template import CODE_TEST_LOG_DIR
 from mindspeed_llm.tasks.evaluation.eval_api.dataset_eval import DatasetEval
 from mindspeed_llm.tasks.evaluation.eval_api.chat import Chat
 from mindspeed_llm.tasks.utils.error_utils import check_divisible_by_zero
 from mindspeed_llm.training.utils import WRITE_FILE_DEFAULT_FLAGS, WRITE_FILE_DEFAULT_MODES
-from .template import CODE_TEST_LOG_DIR
+from mindspeed_llm.tasks.evaluation.eval_utils.human_utils import humaneval_postprocess, get_score
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +95,7 @@ class HumanEval(DatasetEval):
         self.rank = dist.get_rank()
         self.file_pbar = None
         self.task_pbar = None
+        self.prompt = 'Complete the following python code:\n{prompt}'
 
     def read_problems(self) -> Dict[str, Dict]:
         return {task["task_id"]: task for task in self.stream_jsonl(self.test_dir)}
@@ -99,10 +104,6 @@ class HumanEval(DatasetEval):
         """
         Parses each jsonl line and yields it as a dictionary
         """
-
-        if self.rank == 0:
-            self.file_pbar = tqdm.tqdm(total=len(os.listdir(self.test_dir)), desc="total")
-
         for file in os.listdir(test_dir):
             test_code_path = os.path.join(self.test_dir, file)
             
@@ -114,54 +115,75 @@ class HumanEval(DatasetEval):
                     if any(not x.isspace() for x in line):
                         yield json.loads(line)
 
-            if self.file_pbar is not None:
-                self.file_pbar.update()
 
     def eval(self, chat: Chat) -> (dict, pd.DataFrame):
         problems = self.read_problems()
         success_n = 0
         rank = None
         answer_result = {}
+        args = get_args()
+        predictions, references = [], []
 
         if self.rank == 0:
             self.task_pbar = tqdm.tqdm(total=len(problems), leave=False)
 
-        for _, (task_id, task) in enumerate(problems.items()):
-            instruction = self.instruction_template.format(prompt=task['prompt'])
-            chat_result, rank = chat.beam_search_chat(instruction=instruction, history=[])
-            answer = None
-            if chat_result:
-                answer = chat_result[0].lstrip()
-            try:
-                if rank == 0:
-                    python_execute = sys.executable
-                    answer = task['prompt'] + '    ' + answer
-                    logger.info(f'answer: {answer}')
-                    test_file = extract_answer_code(answer, task)
-                    result = subprocess.run([python_execute, test_file], capture_output=True, timeout=10)
-                    if result.returncode != 0:
-                        error_msg = result.stderr.decode("utf-8")
-                        logger.info(error_msg)
-                        answer_result[task_id] = error_msg
-                    else:
-                        answer_result[task_id] = 'passed'
-                        success_n += 1
-                        logger.info("%s : passed , acc : %s", task_id,
-                                    check_divisible_by_zero(success_n, len(problems)))
-            except Exception as e:
-                if rank == 0:
-                    logger.info("%s failed. %s", task_id, e)
-            finally:
-                pass
+        if not args.alternative_prompt:
+            for _, (task_id, task) in enumerate(problems.items()):
+                instruction = self.instruction_template.format(prompt=task['prompt'])
+                chat_result, rank = chat.beam_search_chat(instruction=instruction, history=[])
+                answer = None
+                if chat_result:
+                    answer = chat_result[0].lstrip()
+                try:
+                    if rank == 0:
+                        python_execute = sys.executable
+                        answer = task['prompt'] + '    ' + answer
+                        logger.info(f'answer: {answer}')
+                        test_file = extract_answer_code(answer, task)
+                        result = subprocess.run([python_execute, test_file], capture_output=True, timeout=10)
+                        if result.returncode != 0:
+                            error_msg = result.stderr.decode("utf-8")
+                            logger.info(error_msg)
+                            answer_result[task_id] = error_msg
+                        else:
+                            answer_result[task_id] = 'passed'
+                            success_n += 1
+                            logger.info("%s : passed , acc : %s", task_id,
+                                        check_divisible_by_zero(success_n, len(problems)))
+                except Exception as e:
+                    if rank == 0:
+                        logger.info("%s failed. %s", task_id, e)
+                finally:
+                    pass
 
-            if self.task_pbar is not None:
-                self.task_pbar.update()
+                if self.task_pbar is not None:
+                    self.task_pbar.update()
+        else:
+            for _, (task_id, task) in enumerate(problems.items()):
+                instruction = self.prompt.format(prompt=task['prompt'])
+                chat_result, rank = chat.beam_search_chat(instruction=instruction, history=[])
+                logger.info(chat_result[0])
+                if rank == 0:
+                    answer = humaneval_postprocess(chat_result[0])
+                    predictions.append(answer)
+                    references.append(task_id)
+
+                if self.task_pbar is not None:
+                    self.task_pbar.update()
 
         if self.task_pbar is not None:
-            self.task_pbar.close()        
+            self.task_pbar.close()
 
-        if rank == 0:
-            logger.info("acc = %s", {check_divisible_by_zero(success_n, len(problems))})
+        if args.alternative_prompt:
+            logger.info(f'Evaluating Human Eval Prediction...')
+            result = get_score(predictions, references, problems.values(), problems)
+
+            if rank == 0:
+                logger.info(f"Human Eval accuracy = {result.get('humaneval_pass@1', None)}")
+        else:
+            if rank == 0:
+                logger.info("acc = %s", {check_divisible_by_zero(success_n, len(problems))})
+
         return answer_result, None
 
     def top_k_eval(self, ) -> (dict, pd.DataFrame):
