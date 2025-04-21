@@ -11,7 +11,7 @@ python convert_ckpt.py \
    --save-model-type mg \
    --target-tensor-parallel-size 2 \
    --target-pipeline-parallel-size 4 \
-   --load-dir./model_from_hf/GLM-4-9B-0414 \
+   --load-dir ./model_from_hf/GLM-4-9B-0414 \
    --save-dir ./model_weights/ \
    --tokenizer-model ./model_from_hf/GLM-4-9B-0414/tokenizer.json \
    --add-qkv-bias \

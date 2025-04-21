@@ -68,4 +68,4 @@ torchrun ${DISTRIBUTED_ARGS} evaluation.py   \
        --no-load-optim \
        --bf16 \
        --seed 42 \
-       | tee logs/evaluate_glm4_9b_mcore_${TASK}.log
+       | tee logs/evaluate_glm4_9b_0414_mcore_${TASK}.log
