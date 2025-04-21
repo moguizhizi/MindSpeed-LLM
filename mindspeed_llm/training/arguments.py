@@ -18,6 +18,7 @@ import argparse
 from pathlib import Path
 from functools import wraps
 from mindspeed_llm.training.utils import print_rank0_by_args
+from mindspeed_llm.features_manager import FEATURES_LIST
 
 cur_file_dir = Path(__file__).absolute().parent
 
@@ -75,6 +76,9 @@ def process_args(parser):
     parser = _add_inference_args(parser)
     parser = _add_dualpipe_args(parser)
     parser = _add_ai_framework_args(parser)
+    
+    for feature in FEATURES_LIST:
+        feature.register_args(parser)
 
     return parser
 
@@ -178,7 +182,7 @@ def _add_mtp_args(parser):
     group.add_argument('--mtp-loss-scaling-factor', type=float, default=0.1,
                        help='Scaling factor of Multi-Token Prediction (MTP) loss. '
                        'We compute the average of the MTP losses across all depths, '
-                       'and multiply it the scaling factor to obtain the overall MTP loss, ' 
+                       'and multiply it the scaling factor to obtain the overall MTP loss, '
                        'which serves as an additional training objective.')
     group.add_argument('--recompute-mtp-norm', action='store_true', default=False,
                        help='Multi-Token prediction recompute norm')
@@ -261,10 +265,6 @@ def _add_coc_args(parser):
                        help='coc parallel num')
     group.add_argument('--coc-fused-kernel', action='store_true',
                        help='use coc fused kernel')
-    group.add_argument('--disable-gloo-group', action='store_true',
-                       help='Replace the communication method of the DP group in the distributed optimizer from gloo to hccl.')
-    group.add_argument('--hccl-slice-size', type=int, default=10 * 1024 * 1024,
-                       help='data slice size on each dp rank in distributed optimizer')
     return parser
 
 
@@ -1405,6 +1405,13 @@ def _add_dummy_args(args):
     args.npu_deterministic = False
 
 
+def _add_dummy_args_v2(args):
+    """
+    For arguments in feature_list which is currently unsupported in mindspeed-llm.
+    """
+    args.unaligned_linear = False
+
+
 def _validate_noop_layer(args):
     if isinstance(args.noop_layers, str):
         noop_layers = set()
@@ -1590,6 +1597,13 @@ def validate_args_decorator(megatron_validate_args):
         _validate_mtp_args(args)
 
 
+        _add_dummy_args_v2(args)
+        for feature in FEATURES_LIST:
+            if (getattr(args, feature.feature_name, None) and feature.optimization_level > 0) or feature.optimization_level == 0:
+                feature.pre_validate_args(args)
+                feature.validate_args(args)
+                feature.post_validate_args(args)
+        
         from mindspeed_llm.training.utils import print_args
         print_args('MindSpeed-LLM Arguments', args)
         return args

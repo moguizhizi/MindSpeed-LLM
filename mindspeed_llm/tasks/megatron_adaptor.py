@@ -20,7 +20,7 @@ import argparse
 import torch
 import tensordict
 from torch_npu.contrib import transfer_to_npu
-from mindspeed.features_manager import FEATURES_LIST
+from mindspeed_llm.features_manager import FEATURES_LIST
 
 
 def dummy_jit(fn):
@@ -46,6 +46,13 @@ class MegatronAdaptation:
         for adaptation in [CoreAdaptation(), LegacyAdaptation(), MindSporeAdaptation()]:
             adaptation.execute()
         MegatronAdaptation.apply()
+        
+        from mindspeed.patch_utils import MindSpeedPatchesManager
+        args = MegatronAdaptation.get_args()
+        for feature in FEATURES_LIST:
+            if (getattr(args, feature.feature_name, None) and feature.optimization_level > 0) or feature.optimization_level == 0:
+                feature.register_patches(MindSpeedPatchesManager, args)
+        MindSpeedPatchesManager.apply_patches()
         MegatronAdaptation.post_execute()
 
     @classmethod
@@ -94,8 +101,6 @@ class MegatronAdaptation:
             group.add_argument('--memory-fragmentation', type=bool, default=False)
             group.add_argument('--layerzero', action='store_true', default=False)
             
-            for feature in FEATURES_LIST:
-                feature.default_patches = False
             return parser
 
         def _get_dummy_args():
@@ -175,7 +180,6 @@ class CoreAdaptation(MegatronAdaptationABC):
         self.patch_pipeline_parallel_schedules()
         self.coc_adaptation()
         self.patch_swap_optimizer()
-        self.communication_adaptation()
 
     def patch_core_distributed(self):
         import megatron.core
@@ -193,28 +197,6 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.core.distributed.finalize_model_grads.finalize_model_grads',
                                     finalize_model_grads)
 
-    def communication_adaptation(self):
-        args = MegatronAdaptation.get_args()
-        if args.disable_gloo_group:
-            from mindspeed.optimizer.distrib_optimizer import get_parameter_state_dp_zero_hccl, \
-                load_parameter_state_from_dp_zero_hccl
-            from mindspeed.core.parallel_state import (get_data_parallel_group_gloo_replace,
-                                                    get_data_modulo_expert_parallel_group_gloo_replace,
-                                                    new_group_wrapper)
-            from mindspeed.utils import check_param_hashes_across_dp_replicas_hccl
-
-            MegatronAdaptation.register('megatron.core.optimizer.distrib_optimizer.DistributedOptimizer.get_parameter_state_dp_zero',
-                                get_parameter_state_dp_zero_hccl)
-            MegatronAdaptation.register('megatron.core.optimizer.distrib_optimizer.DistributedOptimizer.load_parameter_state_from_dp_zero',
-                                load_parameter_state_from_dp_zero_hccl)
-            MegatronAdaptation.register('megatron.core.utils.check_param_hashes_across_dp_replicas',
-                                check_param_hashes_across_dp_replicas_hccl)
-
-            MegatronAdaptation.register('megatron.core.parallel_state.get_data_parallel_group_gloo',
-                                get_data_parallel_group_gloo_replace)
-            MegatronAdaptation.register('megatron.core.parallel_state.get_data_modulo_expert_parallel_group_gloo',
-                                get_data_modulo_expert_parallel_group_gloo_replace)
-            MegatronAdaptation.register('torch.distributed.new_group', new_group_wrapper)
 
     def patch_fusions(self):
         from mindspeed.core.fusions.fused_layer_norm import (FusedLayerNormAffineFunction, FastLayerNormFN)
@@ -717,7 +699,6 @@ class LegacyAdaptation(MegatronAdaptationABC):
         self.patch_miscellaneous()
         self.patch_model()
         self.patch_initialize()
-        self.patch_training()
         self.patch_inference()
         self.patch_log_handler()
         self.patch_high_availability_feature()
@@ -852,23 +833,6 @@ class LegacyAdaptation(MegatronAdaptationABC):
                                     _compile_dependencies)  # remove cuda kernel compile
         MegatronAdaptation.register('megatron.training.initialize.initialize_megatron', initialize_megatron)
 
-    def patch_training(self):
-        from ..training import train
-        from ..training.checkpointing import load_checkpoint_wrapper
-        from ..legacy.data import build_pretraining_data_loader
-        from mindspeed_llm.tasks.posttrain.lora.utils import is_enable_qlora
-
-        if is_enable_qlora(MegatronAdaptation.get_args()):
-            from mindspeed_llm.tasks.posttrain.lora.qlora import get_model
-            MegatronAdaptation.register('megatron.training.training.get_model', get_model)
-        else:
-            from ..training import get_model_wrapper
-            MegatronAdaptation.register('megatron.training.training.get_model', get_model_wrapper)
-
-        MegatronAdaptation.register('megatron.training.training.build_pretraining_data_loader',
-                                    build_pretraining_data_loader)
-        MegatronAdaptation.register('megatron.training.training.train', train)
-        MegatronAdaptation.register('megatron.training.training.load_checkpoint', load_checkpoint_wrapper)
 
     def patch_inference(self):
         from ..inference.text_generation.tokenization import tokenize_prompts, _tokenize_prompts_and_batch
