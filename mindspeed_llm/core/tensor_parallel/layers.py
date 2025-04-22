@@ -36,6 +36,12 @@ from megatron.core.tensor_parallel.layers import (
 from megatron.legacy.model.fused_layer_norm import MixedFusedLayerNorm
 from megatron.training import get_args
 
+import torch.nn.functional as F
+from megatron.core.tensor_parallel.mappings import (
+    reduce_scatter_to_sequence_parallel_region,
+    reduce_from_tensor_model_parallel_region,
+)
+
 
 def vocab_embedding_init_func(
         self,
@@ -102,15 +108,43 @@ def vocab_embedding_init_func(
         self.norm = norm
 
 
-def vocab_embedding_forward_wrapper(fn):
-    @wraps(fn)
-    def wrapper(self, *args, **kwargs):
-        output = fn(self, *args, **kwargs)
-        args_ = get_args()
-        if hasattr(self, 'norm'):
-            output = self.norm(output)
-        return output * args_.embedding_multiplier_scale if args_.embedding_multiplier_scale else output
-    return wrapper
+def vocab_parallel_embedding_forward(self, input_, weight=None):
+    if weight is None:
+        if self.weight is None:
+            raise RuntimeError(
+                "weight was not supplied to VocabParallelEmbedding forward pass "
+                "and skip_weight_param_allocation is True."
+            )
+        weight = self.weight
+
+    if self.tensor_model_parallel_size > 1:
+        # Build the mask.
+        input_mask = (input_ < self.vocab_start_index) | \
+                     (input_ >= self.vocab_end_index)
+        # Mask the input.
+        masked_input = input_.clone() - self.vocab_start_index
+        masked_input *= ~input_mask
+    else:
+        masked_input = input_
+        # Get the embeddings.
+
+    # For higher accumulation accuracy for bf16 on NPU.
+    output_parallel = F.embedding(masked_input, weight)
+
+    # Mask the output embedding.
+    if self.tensor_model_parallel_size > 1:
+        output_parallel *= ~input_mask[..., None]
+    if self.reduce_scatter_embeddings:
+        # Data format change to avoid explicit tranposes : [b s h] --> [s b h].
+        output_parallel = output_parallel.transpose(0, 1).contiguous()
+        output = reduce_scatter_to_sequence_parallel_region(output_parallel)
+    else:
+        # Reduce across all the model parallel GPUs.
+        output = reduce_from_tensor_model_parallel_region(output_parallel)
+    args_ = get_args()
+    if hasattr(self, 'norm'):
+        output = self.norm(output)
+    return output * args_.embedding_multiplier_scale if args_.embedding_multiplier_scale else output
 
 
 class SegmentedColumnParallelLinear(ColumnParallelLinear):
