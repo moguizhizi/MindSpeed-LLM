@@ -315,7 +315,10 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.training.dist_signal_handler.get_device', get_device_wrapper)
         # moe_fb_overlap will shadow this forward impl
         MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel', GPTModel)
-
+        from ..core.models.common.embeddings.language_model_embedding import language_model_embedding_init_func
+        MegatronAdaptation.register(
+            'megatron.core.models.common.embeddings.language_model_embedding.LanguageModelEmbedding.__init__',
+            language_model_embedding_init_func)
         # For recomputation
         if args.share_kvstates:
             from mindspeed_llm.core.transformer.transformer_block import share_kvstates_checkpointed_forward_func
@@ -523,7 +526,7 @@ class CoreAdaptation(MegatronAdaptationABC):
 
     def patch_tensor_parallel(self):
         from mindspeed.core.tensor_parallel.random import _set_cuda_rng_state
-        from ..core import vocab_embedding_init_wrapper, vocab_embedding_forward_wrapper
+        from ..core import vocab_embedding_init_func, vocab_embedding_forward_wrapper
 
         # default_generators need replace after set_device
         MegatronAdaptation.register('megatron.core.tensor_parallel.random._set_cuda_rng_state', _set_cuda_rng_state)
@@ -546,7 +549,7 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.core.tensor_parallel.layers.VocabParallelEmbedding.forward',
                                     vocab_embedding_forward_wrapper)
         MegatronAdaptation.register('megatron.core.tensor_parallel.layers.VocabParallelEmbedding.__init__',
-                                    vocab_embedding_init_wrapper)
+                                    vocab_embedding_init_func)
         # For recompute-in-advance
         from mindspeed.core.tensor_parallel.random import checkpoint_wrapper
         MegatronAdaptation.register('megatron.core.tensor_parallel.random.checkpoint', checkpoint_wrapper)

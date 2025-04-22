@@ -15,6 +15,7 @@ from mindspeed.core.pipeline_parallel.fb_overlap.transformer_block import (
 from mindspeed.core.pipeline_parallel.fb_overlap.modules.utils import (
     LayerGraph, detach_tensor, run_graph_backward
 )
+from mindspeed.core.pipeline_parallel.dualpipev.dualpipev_schedules import get_shared_embedding_from_dual_chunk
 
 
 class ModelGraph:
@@ -102,6 +103,7 @@ def gpt_model_forward(
     )
 
     if self.mtp_process:
+        self.embedding.word_embeddings.weight = get_shared_embedding_from_dual_chunk()
         detached_hidden_states = detach_tensor(hidden_states)
         graph.layer_graphs[-1].unperm2_graph = (graph.layer_graphs[-1].unperm2_graph[0], detached_hidden_states)
         hidden_states = self.mtp(

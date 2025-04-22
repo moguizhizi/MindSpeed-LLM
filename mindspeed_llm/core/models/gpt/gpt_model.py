@@ -88,12 +88,14 @@ class GPTModel(MegatronCoreGPTModel):
         self.mtp_block_spec = mtp_block_spec
         self.mtp_process = mtp_block_spec is not None
 
+        skip_embedding_allocation = self.mtp_process and global_args.schedules_method == 'dualpipev'
         if self.pre_process or self.mtp_process:
             self.embedding = LanguageModelEmbedding(
                 config=self.config,
                 vocab_size=self.vocab_size,
                 max_sequence_length=self.max_sequence_length,
                 position_embedding_type=position_embedding_type,
+                skip_weight_param_allocation=skip_embedding_allocation,
             )
 
         if self.position_embedding_type == 'rope':

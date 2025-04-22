@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from mindspeed_llm.core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec_wrapper, build_layers_wrapper
-from .tensor_parallel.layers import vocab_embedding_init_wrapper, vocab_embedding_forward_wrapper
+from .tensor_parallel.layers import vocab_embedding_init_func, vocab_embedding_forward_wrapper
 from .parallel_state import (initialize_model_parallel_decorator, destroy_model_parallel_decorator,
                              get_expert_model_parallel_rank,
                              get_expert_model_parallel_world_size, get_expert_parallel_group,
