@@ -239,6 +239,7 @@ class CoreAdaptation(MegatronAdaptationABC):
             dot_product_attention_forward_wrapper, ulysses_context_parallel_forward_wrapper
         from ..core.models.gpt.gpt_model import GPTModel
         from ..core import rotary_embedding_init_wrapper
+        from ..core.ssm.mamba_mixer import mamba_mixer_init_wrapper, mamba_mixer_forward
 
 
         args = MegatronAdaptation.get_args()
@@ -315,6 +316,15 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register('megatron.training.dist_signal_handler.get_device', get_device_wrapper)
         # moe_fb_overlap will shadow this forward impl
         MegatronAdaptation.register('megatron.core.models.gpt.gpt_model.GPTModel', GPTModel)
+
+        # For SSM
+        MegatronAdaptation.register('mamba_ssm.ops.triton.layernorm_gated.RMSNorm', create_dummy=True)
+        MegatronAdaptation.register('mamba_ssm.ops.triton.ssd_combined.mamba_chunk_scan_combined', create_dummy=True)
+        MegatronAdaptation.register('mamba_ssm.ops.triton.ssd_combined.mamba_split_conv1d_scan_combined', create_dummy=True)
+
+        MegatronAdaptation.register('megatron.core.ssm.mamba_mixer.MambaMixer.__init__', mamba_mixer_init_wrapper)
+        MegatronAdaptation.register('megatron.core.ssm.mamba_mixer.MambaMixer.forward', mamba_mixer_forward)
+        
         from ..core.models.common.embeddings.language_model_embedding import language_model_embedding_init_func
         MegatronAdaptation.register(
             'megatron.core.models.common.embeddings.language_model_embedding.LanguageModelEmbedding.__init__',

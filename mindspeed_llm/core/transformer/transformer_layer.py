@@ -50,8 +50,10 @@ class TransformerLayer(MegatronTransformerLayer):
         else:
             self.mlp.layer_number = self.layer_number
         # set mtp_idx
-        self.mtp_idx = 0
-        self.self_attention.core_attention.mtp_idx = 0
+        args = get_args()
+        if args.mtp_num_layers:
+            self.mtp_idx = 0
+            self.self_attention.core_attention.mtp_idx = 0
 
     def forward(self, hidden_states, attention_mask, context=None,
                               context_mask=None,

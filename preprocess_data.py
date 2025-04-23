@@ -168,6 +168,8 @@ def add_tokenizer_args(parser):
                        help='Append an <eod> token to the end of a document.')
     group.add_argument("--tokenizer-name-or-path", type=str, default=None,
                        help="Name or path of the huggingface tokenizer.")
+    group.add_argument("--tokenizer-model", type=str, default=None,
+                       help="tokenizer model file.")                       
     group.add_argument('--seq-length', type=int, default=None,
                        help='Maximum sequence length to process.')
     group.add_argument('--make-vocab-size-divisible-by', type=int, default=128,

@@ -63,6 +63,7 @@ def process_args(parser):
     parser = _add_high_availability_args(parser)
     parser = _add_cp_args(parser)
     parser = _add_mla_args(parser)
+    parser = _add_mamba_args(parser)
     parser = _add_yarn_args(parser)
     parser = _add_deepseek_moe_args(parser)
     parser = _add_mtp_args(parser)
@@ -115,6 +116,14 @@ def _add_mla_args(parser):
     group.add_argument("--mla-zero-memory", action='store_true', default=False, help="Save activation memory in multi-head-latent-attention.")
     group.add_argument("--mla-up-proj-tp-overlap", action='store_true', default=False, help='overlap up proj tp comm')
     group.add_argument("--recompute-mla-up-proj", action='store_true', default=False, help='recompute up projection in mla')
+
+    return parser
+
+
+def _add_mamba_args(parser):
+    group = parser.add_argument_group(title='mamba')
+
+    group.add_argument('--mamba-ngroups', type=int, default=8, help='Specifies the number of groups in mamba')
 
     return parser
 
@@ -1285,8 +1294,8 @@ def _validate_output_layer_slice_num(args):
 
 def core_transformer_config_from_args_wrapper(fn):
     @wraps(fn)
-    def wrapper(args):
-        config = fn(args)
+    def wrapper(args, config_class=None):
+        config = fn(args, config_class)
         # Turn down batch_p2p_comm only when pp2vpp
         if args.pipeline_model_parallel_size == 2 and args.num_layers_per_virtual_pipeline_stage is not None:
             config.batch_p2p_comm = False
