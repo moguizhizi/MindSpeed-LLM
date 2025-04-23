@@ -144,10 +144,21 @@ def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
             raise ValueError(f'Rank {global_rank}: found NaN in local forward loss calculation. '
                              f'Device: {torch.cuda.current_device()}, node: {os.uname()[1]}')
 
-    # Reduce loss for logging.
-    averaged_loss = average_losses_across_data_parallel_group([loss])
+    if args.async_log_allreduce:
+        # Reduce loss for logging, which is different from megatron pretrain_gpt.py.
+        reporting_loss = loss.clone().detach()
 
-    return loss * args.context_parallel_size, {'lm loss': averaged_loss[0]}
+        allreduce_handle = torch.distributed.all_reduce(
+            reporting_loss, group=mpu.get_data_parallel_group(), async_op=True
+        )
+
+        return loss * args.context_parallel_size, ({"lm loss": (reporting_loss)}, allreduce_handle)
+    else:
+
+        # Reduce loss for logging.
+        averaged_loss = average_losses_across_data_parallel_group([loss])
+
+        return loss * args.context_parallel_size, {'lm loss': averaged_loss[0]}
 
 
 def forward_step(data_iterator, model: GPTModel):
