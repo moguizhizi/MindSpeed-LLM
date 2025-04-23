@@ -86,6 +86,10 @@ TP拓展EP，专家层TP组不切分专家参数，切分专家数量。默认�
 
 在MLA中，将2个up-proj matmul操作拆分成4个。默认值为False。
 
+【--schedules-method】
+
+流水线并行方法，可选dualpipev。默认值为None。
+
 【--qlora-nf4】
 
 指定是否开启QLoRA权重量化转换，默认为False.

@@ -7,6 +7,7 @@ import logging as logger
 import os
 from collections import defaultdict
 
+import numpy as np
 import safetensors
 import torch
 import safetensors.torch
@@ -43,6 +44,7 @@ class CkptConvert(object):
         moe_grouped_gemm (bool, optional): Whether to use grouped GEMM for MoE layers.
         moe_tp_extend_ep (bool, optional): Whether to use tp group to extend experts parallism.
         mla_mm_split (bool, optional): Whether to split up-proj in MLA.
+        dualpipe (bool, optional): Whether to use dualpipe.
         mtp_num_layers (int, optional): The number of MTP layers. Defaults to 0.
         qlora_nf4 (bool, optional): Whether to use QLORA NF4. Defaults to False.
     """
@@ -62,6 +64,7 @@ class CkptConvert(object):
             moe_grouped_gemm: bool = False,
             moe_tp_extend_ep: bool = False,
             mla_mm_split: bool = False,
+            dualpipe: bool = False,
             mtp_num_layers: int = 0,
             qlora_nf4: bool = False,
     ):
@@ -71,16 +74,23 @@ class CkptConvert(object):
         self.num_layers = num_layers
         self.vpp_stage = vpp_stage
         if vpp_stage is not None:
-            self.vpp_size = self.num_layers // self.pp_size // self.vpp_stage     
+            self.vpp_size = self.num_layers // self.pp_size // self.vpp_stage
         self.hf_model_path = hf_model_path
-        self.mg_save_path = mg_save_path     
+        self.mg_save_path = mg_save_path
         self.num_layer_list = num_layer_list
         self.noop_layers = noop_layers
         self.moe_grouped_gemm = moe_grouped_gemm
         self.moe_tp_extend_ep = moe_tp_extend_ep
         self.mla_mm_split = mla_mm_split
+        self.dualpipe = True if dualpipe == "dualpipev" else False
         self.first_k_dense_replace = num_dense_layers
         self.mtp_num_layers = mtp_num_layers
+
+        if dualpipe:
+            if vpp_stage:
+                raise ValueError(f"dualpipe is not compatible with virtual pipeline parallel.")
+            self.vpp_size = 2
+            self.vpp_stage = self.num_layers // self.pp_size // self.vpp_size
 
         self.hidden_size = HIDDEN_SIZE
         self.num_experts = NUM_EXPERTS
@@ -92,10 +102,13 @@ class CkptConvert(object):
         self.qlora_nf4 = qlora_nf4
 
         self._valid_parameter()
-        self.pprank_layer_idxs = {}
-        self.vpprank_layer_idxs = {}
-        self.get_pprank_hf_layeridxs()
-        self.get_vpprank_hf_layeridxs()
+
+        if self.vpp_stage is None:
+            self.pprank_layer_idxs = defaultdict()
+            self.get_pprank_hf_layeridxs()
+        else:
+            self.vpprank_layer_idxs = defaultdict(dict)
+            self.get_vpprank_hf_layeridxs()
 
     @staticmethod
     def qlora_nf4_weight(weight):
@@ -146,6 +159,10 @@ class CkptConvert(object):
 
         assert self.first_k_dense_replace <= FIRST_K_DENSE_REPLACE, \
             'first_k_dense_replace should be less than 3'
+
+        if self.dualpipe:
+            if self.tp_size > 1 and not self.moe_tp_extend_ep:
+                raise ValueError("When dualpipe is enabled, moe-tp-extend-ep should be used at the same time.")
 
         if self.num_layer_list is None:
             assert self.num_layers % self.pp_size == 0, \
@@ -211,6 +228,7 @@ class CkptConvert(object):
             self.pprank_layer_idxs[self.pp_size - 1].extend(nextn_layer_list)
 
     def get_vpprank_hf_layeridxs(self) -> None:
+        """vpp_rank -> hf layer map"""
         num_noop_layers = 0 if self.noop_layers is None else len(list(map(int, self.noop_layers.split(","))))
         num_real_layers = self.num_layers - num_noop_layers
         num_layer_list_ = [i for i in range(num_real_layers)]
@@ -218,20 +236,78 @@ class CkptConvert(object):
             num_real_layers = self.num_layers - num_noop_layers
             num_moe_layers = num_real_layers - self.first_k_dense_replace
             num_layer_list_ = [i for i in range(self.first_k_dense_replace)] + [i + 3 for i in range(num_moe_layers)]
-        if self.vpp_stage is not None:
-            layers_each_vpp = [[self.vpp_stage] * self.vpp_size for _ in range(self.pp_size)] 
 
-            if self.noop_layers is not None:
-                for layer in list(map(int, self.noop_layers.split(","))):
-                    vpp_idx = layer // self.vpp_stage // self.pp_size 
-                    pp_idx = layer % (self.pp_size * self.vpp_stage) // self.vpp_stage
-                    layers_each_vpp[pp_idx][vpp_idx] -= 1
+        if not self.dualpipe:
+            if self.vpp_stage is not None:
+                layers_each_vpp = [[self.vpp_stage] * self.vpp_size for _ in range(self.pp_size)]
+                # examples: num_layers8,pp2,vpp_stage2  [[0 1, 4 5], [2 3, 6 7]]
+                # no noop layer --> layers_each_vpp:[[2,2], [2,2]]
+                # noop4,5 --> layers_each_vpp:[[2,0], [2,2]]
+                if self.noop_layers is not None:
+                    for layer in list(map(int, self.noop_layers.split(","))):
+                        vpp_idx = layer // self.vpp_stage // self.pp_size
+                        pp_idx = layer % (self.pp_size * self.vpp_stage) // self.vpp_stage
+                        layers_each_vpp[pp_idx][vpp_idx] -= 1
 
-            for vpp_rank in range(self.vpp_size):
                 for pp_rank in range(self.pp_size):
-                    if pp_rank not in self.vpprank_layer_idxs:
-                        self.vpprank_layer_idxs[pp_rank] = {}
-                    self.vpprank_layer_idxs[pp_rank][vpp_rank] = [num_layer_list_.pop(0) for _ in range(layers_each_vpp[pp_rank][vpp_rank])]
+                    for vpp_rank in range(self.vpp_size):
+                        self.vpprank_layer_idxs[pp_rank][vpp_rank] = [num_layer_list_.pop(0) for _ in
+                                                                      range(layers_each_vpp[pp_rank][vpp_rank])]
+        else:
+            noop_layers_list = None if not self.noop_layers else np.array(
+                sorted(list(map(int, self.noop_layers.split(",")))))
+            min_noop_layer = None if not self.noop_layers else noop_layers_list[0]
+
+            dualpipe_layer_list = []
+            layers_each_pp = self.num_layers // self.pp_size
+            layer_pop_num = layers_each_pp // 2
+            all_layer_list = [i for i in range(self.num_layers)]
+            # dualpipe_layer_list example
+            # pp2: [0 1 2 3 4 5 6 7] -> [0 1 6 7 | 2 3 4 5]
+            # pp4: [0 1 2 3 4 5 6 7] -> [0 7 | 1 6 | 2 5 | 3 4]
+            while all_layer_list:
+                dualpipe_layer_list.extend(all_layer_list[:layer_pop_num])
+                dualpipe_layer_list.extend(all_layer_list[-layer_pop_num:])
+                all_layer_list = all_layer_list[layer_pop_num:-layer_pop_num]
+
+            # calc pp idx and vpp idx of each hf layer
+            pp_rank, vpp_rank = 0, 0
+            each_pp_layer = self.num_layers // self.pp_size
+            for idx, layer in enumerate(dualpipe_layer_list):
+                if vpp_rank not in self.vpprank_layer_idxs[pp_rank]:
+                    self.vpprank_layer_idxs[pp_rank][vpp_rank] = []
+
+                if not self.noop_layers:
+                    self.vpprank_layer_idxs[pp_rank][vpp_rank].append(layer)
+                else:
+                    # ignore noop layer
+                    if layer in noop_layers_list:
+                        if (idx + 1) % self.vpp_stage == 0:
+                            vpp_rank += 1
+                        if (idx + 1) % each_pp_layer == 0:
+                            pp_rank += 1
+                            vpp_rank = 0
+                        continue
+                    if layer < min_noop_layer:
+                        self.vpprank_layer_idxs[pp_rank][vpp_rank].append(layer)
+                    if layer > min_noop_layer:
+                        # remove noop layer index
+                        before_nums = sum(noop_layers_list < layer)
+                        self.vpprank_layer_idxs[pp_rank][vpp_rank].append(layer - before_nums)
+
+                # update vpp_rank
+                if (idx + 1) % self.vpp_stage == 0:
+                    vpp_rank += 1
+                # update pp_rank, reset vpp_rank
+                if (idx + 1) % each_pp_layer == 0:
+                    pp_rank += 1
+                    vpp_rank = 0
+
+        if self.mtp_num_layers:
+            nextn_layer_list = [self.mtp_layer_number + i for i in range(self.mtp_num_layers)]
+            # for dualpipe, mtp layer in pp0vpp1
+            mtp_pp_rank = 0 if self.dualpipe else self.pp_size - 1
+            self.vpprank_layer_idxs[mtp_pp_rank][self.vpp_size - 1].extend(nextn_layer_list)
 
     def load_matched_hf_weights(self, pp_rank, vpp_rank=None):
         """Read the safetensors file corresponding to the layer of pp_rank."""
@@ -242,7 +318,7 @@ class CkptConvert(object):
             if pp_rank == self.pp_size - 1 and self.mtp_num_layers:
                 nextn_layer_list = [self.mtp_layer_number + i for i in range(self.mtp_num_layers)]
                 layer_list.extend(nextn_layer_list)
-        layer_files_map_dict = self.get_layer_files_map()           
+        layer_files_map_dict = self.get_layer_files_map()
 
         st_filename_list = []
         for layer in layer_list:
@@ -251,8 +327,11 @@ class CkptConvert(object):
 
         if pp_rank == 0:
             st_filename_list.extend(list(layer_files_map_dict["model.embed_tokens.weight"]))
+            if self.dualpipe:
+                st_filename_list.extend(list(layer_files_map_dict["lm_head.weight"]))
+                st_filename_list.extend(list(layer_files_map_dict["model.norm.weight"]))
 
-        if pp_rank == self.pp_size - 1:
+        if pp_rank == self.pp_size - 1 and not self.dualpipe:
             st_filename_list.extend(list(layer_files_map_dict["model.norm.weight"]))
             st_filename_list.extend(list(layer_files_map_dict["lm_head.weight"]))
 
@@ -289,7 +368,8 @@ class CkptConvert(object):
                     mg_model[ep_rank][tp_rank]["decoder.final_layernorm.weight"] = final_norm.clone()
                 mg_model[ep_rank][tp_rank]["output_layer.weight"] = lm_head_lst[tp_rank].clone()
                 if self.qlora_nf4:
-                    self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, "output_layer.weight", lm_head_lst[tp_rank].clone())
+                    self.qlora_nf4_quant(mg_model, ep_rank, tp_rank, "output_layer.weight",
+                                         lm_head_lst[tp_rank].clone())
 
     def set_mtp_preprocess(self, hf_layer_idx, mtp_layer_idx, weights_dict, mg_model):
         """MTP layer preprocess"""
@@ -311,7 +391,7 @@ class CkptConvert(object):
 
                 if self.pp_size > 1:
                     mg_model[ep_rank][tp_rank][f"embedding.word_embeddings.weight"] = \
-                    emb_lst[tp_rank].clone()
+                        emb_lst[tp_rank].clone()
 
     def set_mtp_postprocess(self, hf_layer_idx, mtp_layer_idx, weights_dict, mg_model):
         """MTP layer postprocess"""
@@ -615,11 +695,28 @@ class CkptConvert(object):
         if self.noop_layers is not None:
             noop_list = list(map(int, self.noop_layers.split(",")))
             num_layers_each_pp = self.num_layers // self.pp_size
-            for num_noop_layer in noop_list:
-                pp_idx = num_noop_layer % (self.pp_size * self.vpp_stage) // self.vpp_stage
-                vpp_idx = num_noop_layer // self.vpp_stage // self.pp_size
-                local_noop_idx = num_noop_layer % num_layers_each_pp % self.vpp_stage
-                vpp_local_layer_idx[pp_idx][vpp_idx].remove(local_noop_idx)
+            if not self.dualpipe:
+                for num_noop_layer in noop_list:
+                    pp_idx = num_noop_layer % (self.pp_size * self.vpp_stage) // self.vpp_stage
+                    vpp_idx = num_noop_layer // self.vpp_stage // self.pp_size
+                    local_noop_idx = num_noop_layer % num_layers_each_pp % self.vpp_stage
+                    vpp_local_layer_idx[pp_idx][vpp_idx].remove(local_noop_idx)
+            else:
+                # calc pp rank, vpp rank and local idx of noop layer
+                for noop_layer in noop_list:
+                    # e.g. pp2 noop5 [0 1 6 7 | 2 3 4 5] -> layer5: pp1 vpp1 local_idx1
+                    # layer5 and layer2 are symmetrical, so they are in the same pp_rank.
+                    # all layer are divided into two parts. layer5 is in last part. so vpp_rank=1
+                    if noop_layer >= self.num_layers // 2:
+                        mapping_layer = -(noop_layer - self.num_layers + 1)
+                        vpp_idx = 1
+                        pp_idx = mapping_layer // ((self.num_layers // 2) // self.pp_size)
+                        local_noop_idx = self.vpp_stage - 1 - (mapping_layer - pp_idx * self.vpp_stage)
+                    else:
+                        vpp_idx = 0
+                        pp_idx = noop_layer // ((self.num_layers // 2) // self.pp_size)
+                        local_noop_idx = noop_layer - pp_idx * self.vpp_stage
+                    vpp_local_layer_idx[pp_idx][vpp_idx].remove(local_noop_idx)
 
         return vpp_local_layer_idx
 
@@ -674,46 +771,55 @@ class CkptConvert(object):
                         save_file_name = os.path.join(parallel_save_path, "model_optim_rng.pt")
                         logger.info(f"Saving to {save_file_name}")
 
-                        torch.save({"model": mg_model[ep_rank][tp_rank], "checkpoint_version": 3.0, "iteration": 1}, save_file_name,
-                                pickle_protocol=4, _use_new_zipfile_serialization=True)
+                        torch.save({"model": mg_model[ep_rank][tp_rank], "checkpoint_version": 3.0, "iteration": 1},
+                                   save_file_name, pickle_protocol=4, _use_new_zipfile_serialization=True)
         else:
             vpp_local_layer_idx = self.generate_vpp_local_layer_idx()
-            for pp_rank in range(self.pp_size):            
+            for pp_rank in range(self.pp_size):
                 mg_model = defaultdict()
-                layer_list = self.pprank_layer_idxs[pp_rank]
                 for vpp_rank in range(self.vpp_size):
                     pp_weights = self.load_matched_hf_weights(pp_rank, vpp_rank)
                     mg_model[vpp_rank] = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
                     vpp_list = self.vpprank_layer_idxs[pp_rank][vpp_rank]
-                    
+
                     if pp_rank == 0 and vpp_rank == 0:
                         self.set_model_preprocess(pp_weights, mg_model[vpp_rank])
 
-                    if self.mtp_num_layers and pp_rank == self.pp_size - 1 and vpp_rank == self.vpp_size - 1:
-                        layer_list.sort()
-                        mtp_layer_list = [layer_list.pop() for _ in range(self.mtp_num_layers)]
-                        local_mtp_idx = 0
-                        for mtp_layer in mtp_layer_list:
-                            logger.info(f"Converting the weights of mtp layer {mtp_layer}.")
-                            self.set_mtp_preprocess(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank])
-                            self.set_model_layer_norm(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank], mtp_layer_flag=True)
-                            self.set_model_layer_attn(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank], mtp_layer_flag=True)
-                            self.set_model_layer_mlp(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank], mtp_layer_flag=True)
-                            self.set_mtp_postprocess(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank])
-                            local_mtp_idx += 1
+                    if self.dualpipe and pp_rank == 0 and vpp_rank == self.vpp_size - 1:
+                        self.set_model_postprocess(pp_weights, mg_model[vpp_rank])
+
+                    if self.mtp_num_layers:
+                        dualpipe_mtp_flag = self.dualpipe and pp_rank == 0 and vpp_rank == self.vpp_size - 1
+                        norm_mtp_flag = not self.dualpipe and pp_rank == self.pp_size - 1 and vpp_rank == self.vpp_size - 1
+
+                        if dualpipe_mtp_flag or norm_mtp_flag:
+                            vpp_list.sort()
+                            mtp_layer_list = [vpp_list.pop() for _ in range(self.mtp_num_layers)]
+                            local_mtp_idx = 0
+                            for mtp_layer in mtp_layer_list:
+                                logger.info(f"Converting the weights of mtp layer {mtp_layer}.")
+                                self.set_mtp_preprocess(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank])
+                                self.set_model_layer_norm(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank],
+                                                          mtp_layer_flag=True)
+                                self.set_model_layer_attn(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank],
+                                                          mtp_layer_flag=True)
+                                self.set_model_layer_mlp(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank],
+                                                         mtp_layer_flag=True)
+                                self.set_mtp_postprocess(mtp_layer, local_mtp_idx, pp_weights, mg_model[vpp_rank])
+                                local_mtp_idx += 1
 
                     local_idx = 0
-                    cur_vpp_local_idx = vpp_local_layer_idx[pp_rank][vpp_rank]  
-                    
+                    cur_vpp_local_idx = vpp_local_layer_idx[pp_rank][vpp_rank]
+
                     for hf_layer in vpp_list:
                         logger.info(f"Converting the weights of layer {hf_layer}.")
                         local_layer_idx = cur_vpp_local_idx[local_idx]
                         self.set_model_layer_norm(hf_layer, local_layer_idx, pp_weights, mg_model[vpp_rank])
                         self.set_model_layer_attn(hf_layer, local_layer_idx, pp_weights, mg_model[vpp_rank])
                         self.set_model_layer_mlp(hf_layer, local_layer_idx, pp_weights, mg_model[vpp_rank])
-                        local_idx += 1 
+                        local_idx += 1
 
-                    if pp_rank == self.pp_size - 1 and vpp_rank == self.vpp_size - 1:
+                    if not self.dualpipe and pp_rank == self.pp_size - 1 and vpp_rank == self.vpp_size - 1:
                         self.set_model_postprocess(pp_weights, mg_model[vpp_rank])
 
                 for ep_rank in range(self.ep_size):
@@ -724,7 +830,7 @@ class CkptConvert(object):
                         save_file_name = os.path.join(parallel_save_path, "model_optim_rng.pt")
                         logger.info(f"Saving to {save_file_name}")
                         model_dict = {"checkpoint_version": 3.0, "iteration": 1}
-                            
+
                         for vpp_rank in range(self.vpp_size):
                             model_key = f"model{vpp_rank}"
                             model_dict[model_key] = mg_model[vpp_rank][ep_rank][tp_rank]
@@ -747,7 +853,7 @@ def get_args():
     parser.add_argument('--target-expert-parallel-size', type=int, default=1,
                         help='Target expert model parallel size, defaults to 1.')
     parser.add_argument('--num-layers-per-virtual-pipeline-stage', type=int, default=None,
-                       help='Number of layers per virtual pipeline stage')
+                        help='Number of layers per virtual pipeline stage')
     parser.add_argument('--moe-grouped-gemm', action='store_true',
                         help='Usr moe grouped gemm.')
     parser.add_argument("--noop-layers", type=str, default=None, help='Specity the noop layers.')
@@ -762,6 +868,8 @@ def get_args():
                         help="use tp group to extend experts parallism instead of sharding weight tensor of experts in tp group")
     parser.add_argument('--mla-mm-split', action='store_true', default=False,
                         help='Split 2 up-proj matmul into 4 in MLA')
+    parser.add_argument('--schedules-method', type=str, default=None, choices=['dualpipev'],
+                        help='An innovative bidirectional pipeline parallelism algorithm.')
     parser.add_argument('--qlora-nf4', action='store_true',
                         help='use bitsandbytes nf4 to quantize model.')
 
@@ -785,6 +893,7 @@ def main():
         moe_grouped_gemm=args.moe_grouped_gemm,
         moe_tp_extend_ep=args.moe_tp_extend_ep,
         mla_mm_split=args.mla_mm_split,
+        dualpipe=args.schedules_method,
         mtp_num_layers=args.mtp_num_layers,
         qlora_nf4=args.qlora_nf4,
         vpp_stage=args.num_layers_per_virtual_pipeline_stage
