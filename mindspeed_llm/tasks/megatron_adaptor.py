@@ -534,6 +534,10 @@ class CoreAdaptation(MegatronAdaptationABC):
         from ..core.pipeline_parallel.schedules import get_forward_backward_func_wrapper
         MegatronAdaptation.register('megatron.core.pipeline_parallel.schedules.get_forward_backward_func', get_forward_backward_func_wrapper)
 
+        # for mtp
+        from ..core.pipeline_parallel.schedules import forward_step_wrapper
+        MegatronAdaptation.register('megatron.core.pipeline_parallel.schedules.forward_step', forward_step_wrapper)
+
     def patch_tensor_parallel(self):
         from mindspeed.core.tensor_parallel.random import _set_cuda_rng_state
         from ..core import vocab_embedding_init_func, vocab_parallel_embedding_forward
