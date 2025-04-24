@@ -700,6 +700,7 @@ class MultiTokenPredictionBlock(MegatronModule):
             # Calc logits for the current Multi-Token Prediction (MTP) layers.
             input_ids, _ = roll_tensor(input_ids, shifts=-1, dims=-1)
             if args.reset_position_ids:
+                position_ids, _ = roll_tensor(position_ids, shifts=-1, dims=-1)
                 position_ids = regenerate_position_ids(position_ids, 1)
             # embedding
             decoder_input = embedding(input_ids=input_ids, position_ids=position_ids)
