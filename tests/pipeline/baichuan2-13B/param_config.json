@@ -89,9 +89,21 @@
                 "save-dir": "/data/pipe/Baichuan2-legacy-test/", 
                 "tokenizer-model": "/data/baichuan2-13B-hf/tokenizer.model", 
                 "params-dtype": "bf16",
-                "w-pack":"True" ,
+                "w-pack":"True",
                 "model-type-hf": "baichuan2"
             }
+        },
+        {
+            "Base_MD5" : [
+                "cf849faf523182c3",
+                "aef29df0b7ce1e0b",
+                "bf0557d58d800f02",
+                "019c2cbb6122c57f",
+                "ce2041d1c11cb52c",
+                "5f38e0b30e9d1111",
+                "d247b92c351eac8c",
+                "1d54bb73a32e144c"
+            ]
         }
     ]
 }

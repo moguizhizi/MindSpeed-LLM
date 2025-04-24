@@ -261,7 +261,10 @@ def create_testconfig(path: str, cmd: bool = False):
             for k, v in target.items():
                 cmdlst.append(f"--{k}")
                 if v is not None:
-                    cmdlst.extend(v.split())
+                    if isinstance(v, str):
+                        cmdlst.extend(v.split())
+                    else:
+                        cmdlst.append(v)
         cmdlsts.extend(cmdlst)
         return cmdlsts
 

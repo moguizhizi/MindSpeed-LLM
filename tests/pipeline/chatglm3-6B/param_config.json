@@ -94,19 +94,32 @@
         }
     ],
 
-     "test_chatglm3_hf2legacy_tp2pp4": [
+    "test_chatglm3_hf2legacy_tp2pp4": [
         {
             "param": {
                 "model-type": "GPT",
                 "load-model-type": "hf",
                 "save-model-type": "mg",
                 "model-type-hf": "chatglm3",
+                "add-qkv-bias": null,
                 "target-tensor-parallel-size": "2",
                 "target-pipeline-parallel-size": "4",
                 "load-dir": "/data/chatglm3-6b-base-hf/",
                 "save-dir": "/data/chatglm3-6b-base-mg-tp2pp4-legacy-test/",
                 "tokenizer-model": "/data/chatglm3-6b-base-hf/tokenizer.model"
             }
+        },
+        {
+            "Base_MD5" : [
+                "be7a2d86d98c3a27",
+                "ea92035af1b70568",
+                "4e9b7c76f4dea6df",
+                "4499e7c0b47ac75f",
+                "03066db39b46ec95",
+                "081a7370d18ccf82",
+                "ce717135cb55a0b9",
+                "143041bf67d98e24"
+            ]
         }
     ]
 }

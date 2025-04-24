@@ -144,12 +144,24 @@
                 "load-dir": "/data/Phi-3.5-MoE-instruct-hf",
                 "save-dir": "/data/pipe/phi35-moe-tp1pp8-mcore-test",
                 "tokenizer-model": "/data/Phi-3.5-MoE-instruct-hf/tokenizer.model",
-                "spec": ["mindspeed_llm.tasks.models.spec.phi35_moe_spec", "layer_spec"],
+                "spec": "mindspeed_llm.tasks.models.spec.phi35_moe_spec layer_spec",
                 "params-dtype": "bf16",
                 "add-qkv-bias": null,
                 "add-dense-bias": null,
                 "moe-grouped-gemm": null
             }
+        },
+        {
+            "Base_MD5" : [
+                "5e77425553d3cbef",
+                "e17a49f5ece96fed",
+                "2f5d959d534bc2c7",
+                "955cff3ccb965f77",
+                "43c6232ebcb01703",
+                "41fea6719f051079",
+                "a2b62fa160d8babf",
+                "c78fc899457ce0a1"
+            ]
         }
     ]
 }
