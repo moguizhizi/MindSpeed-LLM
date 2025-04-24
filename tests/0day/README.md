@@ -19,7 +19,7 @@
     <tr>
       <td rowspan="3"> <a href="https://modelscope.cn/collections/GLM-4-0414-e4ecc89c179d4c">GLM-4</a> </td>
       <td><a href="https://modelscope.cn/models/ZhipuAI/GLM-4-9B-0414">9B</a></td>
-      <td rowspan="3"><a href="../0day/glm4-0414/">GLM-4</a></td>
+      <td rowspan="3"><a href="glm4-9b-0414/">GLM-4</a></td>
       <td> 8K </td>
       <th> Mcore </th>
       <td> 1x8 </td>
@@ -45,7 +45,7 @@
     <tr>
       <td rowspan="3"> <a href="https://modelscope.cn/collections/GLM-4-0414-e4ecc89c179d4c">GLM-Z1</a> </td>
       <td><a href="https://modelscope.cn/models/ZhipuAI/GLM-Z1-9B-0414">9B</a></td>
-      <td rowspan="3"><a href="../0day/glm-z1-0414/">GLM-Z1</a></td>
+      <td rowspan="3"><a href="glm-z1-32b-0414/">GLM-Z1</a></td>
       <td> 8K </td>
       <th> Mcore </th>
       <td> 1x8 </td>

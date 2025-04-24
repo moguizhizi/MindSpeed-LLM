@@ -1,7 +1,7 @@
 from mindspeed.features_manager.tensor_parallel.unaligned_linear_feature import UnalignedLinearFeature
 
 from mindspeed_llm.features_manager.common.training import TrainingDefaultFeature
-from mindspeed_llm.features_manager.common.gloo import DisableGlooFeature
+from mindspeed_llm.features_manager.communication.gloo import DisableGlooFeature
 
 FEATURES_LIST = [
     # MindSpeed Legacy Features
