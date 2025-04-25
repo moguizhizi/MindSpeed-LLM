@@ -117,6 +117,7 @@ def _add_mla_args(parser):
     group.add_argument("--mla-zero-memory", action='store_true', default=False, help="Save activation memory in multi-head-latent-attention.")
     group.add_argument("--mla-up-proj-tp-overlap", action='store_true', default=False, help='overlap up proj tp comm')
     group.add_argument("--recompute-mla-up-proj", action='store_true', default=False, help='recompute up projection in mla')
+    group.add_argument('--mla-swap-core-attn-out', action='store_true', default=False, help='swap core_attn_out only in mla.')
 
     return parser
 
@@ -1197,6 +1198,11 @@ def _validate_mla(args):
         if args.recompute_mla_up_proj:
             assert args.mla_up_proj_tp_overlap, '--recompute-mla-up-proj can only be used with --mla-up-proj-tp-overlap'
             assert not args.mla_zero_memory, '--recompute-mla-up-proj is incompatible with --mla-zero-memory'
+        if args.mla_swap_core_attn_out:
+            if args.schedules_method != "dualpipev":
+                raise AssertionError('--mla-swap-core-attn-out can only be used with dualpipev by now.')
+            if not args.moe_fb_overlap:
+                raise AssertionError('--mla-swap-core-attn-out can only be used with --moe-fb-overlap by now.')
 
 
 def _validate_yarn(args):
