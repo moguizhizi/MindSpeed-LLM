@@ -2,6 +2,8 @@ from mindspeed.features_manager.tensor_parallel.unaligned_linear_feature import 
 
 from mindspeed_llm.features_manager.common.training import TrainingDefaultFeature
 from mindspeed_llm.features_manager.communication.gloo import DisableGlooFeature
+from mindspeed_llm.features_manager.common.rotary import RotaryPositionEmbeddingFeature
+from mindspeed_llm.features_manager.common.embedding import LanguageModelEmbeddingFeature
 
 FEATURES_LIST = [
     # MindSpeed Legacy Features
@@ -13,6 +15,8 @@ FEATURES_LIST = [
     # MindSpeed-LLM Mcore Features
     TrainingDefaultFeature(),
     DisableGlooFeature(),
+    RotaryPositionEmbeddingFeature(),
+    LanguageModelEmbeddingFeature()
 
     # MindSpeed-LLM Legacy Features
 ]

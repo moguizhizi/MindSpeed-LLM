@@ -34,7 +34,6 @@ from mindspeed.utils import get_actual_seq_len
 from mindspeed.core.context_parallel.context_parallel_kv_cache import get_cache_policy
 from mindspeed.utils import get_actual_seq_len, compute_qkv_index, get_position_ids
 
-from mindspeed_llm.core.models.common.embeddings.rotary_pos_embedding import yarn_get_mscale
 from mindspeed_llm.tasks.models.common.alibi import Alibi
 
 try:

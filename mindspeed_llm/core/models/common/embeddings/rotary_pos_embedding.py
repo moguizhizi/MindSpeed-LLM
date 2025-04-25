@@ -12,6 +12,7 @@ from megatron.training import get_args
 from megatron.core import parallel_state
 from megatron.core.models.common.embeddings.rotary_pos_embedding import _rotate_half, get_pos_emb_on_this_cp_rank
 from mindspeed.ops.npu_rotary_position_embedding import npu_rotary_position_embedding
+from mindspeed_llm.tasks.common.yarn_rope import YarnRotaryPositionEmbedding
 
 
 def apply_llama3_scaling(freqs: torch.Tensor):
@@ -43,7 +44,7 @@ def apply_yarn_scaling(freqs: torch.Tensor):
     rotary_ratio = args.rotary_base ** (torch.arange(0, dim, 2, dtype=torch.float32, device=freqs.device) / dim)
     freq_extra = 1.0 / rotary_ratio
     freq_inter = 1.0 / (scaling_factor * rotary_ratio)
-    low, high = yarn_find_correction_range(
+    low, high = YarnRotaryPositionEmbedding.yarn_find_correction_range(
         args.rope_scaling_beta_fast,
         args.rope_scaling_beta_slow,
         dim,
@@ -51,7 +52,7 @@ def apply_yarn_scaling(freqs: torch.Tensor):
         args.rope_scaling_original_max_position_embeddings,
     )
 
-    inv_freq_mask = 1.0 - yarn_linear_ramp_mask(low, high, dim // 2).to(
+    inv_freq_mask = 1.0 - YarnRotaryPositionEmbedding.yarn_linear_ramp_mask(low, high, dim // 2).to(
         device=freqs.device, dtype=torch.float32
     )
 
@@ -204,8 +205,8 @@ def apply_rotary_pos_emb_bshd(t: Tensor, freqs: Tensor, rotary_interleaved: bool
     _mscale = 1
     if args.rope_scaling_type == "yarn":
         _mscale = float(
-            yarn_get_mscale(args.rope_scaling_factor, args.rope_scaling_mscale)
-            / yarn_get_mscale(args.rope_scaling_factor, args.rope_scaling_mscale_all_dim)
+            YarnRotaryPositionEmbedding.yarn_get_mscale(args.rope_scaling_factor, args.rope_scaling_mscale)
+            / YarnRotaryPositionEmbedding.yarn_get_mscale(args.rope_scaling_factor, args.rope_scaling_mscale_all_dim)
         )
     elif args.rope_scaling_type == "longrope":
         if args.long_mscale and args.short_mscale:
@@ -228,38 +229,3 @@ def apply_rotary_pos_emb_bshd(t: Tensor, freqs: Tensor, rotary_interleaved: bool
         t = (t * cos_) + (_rotate_half(t, rotary_interleaved) * sin_)
     
     return torch.cat((t, t_pass), dim=-1)
-
-
-def yarn_find_correction_dim(
-        num_rotations, dim, base=10000, max_position_embeddings=2048
-):
-    return (dim * math.log(max_position_embeddings / (num_rotations * 2 * math.pi))) / (
-            2 * math.log(base)
-    )
-
-
-def yarn_find_correction_range(
-        low_rot, high_rot, dim, base=10000, max_position_embeddings=2048
-):
-    low = math.floor(
-        yarn_find_correction_dim(low_rot, dim, base, max_position_embeddings)
-    )
-    high = math.ceil(
-        yarn_find_correction_dim(high_rot, dim, base, max_position_embeddings)
-    )
-    return max(low, 0), min(high, dim - 1)  # Clamp values just in case
-
-
-def yarn_get_mscale(scale=1, mscale=1):
-    if scale <= 1:
-        return 1.0
-    return 0.1 * mscale * math.log(scale) + 1.0
-
-
-def yarn_linear_ramp_mask(min_, max_, dim):
-    if min_ == max_:
-        max_ += 0.001  # Prevent singularity
-
-    linear_func = (torch.arange(dim, dtype=torch.float32) - min_) / (max_ - min_)
-    ramp_func = torch.clamp(linear_func, 0, 1)
-    return ramp_func

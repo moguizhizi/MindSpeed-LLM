@@ -228,17 +228,13 @@ class CoreAdaptation(MegatronAdaptationABC):
     def patch_core_models(self):
         from megatron.core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
         from mindspeed.core.models.common.embeddings.rotary_pos_embedding import get_pos_emb_on_this_cp_rank
-        from mindspeed.core.models.common.embeddings.rotary_pos_embedding import rotary_embedding_get_rotary_seq_len_wrapper
-        from mindspeed.core.models.common.embeddings.language_model_embedding import language_model_embedding_forward_wrapper
         from mindspeed.core.data_parallel.distributed_data_parallel import distributed_data_parallel_init_with_cp
         from mindspeed.core.transformer.attention import attention_init, self_attention_init_wrapper
         from ..training.utils import get_batch_on_this_cp_rank, get_batch_on_this_tp_rank, get_device_wrapper
-        from ..core import rotary_embedding_forward, apply_rotary_pos_emb_bshd
         from ..core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec_wrapper
         from ..core.transformer.dot_product_attention import dot_product_attention_init, \
             dot_product_attention_forward_wrapper, ulysses_context_parallel_forward_wrapper
         from ..core.models.gpt.gpt_model import GPTModel
-        from ..core import rotary_embedding_init_wrapper
         from ..core.ssm.mamba_mixer import mamba_mixer_init_wrapper, mamba_mixer_forward
 
 
@@ -247,34 +243,6 @@ class CoreAdaptation(MegatronAdaptationABC):
         MegatronAdaptation.register(
             'megatron.core.models.common.embeddings.rotary_pos_embedding.get_pos_emb_on_this_cp_rank',
             get_pos_emb_on_this_cp_rank)
-        # rotary support for Megatron-LM core 0.7.0
-        MegatronAdaptation.register(
-            'megatron.core.models.common.embeddings.rotary_pos_embedding.apply_rotary_pos_emb_bshd',
-            apply_rotary_pos_emb_bshd)
-        MegatronAdaptation.register(
-            'megatron.core.models.common.embeddings.rotary_pos_embedding.RotaryEmbedding.forward',
-            rotary_embedding_forward)
-        MegatronAdaptation.register(
-            'megatron.core.models.common.embeddings.rotary_pos_embedding.RotaryEmbedding.__init__',
-            rotary_embedding_init_wrapper)
-        MegatronAdaptation.register(
-            'megatron.core.models.common.embeddings.rotary_pos_embedding.RotaryEmbedding.get_rotary_seq_len',
-            rotary_embedding_get_rotary_seq_len_wrapper)
-        from ..core.models.common.language_module.language_module import (
-            setup_embeddings_and_output_layer,
-            tie_embeddings_and_output_weights_state_dict,
-        )
-        MegatronAdaptation.register(
-            'megatron.core.models.common.language_module.language_module.LanguageModule'
-            '.setup_embeddings_and_output_layer',
-            setup_embeddings_and_output_layer)
-        MegatronAdaptation.register(
-            'megatron.core.models.common.language_module.language_module.LanguageModule'
-            '.tie_embeddings_and_output_weights_state_dict',
-            tie_embeddings_and_output_weights_state_dict)
-        MegatronAdaptation.register(
-            'megatron.core.models.common.embeddings.language_model_embedding.LanguageModelEmbedding.forward',
-            language_model_embedding_forward_wrapper)
         MegatronAdaptation.register('megatron.core.distributed.distributed_data_parallel.DistributedDataParallel.__init__',
                             distributed_data_parallel_init_with_cp)
 

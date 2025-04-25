@@ -566,23 +566,6 @@ def _add_network_size_args(parser):
 
 def _add_algorithm_args(parser):
     group = parser.add_argument_group(title='algorithm')
-    group.add_argument('--dynamic-factor', type=float, default=1.0, help='dynamic-factor')
-    group.add_argument('--rope-scaling-type', type=str, default=None, choices=["llama3", "yarn", "longrope"],
-                       help='The sub-variant of RoPE to use, support type llama3 and yarn and longrope.')
-    group.add_argument('--longrope-freqs-type', type=str, default="mul", choices=["mul", "outer"],
-                       help='Specify the frequency type for long rope. Options are "mul" for multiplication or "outer" for outer product.')
-    group.add_argument('--long-factor', type=str, default=None,
-                       help='rope factor list for long rope scaling type.')
-    group.add_argument('--short-factor', type=str, default=None,
-                       help='rope factor list for long rope scaling type.')
-    group.add_argument('--low-freq-factor', type=float,
-                       help='rope low freq factory for rope scaling type.')
-    group.add_argument('--high-freq-factor', type=float,
-                       help='rope high freq factor for rope scaling type.')
-    group.add_argument('--long-mscale', type=float, default=None, help='long mscale for rope scaling.')
-    group.add_argument('--short-mscale', type=float, default=None, help='short mscale for rope scaling.')
-    group.add_argument('--original-max-position-embeddings', type=float,
-                       help='original max position embeddings for rope scaling type')
 
     group.add_argument("--noop-layers", type=str, default=None, help='Specity the noop layers.')
     group.add_argument('--reuse-fp32-param', action='store_true',

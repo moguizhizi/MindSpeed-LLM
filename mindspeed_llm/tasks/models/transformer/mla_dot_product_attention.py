@@ -4,7 +4,7 @@ from megatron.training import get_args
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.dot_product_attention import DotProductAttention
-from mindspeed_llm.core.models.common.embeddings.rotary_pos_embedding import yarn_get_mscale
+from mindspeed_llm.core.models.common.embeddings.rotary_pos_embedding import YarnRotaryPositionEmbedding
 
 
 class MlaDotProductAttention(DotProductAttention):
@@ -39,7 +39,7 @@ class MlaDotProductAttention(DotProductAttention):
             scaling_factor = args.rope_scaling_factor
 
             if mscale_all_dim:
-                mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+                mscale = YarnRotaryPositionEmbedding.yarn_get_mscale(scaling_factor, mscale_all_dim)
                 self.softmax_scale = self.softmax_scale * mscale * mscale
 
         self.norm_factor = 1.0 / self.softmax_scale
