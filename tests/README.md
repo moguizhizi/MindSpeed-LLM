@@ -522,7 +522,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="1"><a href="pipeline/glm4">GLM4</a></td>
+        <td rowspan="1"><a href="pipeline/glm4">Glm4</a></td>
         <td rowspan="1">Mcore</td>
         <td>no-bias-swiglu-fusion</td>
         <td><a href="pipeline/glm4/glm4_9b_8k_tp2_pp2_ptd.sh">glm4_9b_8k_tp2_pp2_ptd.sh</a></td>
@@ -531,7 +531,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="1"><a href="pipeline/grok1">GROK1</a></td>
+        <td rowspan="1"><a href="pipeline/grok1">Grok1</a></td>
         <td rowspan="1">Mcore</td>
         <td>embedding-multiplier-scale, output-multiplier-scale, input-jitter</td>
         <td><a href="pipeline/grok1/grok1_40b_tp4_ep2_ptd.sh">grok1_40b_tp4_ep2_ptd.sh</a></td>
@@ -540,7 +540,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="1"><a href="pipeline/hunyuan">HUNYUAN</a></td>
+        <td rowspan="1"><a href="pipeline/hunyuan">Hunyuan</a></td>
         <td rowspan="1">Mcore</td>
         <td>cla-share-factor, cut-max-seqlen, share-kvstates, pad-to-multiple-of, moe-revert-type-after-topk, scale-depth</td>
         <td><a href="pipeline/hunyuan/tune_hunyuanLarge_389b_tp1_pp1_ep8_ptd.sh">tune_hunyuanLarge_389b_tp1_pp1_ep8_ptd.sh</a></td>
@@ -549,7 +549,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="1"><a href="pipeline/interlm3">INTERLM3</a></td>
+        <td rowspan="1"><a href="pipeline/interlm3">Interlm3</a></td>
         <td rowspan="1">Mcore</td>
         <td>skip-bias-add, dynamic-factor, distributed-timeout-minutes, exit-on-missing-checkpoint</td>
         <td><a href="pipeline/interlm3/internlm3_8b_tp1_pp4_cp2_ptd.sh">internlm3_8b_tp1_pp4_cp2_ptd.sh</a></td>
@@ -588,7 +588,7 @@
         <td></td>
     </tr>
     <tr>
-        <td rowspan="1"><a href="pipeline/qwen25">QWEN25</a></td>
+        <td rowspan="1"><a href="pipeline/qwen25">Qwen25</a></td>
         <td rowspan="1">Mcore</td>
         <td>sparse-mode, padded-samples</td>
         <td><a href="pipeline/qwen25/tune_qwen25_0point5b_tp1_pp1_pack.sh">tune_qwen25_0point5b_tp1_pp1_pack.sh</a></td>
@@ -678,7 +678,7 @@
         <td>Y</td>
     </tr>
     <tr>
-        <td rowspan="1"><a href="pipeline/minicpm">MINICPM</a></td>
+        <td rowspan="1"><a href="pipeline/minicpm">Minicpm</a></td>
         <td rowspan="1">Mcore</td>
         <td>dim-model-base, scale-emb</td>
         <td><a href="pipeline/minicpm/minicpm_2b_tp1_pp1.sh">minicpm_2b_tp1_pp1.sh</a></td>
