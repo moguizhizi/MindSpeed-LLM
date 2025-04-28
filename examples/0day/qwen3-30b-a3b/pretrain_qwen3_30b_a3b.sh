@@ -2,6 +2,7 @@
 
 export HCCL_CONNECT_TIMEOUT=1800
 export CUDA_DEVICE_MAX_CONNECTIONS=1
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 export NPU_ASD_ENABLE=0
 
 NPUS_PER_NODE=8
@@ -17,8 +18,8 @@ DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
-TP=1
-PP=8
+TP=4
+PP=2
 EP=2
 CP=1
 SEQ_LENGTH=4096
@@ -48,6 +49,7 @@ MOE_ARGS="
 OPTIMIZE_ARGS="
     --use-flash-attn \
     --use-fused-rotary-pos-emb \
+    --sequence-parallel \
     --use-rotary-position-embeddings \
     --use-fused-swiglu \
     --use-fused-rmsnorm \
@@ -93,7 +95,7 @@ GPT_ARGS="
     --norm-topk-prob \
     --tokenizer-name-or-path ${TOKENIZER_PATH} \
     --max-position-embeddings ${SEQ_LENGTH} \
-    --num-layers 24 \
+    --num-layers 48 \
     --hidden-size 2048 \
     --ffn-hidden-size 8192 \
     --num-attention-heads 32 \
