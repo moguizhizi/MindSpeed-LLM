@@ -45,7 +45,7 @@ class MegatronAdaptation:
         MegatronAdaptation.pre_execute()
         for adaptation in [CoreAdaptation(), LegacyAdaptation(), MindSporeAdaptation()]:
             adaptation.execute()
-        MegatronAdaptation.apply()
+            MegatronAdaptation.apply()
         
         from mindspeed.patch_utils import MindSpeedPatchesManager
         args = MegatronAdaptation.get_args()
