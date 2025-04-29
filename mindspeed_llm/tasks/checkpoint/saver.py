@@ -219,8 +219,7 @@ def set_model_layer_attn(model_mg, msg, md, **kwargs):
     qkv_weight = torch.chunk(qkv_org, margs.tensor_model_parallel_size, dim=0)
 
     if getattr(md, "qk_layernorm", False):
-        if getattr(md, "q_lora_rank", None):
-            q_layernorm = msg.pop("q layernorm")
+        q_layernorm = msg.pop("q layernorm")
         k_layernorm = msg.pop("k layernorm")
 
     if getattr(md, "multi_head_latent_attention", False):
@@ -240,8 +239,7 @@ def set_model_layer_attn(model_mg, msg, md, **kwargs):
             model_mg.set_layers_self_attention_linear_proj_weight(**kwargs, data=dense_weight[tp_rank])
             
             if getattr(md, "qk_layernorm", False):
-                if getattr(md, "q_lora_rank", None):
-                    model_mg.set_layers_self_attention_q_layernorm_weight(**kwargs, data=q_layernorm)
+                model_mg.set_layers_self_attention_q_layernorm_weight(**kwargs, data=q_layernorm)
                 model_mg.set_layers_self_attention_k_layernorm_weight(**kwargs, data=k_layernorm)
 
             if getattr(md, "multi_head_latent_attention", False):
