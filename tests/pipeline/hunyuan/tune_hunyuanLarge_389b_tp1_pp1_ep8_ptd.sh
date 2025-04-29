@@ -12,10 +12,10 @@ NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
-TOKENIZER_PATH="/data/Hunyuan-A52B-Instruct" 
-CKPT_LOAD_DIR="/data/hunyuanlarge_tp1pp1ep8"
-CKPT_SAVE_DIR="/data/hunyuanlarge_tp1pp1ep8"
-DATA_PATH="/data/finetune_dataset/hunyuan_data/hunyuan"
+TOKENIZER_PATH="/data/hf/Hunyuan-A52B-Instruct"
+CKPT_LOAD_DIR="/data/pipeline/hunyuanlarge_tp1pp1ep8"
+CKPT_SAVE_DIR="/data/cache"
+DATA_PATH="/data/datasets/hunyuan_finetune/hunyuan"
 
 TP=1
 PP=1

@@ -11,10 +11,10 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
-CKPT_SAVE_DIR="/data/ckpt"
-DATA_PATH="/data/gemma2-dataset-alpaca/alpaca_text_document"
-TOKENIZER_MODEL="/data/gemma2-9b-hf"
-CKPT_LOAD_DIR="/data/gemma2-9b-mg-tp8pp1-mcore-base"
+CKPT_SAVE_DIR="/data/cache"
+DATA_PATH="/data/datasets/gemma2-dataset-alpaca/alpaca_text_document"
+TOKENIZER_MODEL="/data/hf/gemma2-9b-hf"
+CKPT_LOAD_DIR="/data/pipeline/gemma2-9b-mg-tp8pp1-mcore-base"
 
 TP=8
 PP=1

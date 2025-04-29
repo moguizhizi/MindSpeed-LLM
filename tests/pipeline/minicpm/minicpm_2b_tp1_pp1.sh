@@ -10,10 +10,10 @@ NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
-CKPT_SAVE_DIR="/data/minicpm_tp1pp1"
-DATA_PATH="/data/minicpm/enwiki_text_document"
-TOKENIZER_MODEL="/data/minicpm_hf/tokenizer.model"
-CKPT_LOAD_DIR="/data/minicpm_tp1pp1"
+CKPT_SAVE_DIR="/data/cache"
+DATA_PATH="/data/datasets/minicpm/enwiki_text_document"
+TOKENIZER_MODEL="/data/hf/minicpm_hf/tokenizer.model"
+CKPT_LOAD_DIR="/data/pipeline/minicpm_tp1pp1"
 
 TP=1
 PP=1

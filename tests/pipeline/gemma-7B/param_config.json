@@ -22,7 +22,7 @@
                 "add-rmsnorm-offset": null,
                 "input-embeds-norm": null,
                 "tokenizer-type": "PretrainedFromHF",
-                "tokenizer-name-or-path": "/data/gemma-7b-hf/",
+                "tokenizer-name-or-path": "/data/hf/gemma-7b-hf/",
                 "tokenizer-not-use-fast": null,
                 "norm-epsilon": 1e-06,
                 "evaluation-batch-size": 1,
@@ -48,7 +48,7 @@
             "param": {
                 "tensor-model-parallel-size": 8,
                 "pipeline-model-parallel-size": 1,
-                "load": "/data/gemma-7b-tp8-pp1/",
+                "load": "/data/pipeline/gemma-7b-tp8-pp1/",
                 "num-layers": 28,
                 "hidden-size": 3072,
                 "kv-channels": 256,
@@ -62,7 +62,7 @@
                 "input-embeds-norm": null,
                 "micro-batch-size": 1,
                 "tokenizer-type": "PretrainedFromHF",
-                "tokenizer-name-or-path": "/data/gemma-7b-hf/",
+                "tokenizer-name-or-path": "/data/hf/gemma-7b-hf/",
                 "tokenizer-not-use-fast": null,
                 "normalization": "RMSNorm",
                 "add-rmsnorm-offset": null,
@@ -91,7 +91,7 @@
             "param": {
                 "input": "/data/train-00000-of-00001-a09b74b3ef9c3b56.parquet",
                 "tokenizer-type": "PretrainedFromHF",
-                "tokenizer-name-or-path": "/data/gemma-7b-hf/"
+                "tokenizer-name-or-path": "/data/hf/gemma-7b-hf/"
             },
             "prefix": "alpaca"
         }
