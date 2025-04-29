@@ -162,11 +162,11 @@ MindSpeed-LLM的主要依赖配套如下表，安装步骤参考[安装指导](h
   </tr>
   <tr>
     <td>PyTorch</td>
-    <td>2.5.1</td>
+    <td>2.1.0</td>
   </tr>
   <tr>
     <td>torch_npu插件</td>
-    <td >2.5.1</td>
+    <td >2.1.0</td>
   </tr>
   <tr>
     <td>apex</td>
@@ -236,7 +236,7 @@ pip install -r requirements.txt
 
 1. 权重下载 
 
-    从huggingface或者魔乐社区下载权重和配置文件
+    从[huggingface](https://huggingface.co/Qwen/Qwen3-1.7B-Base)或者[魔乐社区](https://modelers.cn/models/MindSpeed/Qwen3-1.7B-Base)下载权重和配置文件
 
 2. 权重转换
 
