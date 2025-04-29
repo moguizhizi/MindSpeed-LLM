@@ -9,9 +9,10 @@ pipeline_tag: text-generation
 hardwares:
   - NPU
 ---
+
 # 0day首发！MindSpeed-LLM适配Qwen3并上线开源社区
 
-Qwen3是阿里云于2025年4月28日发布并开源，作为 Qwen 系列中的最新一代大型语言模型，提供了一系列密集型和混合专家（MoE）模型。本次Qwen发布多个尺寸模型，覆盖235B/32B/30B/14B/8B/4B/1.7B/0.6B。在Qwen-3正式发布的同一天，MindSpeed-LLM便立刻支持该模型的完美跑通，标志着MindSpeed-LLM在大规模语言模型应用和高效部署方面的技术优势再次得到巩固。
+Qwen3是阿里云于2025年4月29日发布并开源，作为 Qwen 系列中的最新一代大型语言模型，提供了一系列密集型和混合专家（MoE）模型。本次Qwen发布多个尺寸模型，覆盖235B/32B/30B/14B/8B/4B/1.7B/0.6B。在Qwen-3正式发布的同一天，MindSpeed-LLM便立刻支持该模型的完美跑通，标志着MindSpeed-LLM在大规模语言模型应用和高效部署方面的技术优势再次得到巩固。
 
 ## MindSpeed-LLM：为Qwen-3赋能，极速支持无缝集成
 
@@ -43,20 +44,20 @@ https://modelers.cn/models/MindSpeed/Qwen3-1.7B-Base
 https://modelers.cn/models/MindSpeed/Qwen3-30B-A3B-Base
 
 https://modelers.cn/models/MindSpeed/Qwen3-14B-Base
-https://modelers.cn/models/MindSpeed/Qwen3-8B-250424
-https://modelers.cn/models/MindSpeed/Qwen3-4B-250426
+https://modelers.cn/models/MindSpeed/Qwen3-8B
+https://modelers.cn/models/MindSpeed/Qwen3-4B
 
-https://modelers.cn/models/MindSpeed/Qwen3-32B-250426
+https://modelers.cn/models/MindSpeed/Qwen3-32B
 
-https://modelers.cn/models/MindSpeed/Qwen3-30B-A3B-250425
+https://modelers.cn/models/MindSpeed/Qwen3-30B-A3B
 
-https://modelers.cn/models/MindSpeed/Qwen3-235B-A22B-250426
+https://modelers.cn/models/MindSpeed/Qwen3-235B-A22B
 
-https://modelers.cn/models/MindSpeed/Qwen3-1.7B-250424
+https://modelers.cn/models/MindSpeed/Qwen3-1.7B
 
-https://modelers.cn/models/MindSpeed/Qwen3-14B-250426
+https://modelers.cn/models/MindSpeed/Qwen3-14B
 
-https://modelers.cn/models/MindSpeed/Qwen3-0.6B-250424
+https://modelers.cn/models/MindSpeed/Qwen3-0.6B
 
 
 
