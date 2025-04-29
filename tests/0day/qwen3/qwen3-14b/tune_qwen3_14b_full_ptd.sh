@@ -1,10 +1,12 @@
 #!/bin/bash
+
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
+# Change for multinode config
 NPUS_PER_NODE=8
 MASTER_ADDR=localhost
-MASTER_PORT=6011
+MASTER_PORT=6015
 NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
@@ -15,10 +17,13 @@ CKPT_SAVE_DIR="your model save ckpt path"
 DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
 
-TP=1
+TP=8
 PP=1
+
 MBS=1
 GBS=16
+SEQ_LENGTH=8192
+TRAIN_ITERS=2000
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -32,25 +37,26 @@ GPT_ARGS="
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
-    --sequence-parallel \
-    --use-distributed-optimizer \
+    --load ${CKPT_LOAD_DIR} \
     --spec mindspeed_llm.tasks.models.spec.qwen3_spec layer_spec \
     --kv-channels 128 \
-    --use-flash-attn \
     --qk-layernorm \
-    --num-layers 28 \
-    --hidden-size 1024 \
+    --num-layers 40 \
+    --hidden-size 5120 \
     --use-rotary-position-embeddings \
-    --num-attention-heads 16 \
-    --ffn-hidden-size 3072 \
-    --max-position-embeddings 32768 \
-    --seq-length 4096 \
+    --untie-embeddings-and-output-weights \
+    --num-attention-heads 40 \
+    --ffn-hidden-size 17408 \
+    --max-position-embeddings 40960 \
+    --seq-length ${SEQ_LENGTH} \
+    --train-iters ${TRAIN_ITERS} \
+    --micro-batch-size ${MBS} \
+    --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
+    --use-flash-attn \
     --padded-vocab-size 151936 \
     --rotary-base 1000000 \
-    --micro-batch-size 1 \
     --disable-bias-linear \
-    --train-iters 2000 \
     --swiglu \
     --use-rotary-position-embeddings \
     --tokenizer-type PretrainedFromHF \
@@ -60,25 +66,24 @@ GPT_ARGS="
     --norm-epsilon 1e-6 \
     --hidden-dropout 0 \
     --attention-dropout 0 \
-    --max-new-tokens 256 \
     --no-gradient-accumulation-fusion \
     --attention-softmax-in-fp32 \
     --exit-on-missing-checkpoint \
     --no-masked-softmax-fusion \
     --group-query-attention \
     --num-query-groups 8 \
+    --seed 42 \
+    --bf16 \
     --min-lr 1.25e-7 \
-    --lr 1.25e-6 \
     --weight-decay 1e-1 \
+    --lr-warmup-fraction 0.01 \
     --clip-grad 1.0 \
     --adam-beta1 0.9 \
     --adam-beta2 0.95 \
-    --initial-loss-scale 4096 \
-    --no-gradient-accumulation-fusion \
     --no-load-optim \
     --no-load-rng \
-    --seed 42 \
-    --bf16
+    --lr 1.25e-6 \
+    --sequence-parallel
 "
 
 DATA_ARGS="
@@ -88,16 +93,25 @@ DATA_ARGS="
 
 OUTPUT_ARGS="
     --log-interval 1 \
-    --save-interval 1000 \
-    --eval-interval 1000 \
+    --save-interval ${TRAIN_ITERS} \
+    --eval-interval ${TRAIN_ITERS} \
     --eval-iters 0 \
+    --log-throughput
 "
 
-torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
+TUNE_ARGS="
+    --finetune \
+    --stage sft \
+    --is-instruction-dataset \
+    --prompt-type qwen \
+    --variable-seq-lengths
+"
+
+torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $OUTPUT_ARGS \
+    $TUNE_ARGS \
     --distributed-backend nccl \
-    --log-throughput \
-    --load ${CKPT_LOAD_DIR} \
-    | tee logs/train_mcore_qwen3_0point6b.log
+    --save ${CKPT_SAVE_DIR}
+    | tee ./logs/tune_qwen3_14b_full_ptd.log

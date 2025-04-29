@@ -38,7 +38,6 @@ GPT_ARGS="
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --load ${CKPT_LOAD_DIR} \
-    --save ${CKPT_SAVE_DIR} \
     --spec mindspeed_llm.tasks.models.spec.qwen3_spec layer_spec \
     --kv-channels 128 \
     --qk-layernorm \
@@ -51,12 +50,12 @@ GPT_ARGS="
     --max-position-embeddings 40960 \
     --seq-length ${SEQ_LENGTH} \
     --train-iters ${TRAIN_ITERS} \
+    --micro-batch-size ${MBS} \
+    --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
     --use-flash-attn \
     --padded-vocab-size 151936 \
     --rotary-base 1000000 \
-    --micro-batch-size ${MBS} \
-    --global-batch-size ${GBS} \
     --disable-bias-linear \
     --swiglu \
     --use-rotary-position-embeddings \
@@ -100,8 +99,18 @@ OUTPUT_ARGS="
     --log-throughput
 "
 
-torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
+TUNE_ARGS="
+    --finetune \
+    --stage sft \
+    --is-instruction-dataset \
+    --prompt-type qwen \
+    --variable-seq-lengths
+"
+
+torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $OUTPUT_ARGS \
-    --distributed-backend nccl | tee pretrain_qwen3_14b_ptd.log
+    $TUNE_ARGS \
+    --distributed-backend nccl \
+    | tee ./logs/tune_qwen3_14b_full_ptd.log
