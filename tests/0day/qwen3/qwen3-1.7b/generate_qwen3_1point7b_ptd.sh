@@ -4,8 +4,8 @@
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 # please fill these path configurations
-TOKENIZER_PATH="./mdoel_from_hf/Qwen3-1.7B-Base/"
-CHECKPOINT="./model_weight/Qwen3-1.7B-mcore"
+TOKENIZER_PATH="your tokenizer path"
+CHECKPOINT="your model ckpt path"
 
 # Change for multinode config
 MASTER_ADDR=localhost
@@ -15,8 +15,8 @@ NODE_RANK=0
 NPUS_PER_NODE=8
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
-TP=4
-PP=2
+TP=1
+PP=1
 EP=1
 SEQ_LENGTH=4096
 
