@@ -17,8 +17,8 @@ DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
-TP=4
-PP=2
+TP=1
+PP=1
 CP=1
 SEQ_LENGTH=4096
 TRAIN_ITERS=2000
@@ -120,5 +120,6 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $OPTIMIZE_ARGS \
     $TRAIN_ARGS \
     $MODEL_PARALLEL_ARGS \
+    --load ${CKPT_LOAD_DIR} \
     --distributed-backend nccl \
     | tee logs/train_mcore_qwen3_4b_4k.log

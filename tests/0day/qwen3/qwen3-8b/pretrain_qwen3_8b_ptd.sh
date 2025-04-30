@@ -7,7 +7,7 @@ export NPU_ASD_ENABLE=0
 NPUS_PER_NODE=8
 MASTER_ADDR=localhost
 MASTER_PORT=6000
-NNODES=2
+NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
@@ -17,7 +17,7 @@ DATA_PATH="your data path"
 TOKENIZER_PATH="your tokenizer path"
 CKPT_LOAD_DIR="your model ckpt path"
 
-TP=4
+TP=1
 PP=2
 CP=1
 SEQ_LENGTH=4096
@@ -118,5 +118,6 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $OPTIMIZE_ARGS \
     $TRAIN_ARGS \
     $MODEL_PARALLEL_ARGS \
+    --load ${CKPT_LOAD_DIR} \
     --distributed-backend nccl \
     | tee logs/train_mcore_qwen3_8b_4k.log
