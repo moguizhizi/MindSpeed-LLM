@@ -11,7 +11,7 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
-DATA_PATH="/data/datasets/gemma-7b-dataset "
+DATA_PATH="/data/datasets/gemma-7b-dataset/alpaca_completion_document"
 TOKENIZER_MODEL="/data/hf/gemma-7b-hf/"
 CKPT_LOAD_DIR="/data/pipeline/gemma-7b-tp8-pp1/"
 TP=8

@@ -4,7 +4,7 @@
             "param": {
                 "task-data-path": "/data/eval_data/mmlu/data/test/",
                 "task": "mmlu",
-                "load": "/data/gemma-7b-tp8-pp1/",
+                "load": "/data/pipeline/gemma-7b-tp8-pp1/",
                 "tensor-model-parallel-size": 8,
                 "pipeline-model-parallel-size": 1,
                 "num-layers": 28,

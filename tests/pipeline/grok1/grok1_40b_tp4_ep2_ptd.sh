@@ -14,7 +14,7 @@ NODE_RANK=0
 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 CKPT_SAVE_DIR="/data/cache"
-CKPT_SAVE_DIR="/data/pipeline/grok1_tp1pp1ep2"
+CKPT_LOAD_DIR="/data/pipeline/grok1_tp1pp1ep2"
 DATA_PATH="/data/datasets/grok1/enwiki_text_document"
 TOKENIZER_PATH="/data/hf/grok1_hf"
 
