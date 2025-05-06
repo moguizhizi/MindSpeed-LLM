@@ -183,8 +183,7 @@ def get_message_layer_attn(message, model, md=None, **kwargs):
     # Handle gated linear units
     # simple concat of the rest
     if getattr(model.get_args(), "qk_layernorm", False):
-        if getattr(model.get_args(), "q_lora_rank", None):
-            message["q layernorm"] = model.get_layers_self_attention_q_layernorm_weight(**kwargs)
+        message["q layernorm"] = model.get_layers_self_attention_q_layernorm_weight(**kwargs)
         message["k layernorm"] = model.get_layers_self_attention_k_layernorm_weight(**kwargs)
     if getattr(model.get_args(), "multi_head_latent_attention", False):
         if getattr(model.get_args(), "q_lora_rank", None):
@@ -426,7 +425,6 @@ def to_detach(message):
 
 
 def _load_checkpoint(model_provider, queue, args):
-
     # Search in directory above this
     sys.path.append(os.path.abspath(
         os.path.join(os.path.dirname(__file__),
