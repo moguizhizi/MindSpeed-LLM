@@ -58,7 +58,6 @@ torchrun $DISTRIBUTED_ARGS inference.py \
        --tokenizer-name-or-path ${TOKENIZER_PATH} \
        --hidden-dropout 0 \
        --attention-dropout 0 \
-       --untie-embeddings-and-output-weights \
        --no-gradient-accumulation-fusion \
        --attention-softmax-in-fp32 \
        --seed 42 \

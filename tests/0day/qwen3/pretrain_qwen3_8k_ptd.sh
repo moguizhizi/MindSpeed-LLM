@@ -89,7 +89,6 @@ GPT_ARGS="
     --make-vocab-size-divisible-by 1 \
     --padded-vocab-size 151936 \
     --rotary-base 1000000 \
-    --untie-embeddings-and-output-weights \
     --disable-bias-linear \
     --position-embedding-type rope \
     --normalization RMSNorm \
@@ -121,5 +120,7 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $OPTIMIZE_ARGS \
     $TRAIN_ARGS \
     $MODEL_PARALLEL_ARGS \
+    --load ${CKPT_LOAD_DIR} \
+    --save ${CKPT_SAVE_DIR} \
     --distributed-backend nccl \
-    | tee logs/pretrain_qwen3_8k_ptd.log
+    | tee logs/train_qwen3_8k_ptd.log

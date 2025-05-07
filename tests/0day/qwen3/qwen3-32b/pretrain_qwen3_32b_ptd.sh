@@ -119,4 +119,6 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $TRAIN_ARGS \
     $MODEL_PARALLEL_ARGS \
     --distributed-backend nccl \
-    | tee logs/train_mcore_qwen3_32b_ptd.log
+    --load ${CKPT_LOAD_DIR} \
+    --save ${CKPT_SAVE_DIR} \
+    | tee logs/train_mcore_qwen3_32b.log

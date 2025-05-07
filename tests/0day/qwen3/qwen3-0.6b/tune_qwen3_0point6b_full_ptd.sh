@@ -19,7 +19,6 @@ TOKENIZER_PATH="your tokenizer path"
 
 TP=8
 PP=1
-
 MBS=1
 GBS=16
 SEQ_LENGTH=8192
@@ -37,23 +36,22 @@ GPT_ARGS="
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
-    --load ${CKPT_LOAD_DIR} \
+    --sequence-parallel
     --spec mindspeed_llm.tasks.models.spec.qwen3_spec layer_spec \
     --kv-channels 128 \
+    --use-flash-attn \
     --qk-layernorm \
-    --num-layers 40 \
-    --hidden-size 5120 \
+    --num-layers 28 \
+    --hidden-size 1024 \
     --use-rotary-position-embeddings \
-    --untie-embeddings-and-output-weights \
-    --num-attention-heads 40 \
-    --ffn-hidden-size 17408 \
-    --max-position-embeddings 40960 \
+    --num-attention-heads 16 \
+    --ffn-hidden-size 3072 \
+    --max-position-embeddings 32768 \
     --seq-length ${SEQ_LENGTH} \
     --train-iters ${TRAIN_ITERS} \
     --micro-batch-size ${MBS} \
     --global-batch-size ${GBS} \
     --make-vocab-size-divisible-by 1 \
-    --use-flash-attn \
     --padded-vocab-size 151936 \
     --rotary-base 1000000 \
     --disable-bias-linear \
@@ -83,7 +81,6 @@ GPT_ARGS="
     --no-load-optim \
     --no-load-rng \
     --lr 1.25e-6 \
-    --sequence-parallel
 "
 
 DATA_ARGS="
@@ -113,4 +110,6 @@ torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $OUTPUT_ARGS \
     $TUNE_ARGS \
     --distributed-backend nccl \
-    | tee ./logs/tune_qwen3_14b_full_ptd.log
+    --load ${CKPT_LOAD_DIR} \
+    --save ${CKPT_SAVE_DIR} \
+    | tee ./logs/tune_qwen3_0.6b_full.log

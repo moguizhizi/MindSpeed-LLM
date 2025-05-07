@@ -19,6 +19,8 @@ TP=1
 PP=1
 MBS=1
 GBS=16
+SEQ_LENGTH=4096
+TRAIN_ITERS=2000
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $NPUS_PER_NODE \
@@ -44,14 +46,14 @@ GPT_ARGS="
     --num-attention-heads 16 \
     --ffn-hidden-size 3072 \
     --max-position-embeddings 32768 \
-    --seq-length 4096 \
+    --seq-length ${SEQ_LENGTH} \
+    --train-iters ${TRAIN_ITERS} \
     --make-vocab-size-divisible-by 1 \
     --padded-vocab-size 151936 \
     --rotary-base 1000000 \
     --micro-batch-size ${MBS} \
     --global-batch-size ${GBS} \
     --disable-bias-linear \
-    --train-iters 2000 \
     --swiglu \
     --use-rotary-position-embeddings \
     --tokenizer-type PretrainedFromHF \

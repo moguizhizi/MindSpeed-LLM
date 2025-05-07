@@ -37,7 +37,6 @@ GPT_ARGS="
     --use-mcore-models \
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
-    --load ${CKPT_LOAD_DIR} \
     --spec mindspeed_llm.tasks.models.spec.qwen3_spec layer_spec \
     --kv-channels 128 \
     --qk-layernorm \
@@ -113,5 +112,6 @@ torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $OUTPUT_ARGS \
     $TUNE_ARGS \
     --distributed-backend nccl \
-    --save ${CKPT_SAVE_DIR}
-    | tee ./logs/tune_qwen3_14b_full_ptd.log
+    --load ${CKPT_LOAD_DIR} \
+    --save ${CKPT_SAVE_DIR} \
+    | tee ./logs/tune_qwen3_14b_full.log

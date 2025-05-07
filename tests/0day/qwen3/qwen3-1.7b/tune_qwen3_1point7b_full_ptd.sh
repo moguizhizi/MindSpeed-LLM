@@ -40,7 +40,6 @@ GPT_ARGS="
     --num-layers 28 \
     --hidden-size 2048 \
     --use-rotary-position-embeddings \
-    --untie-embeddings-and-output-weights \
     --num-attention-heads 16 \
     --ffn-hidden-size 6144 \
     --max-position-embeddings ${SEQ_LENGTH} \
@@ -112,4 +111,4 @@ torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     --load ${CKPT_LOAD_DIR} \
     --save ${CKPT_SAVE_DIR} \
     --distributed-backend nccl \
-    | tee logs/tune_mcore_qwen3_1.7b_full.log
+    | tee logs/tune_qwen3_1.7b_full.log

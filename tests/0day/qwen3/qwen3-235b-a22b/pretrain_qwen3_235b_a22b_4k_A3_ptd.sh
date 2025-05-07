@@ -44,7 +44,7 @@ MOE_ARGS="
     --moe-router-topk 8 \
     --moe-intermediate-size 1536 \
     --moe-router-load-balancing-type ${ROUTER_BALANCING_TYPE} \
-	--norm-topk-prob \
+    --norm-topk-prob \
     --moe-grouped-gemm \
     --moe-token-dispatcher-type alltoall \
     --moe-aux-loss-coeff 0.001 \
@@ -147,4 +147,4 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     --load ${CKPT_LOAD_DIR} \
     --save ${CKPT_SAVE_DIR} \
     --distributed-backend nccl \
-    | tee logs/train_mcore_qwen3_235b_4k.log
+    | tee logs/train_mcore_qwen3_235b.log

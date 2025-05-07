@@ -107,4 +107,5 @@ torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \
     $TUNE_ARGS \
     --distributed-backend nccl \
     --load ${CKPT_LOAD_DIR} \
+    --save ${CKPT_SAVE_DIR} \
     | tee logs/tune_qwen3_4b_full.log
