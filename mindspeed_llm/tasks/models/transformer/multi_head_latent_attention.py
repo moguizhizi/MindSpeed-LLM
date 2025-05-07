@@ -225,6 +225,7 @@ class MultiHeadLatentAttention(SelfAttention):
 
         self.mla_up_proj_tp_overlap = args.mla_up_proj_tp_overlap
         self.recompute_mla_up_proj = args.recompute_mla_up_proj
+        self.recompute_mla_up_proj_ckpt = None
 
     def forward(
         self,
@@ -383,7 +384,7 @@ class MultiHeadLatentAttention(SelfAttention):
                     packed_seq_params=packed_seq_params,
                 )
 
-            if self.recompute_mla_up_proj and core_attn_out.requires_grad:
+            if self.recompute_mla_up_proj_ckpt and core_attn_out.requires_grad:
                 self.recompute_mla_up_proj_ckpt.discard_output()
                 core_attn_out.register_hook(self.recompute_mla_up_proj_ckpt.recompute)
 

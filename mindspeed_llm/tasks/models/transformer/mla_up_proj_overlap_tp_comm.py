@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 try:
     from mindspeed.core.pipeline_parallel.fb_overlap.modules.attention import launch_async_all2all
+    from mindspeed.core.pipeline_parallel.dualpipev.dualpipev_schedules import get_post_process_flag
 except ImportError:
     pass
 from mindspeed.core.transformer.moe.comm_utils import async_all_gather
@@ -64,6 +65,15 @@ class NoAllGatherContext(AbstractContextManager):
         torch.distributed._all_gather_base = self.orig_allgather_base
         return
 
+
+def should_recompute_mla_up_proj(args, init_recompute_flag):
+    if not args.schedules_method == 'dualpipev':
+        return init_recompute_flag
+
+    if get_post_process_flag():
+        return False
+    else:
+        return init_recompute_flag
 
 
 def mla_up_projection_overlap_tp_comm(q_a, compressed_kv, k_pe, rotary_pos_emb, packed_seq_params, mla_ctx):
@@ -161,7 +171,8 @@ def mla_up_projection_overlap_tp_comm(q_a, compressed_kv, k_pe, rotary_pos_emb, 
 
         return query, key, value
 
-    if not mla_ctx.recompute_mla_up_proj:
+    if not should_recompute_mla_up_proj(args, mla_ctx.recompute_mla_up_proj):
+        mla_ctx.recompute_mla_up_proj_ckpt = None
         query, key, value = forward_func(q_a, compressed_kv, k_pe, rotary_pos_emb[0])
     else:
         mla_ctx.recompute_mla_up_proj_ckpt = CheckpointWithoutOutput()
