@@ -11,9 +11,9 @@ WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES))
 
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 
-DATA_PATH="/data/bloom-7B-hf/bloom-7B-data/alpaca_text_document"
-TOKENIZER_PATH="/data/bloom-7B-hf/"
-CKPT_LOAD_DIR="/data/bloom-7B-hf/"
+DATA_PATH="/data/datasets/bloom-7B-data/alpaca_text_document"
+TOKENIZER_PATH="/data/hf/bloom-7B-hf/"
+CKPT_LOAD_DIR="/data/pipeline/bloom-7b-legacy-tp8pp1/"
 
 TP=8
 PP=1

@@ -14,6 +14,9 @@ def is_examples(file):
 def is_poc(file):
     return file.startswith("tests/poc")
 
+def is_0day(file):
+    return file.startswith("tests/0day")
+
 
 def is_pipecase(file):
     return file.startswith("tests/pipeline")
@@ -68,7 +71,8 @@ def choose_skip_ci(raw_txt_file):
         is_owners,
         is_license,
         is_no_suffix,
-        is_poc
+        is_poc,
+        is_0day
     ]
 
     return skip_ci(file_list, skip_conds)

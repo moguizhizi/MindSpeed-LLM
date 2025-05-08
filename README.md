@@ -21,6 +21,10 @@ MindSpeed-LLM是基于昇腾生态的大语言模型分布式训练框架，旨�
 
 ## NEWS !!! 📣📣📣
 
+🚀🚀🚀**Qwen3** 系列模型同步首发支持！！！🚀🚀🚀
+
+**[Qwen3系列模型](https://gitee.com/ascend/MindSpeed-LLM/tree/master/tests/0day/qwen3)** 😊
+
 🚀🚀🚀**DeepSeek-R1** 系列功能逐步上线！！🚀🚀🚀
 
 **[DeepSeek-R1-ZERO Qwen-7B](https://gitee.com/ascend/MindSpeed-RL/blob/master/docs/solutions/r1_zero_qwen25_7b.md)** 😊

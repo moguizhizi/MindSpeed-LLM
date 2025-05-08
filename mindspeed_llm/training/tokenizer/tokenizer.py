@@ -17,6 +17,7 @@
 from types import MethodType
 
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
+from megatron.training import get_args
 from megatron.training.tokenizer import build_tokenizer as megatron_build_tokenizer
 from megatron.training.tokenizer.tokenizer import _vocab_size_with_padding
 from megatron.core.datasets.megatron_tokenizer import MegatronTokenizer
@@ -58,7 +59,7 @@ def build_tokenizer(args):
     else:
         tokenizer = TokenizerAdaptor(megatron_build_tokenizer(args))
 
-    if hasattr(args, "prompt_type") and args.prompt_type is not None:
+    if hasattr(args, "prompt_type") and args.prompt_type is not None and args.tokenizer_type != "GPTSentencePieceTokenizer":
         if hasattr(args, "handler_name") and args.handler_name == "HunyuanInstructionHandler":
             pass
         else:
@@ -67,12 +68,19 @@ def build_tokenizer(args):
                 tokenizer.tokenizer.padding_side = "right"
             fix_model_tokenizer(tokenizer.tokenizer, args.prompt_type.strip(), args.prompt_type_path.strip())
 
+    if args.tokenizer_type == "GPTSentencePieceTokenizer":
+        tokenizer.tokenizer.eos_token_id = tokenizer.tokenizer._eos_id
+        tokenizer.tokenizer.pad_token_id = tokenizer.tokenizer._pad_id
+        tokenizer.tokenizer.encode = GPTSentencePieceTokenizer_encode
+        tokenizer.tokenizer.batch_decode = GPTSentencePieceTokenizer_batch_decode
+
     return tokenizer
 
 
 class TokenizerAdaptor:
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
+        self.chat_template = None
         setattr(tokenizer.__class__, '__call__', self.do_adapt)
 
     @staticmethod
@@ -194,3 +202,30 @@ class _AutoTokenizer(MegatronTokenizer):
         if candidate is None:
             raise AttributeError("Token doesn't exist")
         return candidate
+
+
+def GPTSentencePieceTokenizer_encode(input_token):
+    args = get_args()
+    tokenizer = TokenizerAdaptor(megatron_build_tokenizer(args))
+    result = []
+    for token_id in input_token:
+        if token_id not in tokenizer.tokenizer.vocab:
+            result.append(tokenizer.tokenizer._pad_id)
+        else:
+            result.append(tokenizer.tokenizer.vocab[token_id])
+    return result
+
+
+def GPTSentencePieceTokenizer_batch_decode(input_token, skip_special_tokens):
+    args = get_args()
+    tokenizer = TokenizerAdaptor(megatron_build_tokenizer(args))
+    result = []
+    input_token = input_token if isinstance(input_token, list) else input_token.tolist()
+    input_token = input_token[0].tolist()
+    id_to_word = {id: word for word, id in tokenizer.tokenizer.vocab.items()}
+    for token_id in input_token:
+        if token_id not in id_to_word:
+            result.append(' ')
+        else:
+            result.append(id_to_word[token_id])
+    return "".join(result)

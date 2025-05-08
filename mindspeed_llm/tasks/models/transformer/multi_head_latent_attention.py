@@ -11,6 +11,7 @@ from mindspeed.core.tensor_parallel.random import CheckpointWithoutOutput
 from mindspeed.utils import set_actual_seq_len, set_position_ids, get_actual_seq_len, get_position_ids
 try:
     from mindspeed.core.pipeline_parallel.fb_overlap.modules.attention import launch_async_all2all_hook, launch_async_all2all
+    from mindspeed.core.pipeline_parallel.fb_overlap.modules.utils import TensorSwapManager
 except ImportError:
     pass
 
@@ -224,6 +225,7 @@ class MultiHeadLatentAttention(SelfAttention):
 
         self.mla_up_proj_tp_overlap = args.mla_up_proj_tp_overlap
         self.recompute_mla_up_proj = args.recompute_mla_up_proj
+        self.recompute_mla_up_proj_ckpt = None
 
     def forward(
         self,
@@ -382,7 +384,7 @@ class MultiHeadLatentAttention(SelfAttention):
                     packed_seq_params=packed_seq_params,
                 )
 
-            if self.recompute_mla_up_proj and core_attn_out.requires_grad:
+            if self.recompute_mla_up_proj_ckpt and core_attn_out.requires_grad:
                 self.recompute_mla_up_proj_ckpt.discard_output()
                 core_attn_out.register_hook(self.recompute_mla_up_proj_ckpt.recompute)
 
@@ -411,6 +413,14 @@ class MultiHeadLatentAttention(SelfAttention):
                 self.mla_checkpoint_manager.ctx.position_id = get_position_ids()
         else:
             core_attn_out = mla_attention(hidden_states)
+
+        if args.mla_swap_core_attn_out:
+            # sync all swap out operation for mla_swap_core_attn_out; remove all npu tensor before
+            TensorSwapManager.wait_all_swap_out('mla_core_attn_out')
+            self.swap_managers = []
+            self.swap_managers.append(TensorSwapManager(core_attn_out, 'mla_core_attn_out'))
+            for manager in self.swap_managers:
+                manager.async_swap_out(wait_stream=torch.npu.current_stream())
 
         # =================
         # Output. [sq, b, h]
