@@ -19,4 +19,3 @@ python convert_ckpt.py \
     --moe-grouped-gemm \
     --add-output-layer-bias \
     --params-dtype bf16
-#    --num-layers-per-virtual-pipeline-stage 2 \  若hf2mcore使用vpp，mcore2hf阶段需要同步增加该参数

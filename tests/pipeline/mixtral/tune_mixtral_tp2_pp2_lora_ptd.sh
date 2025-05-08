@@ -18,9 +18,9 @@ DISTRIBUTED_ARGS="
     --master_port $MASTER_PORT
 "
 
-DATA_PATH="/data/tune_dataset/Mixtral-8x7B/alpaca"
-TOKENIZER_MODEL="/data/Mixtral-mcore/Mixtral-8x7B/"
-CKPT_LOAD_DIR="/data/Mixtral-tp2-pp2-ep1-mcore"
+DATA_PATH="/data/datasets/Mixtral-8x7B_Finetune/alpaca"
+TOKENIZER_MODEL="/data/hf/Mixtral-8x7B-Hf/"
+CKPT_LOAD_DIR="/data/pipeline/Mixtral-tp2-pp2-ep1-mcore"
 
 basepath=$(cd `dirname $0`; cd ../../../; pwd)
 

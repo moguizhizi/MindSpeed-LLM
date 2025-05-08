@@ -22,10 +22,10 @@
                 "make-vocab-size-divisible-by": 1,
                 "position-embedding-type": "rope",
                 "use-partial-rope": null,
-                "load":"/data/chatglm3-6b-base-mg-tp2pp4-legacy-base",
+                "load":"/data/pipeline/chatglm3-6b-base-mg-tp1pp2-legacy-base",
                 "normalization": "RMSNorm",
                 "tokenizer-type":"PretrainedFromHF",
-                "tokenizer-name-or-path":"/data/chatglm3-6b-base-hf/",
+                "tokenizer-name-or-path":"/data/hf/chatglm3-6b-base-hf/",
                 "tokenizer-not-use-fast": null,
                 "fp16": null,
                 "micro-batch-size": 1,
@@ -63,10 +63,10 @@
                 "max-new-tokens": 8,
                 "micro-batch-size": 1,
                 "global-batch-size": 16,
-                "load":"/data/pipe/chatglm3-6b-base-mg-tp1pp2-legacy-base",
+                "load":"/data/pipeline/chatglm3-6b-base-mg-tp1pp2-legacy-base",
                 "tokenizer-type": "PretrainedFromHF",
-                "tokenizer-name-or-path":"/data/chatglm3-6b-base-hf/",
-                "tokenizer-model": "/data/chatglm3-6b-base-hf/tokenizer.model",
+                "tokenizer-name-or-path":"/data/hf/chatglm3-6b-base-hf/",
+                "tokenizer-model": "/data/hf/chatglm3-6b-base-hf/tokenizer.model",
                 "tokenizer-not-use-fast": null,
                 "untie-embeddings-and-output-weights": null,
                 "attention-softmax-in-fp32": null,
@@ -88,7 +88,7 @@
             "param": {
                 "input": "/data/train-00000-of-00001-a09b74b3ef9c3b56.parquet",
                 "tokenizer-type": "PretrainedFromHF",
-                "tokenizer-name-or-path": "/data/chatglm3-6b-base-hf/"
+                "tokenizer-name-or-path": "/data/hf/chatglm3-6b-base-hf/"
             },
             "prefix": "alpaca"
         }
@@ -104,9 +104,9 @@
                 "add-qkv-bias": null,
                 "target-tensor-parallel-size": "2",
                 "target-pipeline-parallel-size": "4",
-                "load-dir": "/data/chatglm3-6b-base-hf/",
-                "save-dir": "/data/chatglm3-6b-base-mg-tp2pp4-legacy-test/",
-                "tokenizer-model": "/data/chatglm3-6b-base-hf/tokenizer.model"
+                "load-dir": "/data/hf/chatglm3-6b-base-hf/",
+                "save-dir": "/data/cache/",
+                "tokenizer-model": "/data/hf/chatglm3-6b-base-hf/tokenizer.model"
             }
         },
         {

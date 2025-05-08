@@ -18,6 +18,7 @@ CKPT_LOAD_DIR="your model ckpt path"
 TP=1
 PP=4
 CP=2
+VPP=1
 MBS=1
 GBS=32
 SEQ_LEN=8192

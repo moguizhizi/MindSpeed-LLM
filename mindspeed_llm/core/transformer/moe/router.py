@@ -487,6 +487,8 @@ def topk_router_routing(self, logits: torch.Tensor):
         else:
             logits_ = torch.softmax(logits, dim=-1, dtype=torch.float32).type_as(logits)
         scores, indices = torch.topk(logits_, k=self.topk, dim=1)
+        if args.norm_topk_prob:
+            scores /= scores.sum(dim=-1, keepdim=True)
     elif self.routing_type == "group_limited_greedy":
         scores, indices = group_limited_greedy_topKgating(self, logits)
     elif self.routing_type == "pai_megatron_aux_loss":

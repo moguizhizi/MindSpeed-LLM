@@ -260,9 +260,8 @@ class ModelBase(abc.ABC):
             self.set_layers_self_attention_linear_proj_lora_B_default_weight(layer_idx=dst_layer_idx, data=proj_lora_B_weight)
         else:
             if getattr(src_model.get_args(), "qk_layernorm", False):
-                if getattr(src_model.get_args(), "q_lora_rank", None):
-                    q_layernorm = src_model.get_layers_self_attention_q_layernorm_weight(layer_idx=src_layer_idx)
-                    self.set_layers_self_attention_q_layernorm_weight(layer_idx=dst_layer_idx, data=q_layernorm)
+                q_layernorm = src_model.get_layers_self_attention_q_layernorm_weight(layer_idx=src_layer_idx)
+                self.set_layers_self_attention_q_layernorm_weight(layer_idx=dst_layer_idx, data=q_layernorm)
                 k_layernorm = src_model.get_layers_self_attention_k_layernorm_weight(layer_idx=src_layer_idx)
                 self.set_layers_self_attention_k_layernorm_weight(layer_idx=dst_layer_idx, data=k_layernorm)
 

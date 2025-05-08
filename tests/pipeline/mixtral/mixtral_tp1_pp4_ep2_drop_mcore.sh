@@ -21,10 +21,10 @@ DISTRIBUTED_ARGS="
 echo "NODE_RANK ${NODE_RANK}"
 
 
-DATA_PATH="/data/mixtral_moe_tp1pp4/Mixtral-8x7B_dataset/alpaca_text_document"
-TOKENIZER_MODEL="/data/mixtral_moe_tp1pp4/tokenizer.model"
-CKPT_LOAD_DIR="/data/mixtral_moe_tp1pp4/"
-CKPT_SAVE_DIR="/data/ckpt"
+DATA_PATH="/data/datasets/Mixtral-8x7B_dataset/alpaca_text_document"
+TOKENIZER_MODEL="/data/hf/mixtral_moe_tp1pp4_hf/tokenizer.model"
+CKPT_LOAD_DIR="/data/pipeline/mixtral_moe_tp1pp4_ckpt/"
+CKPT_SAVE_DIR="/data/cache"
 
 TP=1
 PP=4
